@@ -8,41 +8,43 @@
    Play = tabbed living character sheet + DM console.
    ============================================================ */
 :root{
-  /* light palette (cool parchment, violet-biased neutrals) */
-  --bg:#efedf4; --bg2:#ffffff; --bg3:#faf9ff; --raise:#ffffff;
-  --line:#e0dcee; --line2:#cfc9e2;
-  --fg:#1b1826; --muted:#5f5a73; --faint:#8e88a3;
-  --accent:#7a4fd0; --accent-soft:#efe8fb; --gold:#9a7916;
-  --c-damage:#d6454a; --c-control:#2f6fd6; --c-support:#2f9e5e;
-  --c-utility:#b9820f; --c-defense:#1f9b90; --c-movement:#2f8fd0;
-  --ok:#2f9e5e; --warn:#b9820f; --crit:#d6454a;
-  --shadow:0 1px 2px rgba(20,16,40,.06),0 8px 24px rgba(20,16,40,.07);
+  /* light = aged parchment / manuscript (Elden Ring by candlelight) */
+  --bg:#e4dac2; --bg2:#eee4cc; --bg3:#e8ddc4; --raise:#f2e9d4;
+  --line:#cdbf9d; --line2:#b9a97f;
+  --fg:#2a2416; --muted:#6a5f45; --faint:#978a6b;
+  --accent:#8a6a24; --accent-soft:#ded2b2; --gold:#9c7a1e;
+  --c-damage:#a33a33; --c-control:#3a5f98; --c-support:#4c7842;
+  --c-utility:#97701d; --c-defense:#2d7b6f; --c-movement:#386c92;
+  --ok:#4c7842; --warn:#97701d; --crit:#a33a33;
+  --shadow:0 1px 2px rgba(40,30,10,.10),0 8px 24px rgba(40,30,10,.13);
   --f-display:"Fraunces",Georgia,serif;
   --f-ui:"Hanken Grotesk",system-ui,sans-serif;
   --f-mono:"JetBrains Mono",ui-monospace,monospace;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#0e0d14; --bg2:#16141f; --bg3:#1b1828; --raise:#201d2e;
-  --line:#2b2740; --line2:#3a3552;
-  --fg:#ece9f5; --muted:#9a94b2; --faint:#6f6987;
-  --accent:#b58cff; --accent-soft:#241d38; --gold:#d9b45b;
-  --c-damage:#ff6f6f; --c-control:#6aa5ff; --c-support:#58d68d;
-  --c-utility:#f0b84a; --c-defense:#4fd1c5; --c-movement:#79c7ff;
-  --ok:#58d68d; --warn:#f0b84a; --crit:#ff6f6f;
-  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+  --bg:#0c0a07; --bg2:#141009; --bg3:#1a160e; --raise:#211b11;
+  --line:#2c2417; --line2:#3e3422;
+  --fg:#e9dfc8; --muted:#9c8f73; --faint:#6d6350;
+  --accent:#caa85f; --accent-soft:#261f12; --gold:#dcbd68;
+  --c-damage:#cf5a4d; --c-control:#5f8cc6; --c-support:#76af6b;
+  --c-utility:#cfa24c; --c-defense:#4caa9c; --c-movement:#6fa5ce;
+  --ok:#86b06a; --warn:#cfa24c; --crit:#cf5a4d;
+  --shadow:0 1px 2px rgba(0,0,0,.55),0 14px 38px rgba(0,0,0,.5);
   color-scheme:dark;
 }}
 :root[data-theme="dark"]{
-  --bg:#0e0d14; --bg2:#16141f; --bg3:#1b1828; --raise:#201d2e;
-  --line:#2b2740; --line2:#3a3552;
-  --fg:#ece9f5; --muted:#9a94b2; --faint:#6f6987;
-  --accent:#b58cff; --accent-soft:#241d38; --gold:#d9b45b;
-  --c-damage:#ff6f6f; --c-control:#6aa5ff; --c-support:#58d68d;
-  --c-utility:#f0b84a; --c-defense:#4fd1c5; --c-movement:#79c7ff;
-  --ok:#58d68d; --warn:#f0b84a; --crit:#ff6f6f;
-  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+  --bg:#0c0a07; --bg2:#141009; --bg3:#1a160e; --raise:#211b11;
+  --line:#2c2417; --line2:#3e3422;
+  --fg:#e9dfc8; --muted:#9c8f73; --faint:#6d6350;
+  --accent:#caa85f; --accent-soft:#261f12; --gold:#dcbd68;
+  --c-damage:#cf5a4d; --c-control:#5f8cc6; --c-support:#76af6b;
+  --c-utility:#cfa24c; --c-defense:#4caa9c; --c-movement:#6fa5ce;
+  --ok:#86b06a; --warn:#cfa24c; --crit:#cf5a4d;
+  --shadow:0 1px 2px rgba(0,0,0,.55),0 14px 38px rgba(0,0,0,.5);
   color-scheme:dark;
 }
+/* atmospheric vignette ground */
+body{background-image:radial-gradient(130% 90% at 50% -10%, color-mix(in srgb,var(--accent) 5%,transparent), transparent 60%)}
 
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -96,7 +98,7 @@ select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px
   padding:10px 16px;font-size:14px;font-weight:600;transition:.14s}
 .btn:hover{border-color:var(--accent);transform:translateY(-1px)}
 .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
-:root[data-theme="dark"] .btn.primary,:root:not([data-theme="light"]) .btn.primary{color:#140f24}
+:root[data-theme="dark"] .btn.primary,:root:not([data-theme="light"]) .btn.primary{color:#17120a}
 .btn.primary:hover{filter:brightness(1.07)}
 .btn.ghost{background:transparent}
 .btn.sm{padding:6px 12px;font-size:12.5px;border-radius:9px}
@@ -206,7 +208,7 @@ select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px
   font-size:12.5px;font-weight:600;color:var(--muted);transition:.12s}
 .chip:hover{border-color:var(--accent)}
 .chip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
-:root[data-theme="dark"] .chip.on,:root:not([data-theme="light"]) .chip.on{color:#140f24}
+:root[data-theme="dark"] .chip.on,:root:not([data-theme="light"]) .chip.on{color:#17120a}
 .chip.flag.on{background:var(--gold);border-color:var(--gold);color:#241c05}
 .filters .sp{flex:1}
 
@@ -383,6 +385,15 @@ select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px
 .condtoggle .ct{font-size:10.5px;padding:3px 8px;border-radius:7px;background:var(--bg3);border:1px solid var(--line2);color:var(--muted)}
 .condtoggle .ct.on{background:var(--c-control);border-color:var(--c-control);color:#fff}
 .cbt.down{opacity:.6}
+/* ---- pokémon-style move grid ---- */
+.movegrid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin:7px 0 14px}
+@media(max-width:480px){.movegrid{grid-template-columns:1fr}}
+.movebtn{text-align:left;border:1px solid var(--line2);border-left:4px solid var(--mt);border-radius:12px;background:var(--bg3);padding:10px 12px;display:flex;flex-direction:column;gap:2px;transition:.12s}
+.movebtn:hover{border-color:var(--mt);transform:translateY(-1px)}
+.movebtn.on{background:color-mix(in srgb,var(--mt) 15%,var(--bg3));box-shadow:0 0 0 2px color-mix(in srgb,var(--mt) 50%,transparent)}
+.movebtn .mtype{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mt)}
+.movebtn .mname{font-family:var(--f-display);font-weight:600;font-size:15px;line-height:1.12}
+.movebtn .mmeta{font-size:11px;color:var(--muted);font-family:var(--f-mono)}
 .logpanel{background:var(--bg3);border:1px solid var(--line);border-radius:13px;padding:12px 14px;margin-top:18px;font-family:var(--f-mono);font-size:12px}
 .logpanel .lph{font-family:var(--f-ui);font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);margin-bottom:7px}
 .logpanel .le{color:var(--muted);padding:2px 0}
@@ -411,7 +422,7 @@ select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px
 .wizprog::-webkit-scrollbar{display:none}
 .wizstep{flex:none;font-size:11.5px;font-weight:600;color:var(--faint);padding:5px 11px;border-radius:999px;border:1px solid var(--line);background:var(--bg3);white-space:nowrap}
 .wizstep.on{color:#fff;background:var(--accent);border-color:var(--accent)}
-:root[data-theme="dark"] .wizstep.on,:root:not([data-theme="light"]) .wizstep.on{color:#140f24}
+:root[data-theme="dark"] .wizstep.on,:root:not([data-theme="light"]) .wizstep.on{color:#17120a}
 .wizstep.done{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 40%,var(--line2))}
 .wizbody{min-height:200px;margin-bottom:10px}
 .pickgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:9px}
@@ -1481,8 +1492,13 @@ function partyActionForm(b,c){
   let aid=(BACT&&BACT.combatantId===c.id&&BACT.abilityId)?BACT.abilityId:rollable[0].id;
   let a=rollable.find(x=>x.id===aid)||rollable[0];const st=ensureBACT(c,a);
   const m=a.dmg.match(/(\d+)d(\d+)/);const count=+m[1],die=+m[2];
-  let html=`<div class="field"><label>Action</label><select id="bAbSel">`+
-    rollable.map(x=>`<option value="${x.id}" ${x.id===a.id?"selected":""}>${esc(x.name)} — ${x.instances>1?x.instances+"×":""}${x.dmg}${x.flatPer?"+"+x.flatPer:""}</option>`).join("")+`</select></div><div class="brolls">`;
+  let html=`<label style="font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)">Choose a move</label><div class="movegrid">`+
+    rollable.map(x=>{const sel=x.id===a.id;
+      const pp=(x.charge&&ch.charges[x.charge])?`${ch.charges[x.charge].cur}/${ch.charges[x.charge].max}`:"∞";
+      const dice=(x.instances>1?x.instances+"×":"")+x.dmg+(x.flatPer?"+"+x.flatPer:"");
+      return `<button class="movebtn ${sel?"on":""}" data-bmove="${x.id}" style="--mt:var(--c-${x.type})">
+        <span class="mtype">${esc(x.type)}</span><span class="mname">${esc(x.name)}</span>
+        <span class="mmeta">${esc(dice)} · PP ${pp}</span></button>`;}).join("")+`</div><div class="brolls">`;
   for(let inst=0;inst<a.instances;inst++){let inputs="";
     for(let d=0;d<count;d++){const v=st.rolls[inst][d];
       inputs+=`<input class="bdie ${v===die?"crit":v===1?"min":""}" inputmode="numeric" data-binst="${inst}" data-bdie="${d}" value="${v||""}" placeholder="d${die}">`;}
@@ -2292,7 +2308,7 @@ function liveCalc(ch,a,st){
 /* battle + lore events */
 let PENDING_PHOTO=null;
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-startbtl],[data-endbtl],[data-addenemy],[data-addenemysave],[data-nextturn],[data-cell],[data-selbtl],[data-dmgc],[data-revhp],[data-revac],[data-rmc],[data-addnote],[data-delnote],[data-brollinit],[data-rollallinit],[data-begincombat],[data-reroll],[data-reup],[data-redn],[data-passturn],[data-ballroll],[data-bclear],[data-bmod],[data-bperinst],[data-bbonus],[data-bapply],[data-eapply],[data-cond],[data-adddot],[data-dotsave],[data-rmdot]");
+  const t=e.target.closest("[data-startbtl],[data-endbtl],[data-addenemy],[data-addenemysave],[data-nextturn],[data-cell],[data-selbtl],[data-dmgc],[data-revhp],[data-revac],[data-rmc],[data-addnote],[data-delnote],[data-brollinit],[data-rollallinit],[data-begincombat],[data-reroll],[data-reup],[data-redn],[data-passturn],[data-bmove],[data-ballroll],[data-bclear],[data-bmod],[data-bperinst],[data-bbonus],[data-bapply],[data-eapply],[data-cond],[data-adddot],[data-dotsave],[data-rmdot]");
   if(!t)return;const d=t.dataset;const camp=curCamp();const b=migrateBattle(ensureBattle(camp));const isDM=STATE.ui.viewAs==="dm";
   if(STATE.cloud&&!isDM&&!("addnote" in d)&&!("delnote" in d)){toast("The DM is running this encounter");return;}
   if(d.startbtl){startEncounter(camp);render();return;}
@@ -2329,6 +2345,7 @@ document.addEventListener("click",e=>{
     const label=($("#dotLabel").value||"DOT").trim();const amt=parseInt($("#dotAmt").value,10)||0;
     c.dots.push({id:uid("dot"),label,amount:amt});}closeModal();render();toast("DOT added");return;}
   if(d.rmdot){const [cid,did]=d.rmdot.split("|");const c=b.combatants.find(x=>x.id===cid);if(c)c.dots=(c.dots||[]).filter(x=>x.id!==did);render();return;}
+  if(d.bmove){const c=curCombatant(b);if(!c)return;const ch=STATE.roster[c.charId];const a=ch.abilities.find(x=>x.id===d.bmove);BACT=null;ensureBACT(c,a);render();return;}
   if(d.ballroll){const c=curCombatant(b);if(!c||!BACT)return;const ch=STATE.roster[c.charId];const a=ch.abilities.find(x=>x.id===BACT.abilityId);if(!a)return;
     const die=+a.dmg.match(/(\d+)d(\d+)/)[2];BACT.rolls=BACT.rolls.map(r=>r.map(()=>rollDie(die)));BACT._bonusRoll=null;render();return;}
   if(d.bclear){if(BACT){BACT.rolls=BACT.rolls.map(r=>r.map(()=>0));BACT._bonusRoll=null;}render();return;}
