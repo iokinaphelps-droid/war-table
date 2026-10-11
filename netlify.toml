@@ -1,0 +1,12 @@
+# War Table — Netlify config
+# Static site (index.html at root) plus serverless functions for the DDB import proxy.
+
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+
+[build.environment]
+  NODE_VERSION = "18"
