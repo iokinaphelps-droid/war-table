@@ -174,6 +174,32 @@ select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px
 .tab.active{color:var(--fg);border-bottom-color:var(--accent)}
 .tab .cnt{font-family:var(--f-mono);font-size:11px;color:var(--faint);margin-left:4px}
 
+/* ---- play layout + status rail ---- */
+.playwrap{display:grid;grid-template-columns:1fr;gap:18px}
+@media(min-width:860px){.playwrap{grid-template-columns:248px minmax(0,1fr);align-items:start}}
+.playmain{min-width:0}
+.statusrail{background:linear-gradient(180deg,var(--bg2),color-mix(in srgb,var(--bg2) 70%,var(--bg)));
+  border:1px solid var(--line);border-radius:14px;padding:15px 14px 15px 16px;position:relative;box-shadow:var(--shadow)}
+@media(min-width:860px){.statusrail{position:sticky;top:calc(env(safe-area-inset-top,0px) + 62px)}}
+.statusrail::before{content:"";position:absolute;left:7px;top:14px;bottom:14px;width:1px;background:linear-gradient(var(--accent),transparent)}
+.srtitle{display:flex;align-items:center;gap:6px;font-family:var(--f-display);font-weight:600;font-size:13px;color:var(--gold);margin-bottom:12px;letter-spacing:.02em}
+.srhead{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.srwho{min-width:0}.srname{font-family:var(--f-display);font-weight:600;font-size:16px;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.srcls{font-size:11.5px;color:var(--muted)}
+.srhp{margin-bottom:12px}
+.srhplbl{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px}.srhplbl span:first-child{color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-size:10.5px}
+.srgroup{margin-bottom:10px}
+.srline{display:flex;align-items:baseline;gap:7px;padding:3px 0;font-size:13px;font-family:var(--f-display)}
+.srline span{flex:1;color:var(--fg);min-width:0}
+.srline span i{font-style:normal;font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);margin-left:4px}
+.srline b{color:var(--fg);font-weight:600}
+.srline small{font-size:10.5px;color:var(--faint);font-family:var(--f-mono)}
+.srsec{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);margin:12px 0 5px;border-top:1px solid var(--line);padding-top:9px;display:flex;justify-content:space-between;align-items:baseline}
+.srhint{text-transform:none;letter-spacing:0;font-size:10px;color:var(--faint);font-style:italic}
+.insprow{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.insppips{display:flex;align-items:center}
+.ipip{width:13px;height:13px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:1.5px solid var(--gold);margin-right:5px}
+.ipip.on{background:var(--gold);box-shadow:0 0 6px color-mix(in srgb,var(--gold) 60%,transparent)}
 /* ---- stat strip ---- */
 .sheethead{display:flex;align-items:center;gap:16px;margin-bottom:18px;flex-wrap:wrap}
 .sheethead .who h1{font-family:var(--f-display);font-weight:900;font-size:clamp(23px,4.5vw,32px);line-height:1}
@@ -940,13 +966,15 @@ function screenPlay(){
     return wrap;
   }
   const isDM=STATE.ui.viewAs==="dm";
+  const railChar=isDM?null:viewedChar();
+  const main=el("div","playmain");
   // tabs
   const tabs=el("div","tabs");
   PLAY_TABS.forEach(([k,label])=>{
     const t=el("button","tab"+(STATE.ui.tab===k?" active":""),label);
     t.dataset.tab=k;tabs.appendChild(t);
   });
-  wrap.appendChild(tabs);
+  main.appendChild(tabs);
   const body=el("div");
   const tab=STATE.ui.tab;
   if(tab==="sheet")body.appendChild(isDM?dmConsole():sheetView(viewedChar()));
@@ -954,8 +982,35 @@ function screenPlay(){
   else if(tab==="map")body.appendChild(mapView(isDM));
   else if(tab==="battle")body.appendChild(battleRouter(isDM));
   else if(tab==="lore")body.appendChild(loreView(isDM));
-  wrap.appendChild(body);
+  main.appendChild(body);
+  if(railChar){const lay=el("div","playwrap");lay.appendChild(statusRail(railChar));lay.appendChild(main);wrap.appendChild(lay);}
+  else wrap.appendChild(main);
   return wrap;
+}
+/* ---- persistent player status rail (Elden Ring status sheet) ---- */
+function statusRail(ch){
+  const r=el("aside","statusrail");
+  const {ac}=effAC(ch);const cur=ch.hp??ch.maxHP;const pct=Math.max(0,Math.min(100,cur/ch.maxHP*100));
+  const clp=pct<=25?"crit":pct<=50?"low":"";
+  const sm=a=>Math.floor((ch.scores[a]-10)/2);
+  const sv=a=>sm(a)+(ch.saveProf.includes(a)?ch.prof:0);
+  const sg=n=>(n>=0?"+":"")+n;
+  const insp=ch.inspiration||0;
+  const line=(k,v,extra)=>`<div class="srline"><span>${k}</span><b class="tnum">${v}</b>${extra?`<small>${extra}</small>`:""}</div>`;
+  r.innerHTML=`<div class="srtitle"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 2l2.6 5.6L21 8.4l-4.5 4.3L17.8 19 12 15.8 6.2 19l1.3-6.3L3 8.4l6.4-.8z"/></svg> Character Status</div>
+    <div class="srhead">${avatarHTML(ch,"sm")}<div class="srwho"><div class="srname">${esc(ch.name)}</div><div class="srcls">${esc(ch.cls)}</div></div></div>
+    <div class="srhp"><div class="srhplbl"><span>HP</span><span class="tnum">${cur} / ${ch.maxHP}${ch.tempHP?` +${ch.tempHP}`:""}</span></div><div class="hpbar"><i class="${clp}" style="width:${pct}%"></i></div></div>
+    <div class="srgroup">${line("Armor Class",ac)}${line("Speed",ch.speed+" ft")}${line("Proficiency","+"+ch.prof)}${ch.spellDC?line("Spell Save DC",ch.spellDC)+line("Spell Attack","+"+ch.spellAtk):""}</div>
+    <div class="srsec">Ability &amp; Save</div>
+    <div class="srgroup">${ABIL6.map(a=>`<div class="srline"><span>${a.toUpperCase()}${ch.saveProf.includes(a)?' <i>save</i>':''}</span><b class="tnum">${sg(sm(a))}</b><small>save ${sg(sv(a))} · ${ch.scores[a]}</small></div>`).join("")}</div>
+    <div class="srsec">Passive</div>
+    <div class="srgroup">${Object.entries(ch.passives||{}).map(([k,v])=>line(k,v)).join("")}</div>
+    <div class="srsec">Inspiration <span class="srhint">awarded by the DM</span></div>
+    <div class="insprow">
+      <div class="insppips">${insp>0?Array.from({length:Math.min(insp,5)},()=>'<span class="ipip on"></span>').join("")+(insp>5?` <b>×${insp}</b>`:""):'<span class="ipip"></span><span style="font-size:11px;color:var(--faint);margin-left:6px">none yet</span>'}</div>
+      ${insp>0?`<button class="btn sm gold" data-spendinsp="${ch.id}">Spend</button>`:""}
+    </div>`;
+  return r;
 }
 
 /* ---- sheet view ---- */
@@ -1225,8 +1280,8 @@ function dmConsole(){
         <div><div class="nm">${esc(ch.name)} ${role?`<span class="rolechip">${esc(role)}</span>`:""}</div><div class="cl">${esc(ch.cls)} · AC ${ac}</div></div></div>
       <div class="hpbar"><i class="${cls}" style="width:${pct}%"></i></div>
       <div class="hpn">${cur} / ${ch.maxHP} HP${ch.tempHP?` (+${ch.tempHP})`:""}</div>
-      <div class="chgs">${chgs||'<span class="chgtag">no tracked charges</span>'}</div>
-      <div style="margin-top:11px;display:flex;gap:7px"><button class="btn sm ghost" data-dmview="${id}">Open sheet</button></div>`;
+      <div class="chgs">${chgs||'<span class="chgtag">no tracked charges</span>'}${(ch.inspiration||0)>0?`<span class="chgtag" style="color:var(--gold);border-color:color-mix(in srgb,var(--gold) 45%,var(--line2))">✦ Inspiration ×${ch.inspiration}</span>`:""}</div>
+      <div style="margin-top:11px;display:flex;gap:7px;flex-wrap:wrap"><button class="btn sm ghost" data-dmview="${id}">Open sheet</button><button class="btn sm gold" data-awardinsp="${id}">✦ Award Inspiration</button></div>`;
     grid.appendChild(pc);
   });
   w.appendChild(grid);
@@ -2207,7 +2262,7 @@ function confirmModal(msg,onYes){
 
 /* ============================ event wiring ============================ */
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-nav],[data-open],[data-del],[data-newcamp],[data-join],[data-leave],[data-ready],[data-startsession],[data-endsession],[data-enterplay],[data-tab],[data-filter],[data-tocalc],[data-use],[data-spend],[data-rollinst],[data-rollall],[data-clearrolls],[data-modtoggle],[data-perinst],[data-bonus],[data-rest],[data-cooldowns],[data-dmview],[data-hpedit],[data-hp],[data-hpsave],[data-close],[data-scrim],[data-createcamp],[data-newchar],[data-dmnewchar]");
+  const t=e.target.closest("[data-nav],[data-open],[data-del],[data-newcamp],[data-join],[data-leave],[data-ready],[data-startsession],[data-endsession],[data-enterplay],[data-tab],[data-filter],[data-tocalc],[data-use],[data-spend],[data-rollinst],[data-rollall],[data-clearrolls],[data-modtoggle],[data-perinst],[data-bonus],[data-rest],[data-cooldowns],[data-dmview],[data-awardinsp],[data-spendinsp],[data-hpedit],[data-hp],[data-hpsave],[data-close],[data-scrim],[data-createcamp],[data-newchar],[data-dmnewchar]");
   if(!t)return;
   const d=t.dataset;
   if(d.scrim&&e.target!==t)return; // clicked inside modal
@@ -2271,6 +2326,8 @@ document.addEventListener("click",e=>{
   if(d.cooldowns){const camp=curCamp();camp.settings.cooldowns=!camp.settings.cooldowns;render();
     toast("Cooldowns "+(camp.settings.cooldowns?"on":"off"));return;}
   if(d.dmview){STATE.ui.viewAs=d.dmview;render();return;}
+  if(d.awardinsp){const ch=STATE.roster[d.awardinsp];if(ch){ch.inspiration=(ch.inspiration||0)+1;render();toast("Inspiration awarded to "+ch.name.split(" ")[0]);}return;}
+  if(d.spendinsp){const ch=STATE.roster[d.spendinsp];if(ch&&(ch.inspiration||0)>0){ch.inspiration--;render();toast("Inspiration spent — reroll or advantage!");}return;}
   if(d.hpedit){const ch=viewedChar();ch._hpOpen=!ch._hpOpen;render();return;}
   if(d.hp){const ch=viewedChar();const cur=ch.hp??ch.maxHP;ch.hp=Math.max(0,Math.min(ch.maxHP,cur+(+d.hp)));
     const inp=$("#hpIn");if(inp)inp.value=ch.hp;render();return;}
