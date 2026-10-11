@@ -1,6 +1,6 @@
 <title>War Table</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&family=Cinzel:wght@500;600;700&family=Spectral:ital,wght@0,400;0,500;0,600;1,400&family=EB+Garamond:ital@0;1&family=IM+Fell+English:ital@0;1&family=Rajdhani:wght@500;600;700&display=swap">
 <style>
 /* ============================================================
    War Table — party campaign companion (single-device prototype)
@@ -43,8 +43,80 @@
   --shadow:0 1px 2px rgba(0,0,0,.55),0 14px 38px rgba(0,0,0,.5);
   color-scheme:dark;
 }
-/* atmospheric vignette ground */
+/* ============================================================
+   APPEARANCE SKINS — chosen on the Profile tab. Each overrides the
+   token palette + typefaces, so the whole app re-skins at once.
+   Placed after the theme blocks so a skin always wins; applying a skin
+   removes data-theme, so these are the single source of look.
+   ============================================================ */
+/* — Erdtree · austere Elden Ring status menu (dark) — */
+:root[data-skin="erdtree"]{
+  --bg:#0b0805; --bg2:#100c07; --bg3:#161009; --raise:#1c150c;
+  --line:#2a2114; --line2:#3d3016;
+  --fg:#e9e0cd; --muted:#9c8f74; --faint:#6d6350;
+  --accent:#caa85f; --accent-soft:#1a140b; --gold:#e8cf93;
+  --c-damage:#cf5a4d; --c-control:#5f8cc6; --c-support:#76af6b;
+  --c-utility:#cfa24c; --c-defense:#4caa9c; --c-movement:#6fa5ce;
+  --ok:#86b06a; --warn:#cfa24c; --crit:#cf5a4d;
+  --shadow:0 1px 2px rgba(0,0,0,.55),0 14px 38px rgba(0,0,0,.5);
+  --f-display:"Cinzel",Georgia,serif; --f-ui:"Spectral",Georgia,serif; --f-mono:"JetBrains Mono",ui-monospace,monospace;
+  color-scheme:dark;
+}
+/* — Grimoire · inked vellum codex (dark warm) — */
+:root[data-skin="grimoire"]{
+  --bg:#140d07; --bg2:#1b1209; --bg3:#22170c; --raise:#2a1d0f;
+  --line:#3a2c17; --line2:#4a3819;
+  --fg:#efe6d2; --muted:#b0a07e; --faint:#7a6b4e;
+  --accent:#caa85f; --accent-soft:#2a1f10; --gold:#e8cf93;
+  --c-damage:#cf5a4d; --c-control:#6f94c8; --c-support:#84b377;
+  --c-utility:#d6ab57; --c-defense:#57b0a1; --c-movement:#79abd0;
+  --ok:#8cb46f; --warn:#d6ab57; --crit:#cf5a4d;
+  --shadow:0 1px 2px rgba(0,0,0,.5),0 14px 36px rgba(0,0,0,.5);
+  --f-display:"IM Fell English",Georgia,serif; --f-ui:"EB Garamond",Georgia,serif; --f-mono:"JetBrains Mono",ui-monospace,monospace;
+  color-scheme:dark;
+}
+/* — Runebound · ember combat HUD (dark, warm) — */
+:root[data-skin="runebound"]{
+  --bg:#0d0906; --bg2:#140b07; --bg3:#1a0f0a; --raise:#20130c;
+  --line:#3a241a; --line2:#4e2f22;
+  --fg:#f0e7d6; --muted:#ad9f83; --faint:#726353;
+  --accent:#d8b25f; --accent-soft:#2a140e; --gold:#f3d998;
+  --c-damage:#e0633f; --c-control:#6a92cc; --c-support:#7bb46f;
+  --c-utility:#e2bb54; --c-defense:#52b0a0; --c-movement:#73a8d2;
+  --ok:#86b06a; --warn:#e2bb54; --crit:#e0633f;
+  --shadow:0 1px 2px rgba(0,0,0,.6),0 16px 40px rgba(60,16,8,.4);
+  --f-display:"Cinzel",Georgia,serif; --f-ui:"Rajdhani",system-ui,sans-serif; --f-mono:"Rajdhani",system-ui,sans-serif;
+  color-scheme:dark;
+}
+/* — Scroll · aged parchment, play on an old scroll (light) — */
+:root[data-skin="scroll"]{
+  --bg:#e5d8ba; --bg2:#efe6ce; --bg3:#e9dec2; --raise:#f6efda;
+  --line:#c9bb96; --line2:#b2a176;
+  --fg:#302412; --muted:#5f5236; --faint:#8a7c5c;
+  --accent:#7a5a1c; --accent-soft:#ddcea6; --gold:#8a6a24;
+  --c-damage:#9a342c; --c-control:#39598f; --c-support:#45713b;
+  --c-utility:#8a6418; --c-defense:#2a7064; --c-movement:#355f88;
+  --ok:#45713b; --warn:#8a6418; --crit:#9a342c;
+  --shadow:0 1px 2px rgba(60,40,10,.14),0 10px 26px rgba(60,40,10,.16);
+  --f-display:"IM Fell English",Georgia,serif; --f-ui:"EB Garamond",Georgia,serif; --f-mono:"JetBrains Mono",ui-monospace,monospace;
+  color-scheme:light;
+}
+
+/* atmospheric grounds per skin */
 body{background-image:radial-gradient(130% 90% at 50% -10%, color-mix(in srgb,var(--accent) 5%,transparent), transparent 60%)}
+:root[data-skin="grimoire"] body{background-image:
+  radial-gradient(120% 90% at 50% -10%, rgba(202,168,95,.08), transparent 55%),
+  radial-gradient(90% 70% at 15% 100%, rgba(120,80,30,.10), transparent 60%)}
+:root[data-skin="runebound"] body{background-image:
+  radial-gradient(120% 80% at 50% -5%, rgba(216,178,95,.07), transparent 50%),
+  radial-gradient(100% 80% at 50% 110%, rgba(190,60,30,.14), transparent 55%)}
+:root[data-skin="scroll"] body{background-image:
+  radial-gradient(150% 120% at 50% 50%, transparent 52%, rgba(70,46,14,.30)),
+  radial-gradient(120% 85% at 25% 8%, rgba(130,95,40,.12), transparent 55%),
+  radial-gradient(95% 75% at 85% 95%, rgba(95,62,20,.14), transparent 55%),
+  radial-gradient(70% 60% at 60% 40%, rgba(165,132,72,.07), transparent 70%),
+  repeating-linear-gradient(92deg, rgba(95,62,20,.035) 0 1px, transparent 1px 6px),
+  repeating-linear-gradient(2deg, rgba(95,62,20,.025) 0 1px, transparent 1px 7px)}
 
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -531,6 +603,30 @@ select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px
 .invitebox .code{font-family:var(--f-mono);font-weight:700;font-size:26px;letter-spacing:.14em;color:var(--accent)}
 .invitebox .ir{display:flex;gap:8px;margin-top:11px;flex-wrap:wrap}
 .foot{max-width:1120px;margin:30px auto 0;padding:0 clamp(16px,4vw,28px);color:var(--faint);font-size:12px;line-height:1.6}
+
+/* ---- profile / appearance ---- */
+.acctcard{display:flex;align-items:center;gap:13px;flex-wrap:wrap;padding:15px 17px;background:var(--bg2);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);margin-bottom:8px}
+.acctcard .av{width:46px;height:46px;flex:none;display:grid;place-items:center;border-radius:50%;background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 55%,#000));color:#17120a;font-family:var(--f-display);font-weight:700;font-size:20px}
+.acctcard .ai .nm{font-family:var(--f-display);font-weight:600;font-size:17px}
+.acctcard .ai .em{color:var(--muted);font-size:12.5px}
+.seclabel2{font-family:var(--f-display);font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin:22px 0 11px}
+.themegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+.themecard{border:1px solid var(--line);border-radius:13px;overflow:hidden;background:var(--bg2);transition:border-color .16s,box-shadow .16s;cursor:pointer}
+.themecard:hover{border-color:var(--line2)}
+.themecard.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),var(--shadow)}
+.themeprev{padding:16px 15px 15px;border-bottom:1px solid var(--line);min-height:116px;display:flex;flex-direction:column;gap:5px}
+.themeprev .tp-title{font-size:19px;line-height:1.05}
+.themeprev .tp-sub{font-size:11.5px;letter-spacing:.04em}
+.themeprev .tp-bar{height:7px;border:1px solid;margin-top:9px;overflow:hidden}
+.themeprev .tp-bar i{display:block;height:100%}
+.themeprev .tp-chips{display:flex;gap:6px;margin-top:3px}
+.themeprev .tp-chips span{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;border:1px solid;padding:2px 6px;border-radius:3px}
+.tc-foot{padding:12px 14px 14px}
+.tc-name{font-family:var(--f-display);font-weight:600;font-size:16px;display:flex;align-items:baseline;gap:8px}
+.tc-name small{font-family:var(--f-ui);font-weight:400;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint)}
+.tc-desc{color:var(--muted);font-size:12.5px;line-height:1.45;margin:5px 0 11px}
+.tc-cta{display:flex}
+.tc-active{font-size:12.5px;font-weight:600;color:var(--accent);display:inline-flex;align-items:center;gap:5px}
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0"></script>
@@ -720,7 +816,7 @@ function freshState(){
         party:["aster","vernig"],ready:{aster:false,vernig:false},
         session:{live:false},settings:{cooldowns:true}},
     },
-    ui:{screen:"characters",campId:null,viewAs:"dm",tab:"sheet",calcAbility:null,theme:null},
+    ui:{screen:"characters",campId:null,viewAs:"dm",tab:"sheet",calcAbility:null,theme:null,skin:"erdtree"},
   };
 }
 function load(){
@@ -762,7 +858,7 @@ function render(){
   // top bar context + view switcher
   const camp=curCamp();
   const ctx=$("#ctx"),va=$("#viewas");
-  if(ui.screen==="campaigns"||ui.screen==="builder"||ui.screen==="characters"||ui.screen==="wizard"){
+  if(ui.screen==="campaigns"||ui.screen==="builder"||ui.screen==="characters"||ui.screen==="wizard"||ui.screen==="profile"){
     ctx.innerHTML=(ui.screen==="builder"&&camp)?`<span>›</span><b>${esc(camp.name)}</b>`:"";va.hidden=true;}
   else if(camp){
     ctx.innerHTML=`<span>›</span><b>${esc(camp.name)}</b>`+
@@ -789,6 +885,7 @@ function render(){
   else if(ui.screen==="play")scr.appendChild(screenPlay());
   else if(ui.screen==="builder")scr.appendChild(screenBuilder());
   else if(ui.screen==="wizard")scr.appendChild(screenWizard());
+  else if(ui.screen==="profile")scr.appendChild(screenProfile());
   $("#foot").innerHTML=footNote();
   save();
   if(STATE.cloud)Cloud.afterRender();
@@ -809,7 +906,8 @@ function footNote(){
 /* ============================ nav ============================ */
 function navBar(active){
   return `<div class="navbar"><button class="navtab ${active==="characters"?"on":""}" data-nav="characters">Characters</button>
-    <button class="navtab ${active==="campaigns"?"on":""}" data-nav="campaigns">Campaigns</button></div>`;
+    <button class="navtab ${active==="campaigns"?"on":""}" data-nav="campaigns">Campaigns</button>
+    <button class="navtab ${active==="profile"?"on":""}" data-nav="profile">Profile</button></div>`;
 }
 /* ============================ screen: characters ============================ */
 function screenCharacters(){
@@ -835,6 +933,61 @@ function screenCharacters(){
       <div class="crow"><button class="btn sm primary" data-joinwith="${ch.id}">Join a campaign →</button>
         <button class="btn sm ghost" data-buildedit="${ch.id}">Edit</button></div>`;
     grid.appendChild(s);
+  });
+  wrap.appendChild(grid);
+  return wrap;
+}
+
+/* ============================ screen: profile ============================ */
+const SKINS=[
+  {id:"erdtree",name:"Erdtree",tag:"Austere menu",desc:"Near-black with gold hairlines and carved capitals. The quiet, regal Elden Ring look.",bg:"#0b0805",panel:"#161009",ink:"#e9e0cd",accent:"#e8cf93",disp:'"Cinzel",Georgia,serif',dark:true},
+  {id:"grimoire",name:"Grimoire",tag:"Inked codex",desc:"Warm vellum and an old-tome serif. Reads like a page from a spellbook.",bg:"#140d07",panel:"#22170c",ink:"#efe6d2",accent:"#e8cf93",disp:'"IM Fell English",Georgia,serif',dark:true},
+  {id:"runebound",name:"Runebound",tag:"Combat HUD",desc:"Ember glow and condensed numerals. The most in-the-fight of the set.",bg:"#0d0906",panel:"#20130c",ink:"#f0e7d6",accent:"#f3d998",disp:'"Cinzel",Georgia,serif',dark:true},
+  {id:"scroll",name:"Scroll",tag:"Old scroll",desc:"Aged parchment and sepia ink. Play like it's written on worn paper.",bg:"#e5d8ba",panel:"#f6efda",ink:"#302412",accent:"#8a6a24",disp:'"IM Fell English",Georgia,serif',dark:false},
+];
+function applySkin(id){const root=document.documentElement;root.setAttribute("data-skin",id||"erdtree");root.removeAttribute("data-theme");}
+function setSkin(id){STATE.ui.skin=id;applySkin(id);save();
+  if(STATE.cloud&&SB){try{SB.from("profiles").update({theme:id}).eq("id",ME());}catch(e){}}
+  render();const s=SKINS.find(x=>x.id===id);toast(s?s.name+" — looks set":"Theme set");}
+function screenProfile(){
+  const wrap=el("div");
+  wrap.appendChild(el("div",null,navBar("profile")));
+  wrap.appendChild(el("div","screenhead",
+    `<div class="eyebrow">You</div><h1>Profile</h1>
+     <p>Your account and how War Table looks to you. Each player picks their own theme — it follows you across devices.</p>`));
+  // account card
+  const acct=el("div","acctcard");
+  if(STATE.cloud&&STATE.user){const u=STATE.user;const init=(u.name||u.email||"?")[0].toUpperCase();
+    acct.innerHTML=`<div class="av">${esc(init)}</div>
+      <div class="ai"><div class="nm">${esc(u.name||"Player")}</div><div class="em">${esc(u.email||"")}</div></div>
+      <span class="pill live"><span class="dot"></span>Synced</span>
+      <button class="btn ghost sm" data-openacct="1" style="margin-left:auto">Account</button>`;
+  }else{
+    acct.innerHTML=`<div class="av">◐</div>
+      <div class="ai"><div class="nm">Playing solo</div><div class="em">Saved in this browser only</div></div>
+      <button class="btn sm" data-openacct="1" style="margin-left:auto">☁ Sign in</button>`;
+  }
+  wrap.appendChild(acct);
+  // appearance
+  wrap.appendChild(el("div","seclabel2","Appearance"));
+  const active=STATE.ui.skin||"erdtree";
+  const grid=el("div","themegrid");
+  SKINS.forEach(s=>{
+    const on=s.id===active;
+    const card=el("div","themecard"+(on?" on":""));card.dataset.setskin=s.id;
+    card.innerHTML=`
+      <div class="themeprev" style="background:${s.bg};color:${s.ink};border-color:${s.dark?'#2a2114':'#c9bb96'}">
+        <div class="tp-title" style="font-family:${s.disp};color:${s.accent}">Nova Catlym</div>
+        <div class="tp-sub" style="color:${s.ink};opacity:.62">Tiefling Warlock · Lv 2</div>
+        <div class="tp-bar" style="border-color:${s.dark?'#2a2114':'#c9bb96'}"><i style="background:${s.accent};width:68%"></i></div>
+        <div class="tp-chips"><span style="color:${s.accent};border-color:${s.accent}">Force</span><span style="color:${s.ink};border-color:${s.ink};opacity:.55">Hex</span></div>
+      </div>
+      <div class="tc-foot">
+        <div class="tc-name">${esc(s.name)} <small>${esc(s.tag)}</small></div>
+        <div class="tc-desc">${esc(s.desc)}</div>
+        <div class="tc-cta">${on?'<span class="tc-active">✓ Active</span>':`<button class="btn sm" data-setskin="${s.id}">Use this</button>`}</div>
+      </div>`;
+    grid.appendChild(card);
   });
   wrap.appendChild(grid);
   return wrap;
@@ -2280,11 +2433,13 @@ function confirmModal(msg,onYes){
 
 /* ============================ event wiring ============================ */
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-nav],[data-open],[data-del],[data-newcamp],[data-join],[data-leave],[data-ready],[data-startsession],[data-endsession],[data-enterplay],[data-tab],[data-filter],[data-tocalc],[data-use],[data-spend],[data-rollinst],[data-rollall],[data-clearrolls],[data-modtoggle],[data-perinst],[data-bonus],[data-rest],[data-cooldowns],[data-dmview],[data-awardinsp],[data-spendinsp],[data-hpedit],[data-hp],[data-hpsave],[data-close],[data-scrim],[data-createcamp],[data-newchar],[data-dmnewchar]");
+  const t=e.target.closest("[data-nav],[data-open],[data-del],[data-newcamp],[data-join],[data-leave],[data-ready],[data-startsession],[data-endsession],[data-enterplay],[data-tab],[data-filter],[data-tocalc],[data-use],[data-spend],[data-rollinst],[data-rollall],[data-clearrolls],[data-modtoggle],[data-perinst],[data-bonus],[data-rest],[data-cooldowns],[data-dmview],[data-awardinsp],[data-spendinsp],[data-hpedit],[data-hp],[data-hpsave],[data-close],[data-scrim],[data-createcamp],[data-newchar],[data-dmnewchar],[data-setskin],[data-openacct]");
   if(!t)return;
   const d=t.dataset;
   if(d.scrim&&e.target!==t)return; // clicked inside modal
   if(d.nav){if(d.nav==="lobby")go("lobby");else go(d.nav);return;}
+  if(d.setskin){setSkin(d.setskin);return;}
+  if(d.openacct){if(!SB){toast("Cloud unavailable — playing solo");return;}STATE.cloud?acctModal():authModal();return;}
   if(d.open){STATE.ui.campId=d.open;go("lobby");return;}
   if(d.newcamp){newCampaignModal();return;}
   if(d.createcamp){
@@ -2589,13 +2744,8 @@ document.addEventListener("input",e=>{
   if(e.target.dataset.wizf!=null&&!["role","color"].includes(e.target.dataset.wizf)){wiz[e.target.dataset.wizf]=e.target.value;}
 });
 
-/* theme toggle */
-$("#themeBtn").addEventListener("click",()=>{
-  const root=document.documentElement;
-  const cur=root.getAttribute("data-theme");
-  const next=cur==="dark"?"light":cur==="light"?"dark":(matchMedia("(prefers-color-scheme: dark)").matches?"light":"dark");
-  root.setAttribute("data-theme",next);STATE.ui.theme=next;save();
-});
+/* appearance — opens the Profile tab's theme picker */
+$("#themeBtn").addEventListener("click",()=>{go("profile");});
 
 /* ============================ cloud (Supabase) ============================ */
 const SB_URL="https://tocngduvalglawxycaal.supabase.co";
@@ -2616,15 +2766,16 @@ function amDM(camp){return camp&&camp.dm_id===ME();}
 const PROF={};
 const Cloud={
   _charHash:{},_campHash:{},_battleHash:{},_chan:null,
-  cloudShell(){const theme=STATE&&STATE.ui?STATE.ui.theme:null;
+  cloudShell(){const skin=STATE&&STATE.ui?STATE.ui.skin:"erdtree";
     return {roster:{},campaigns:{},trash:[],diceHist:(STATE&&STATE.diceHist)||[],
       user:STATE.user,cloud:true,
-      ui:{screen:"characters",campId:null,viewAs:"dm",tab:"sheet",calcAbility:null,theme}};},
+      ui:{screen:"characters",campId:null,viewAs:"dm",tab:"sheet",calcAbility:null,skin:skin||"erdtree"}};},
   async enter(user){
     const name=(user.user_metadata&&user.user_metadata.display_name)||(user.email||"").split("@")[0];
     STATE.user={id:user.id,email:user.email,name};
     STATE=Object.assign(Cloud.cloudShell(),{user:STATE.user});
-    await Cloud.loadAll();
+    await Cloud.loadAll();          // may set STATE.ui.skin from the saved profile
+    applySkin(STATE.ui.skin);
     Cloud.subscribe();
     render();
     updateAcctBtn();
@@ -2633,7 +2784,7 @@ const Cloud={
     try{ if(Cloud._chan){ SB.removeChannel(Cloud._chan); Cloud._chan=null; } }catch(e){}
     STATE=freshState();      // back to solo demo
     STATE.cloud=false;STATE.user=null;
-    if(STATE.ui.theme)document.documentElement.setAttribute("data-theme",STATE.ui.theme);
+    applySkin(STATE.ui.skin);
     render();updateAcctBtn();
   },
   async loadAll(){
@@ -2646,7 +2797,8 @@ const Cloud={
         SB.from("lore_notes").select("*").order("created_at",{ascending:true}),
         SB.from("battles").select("*"),
       ]);
-      (profs.data||[]).forEach(p=>PROF[p.id]=p.display_name||"Player");
+      (profs.data||[]).forEach(p=>{PROF[p.id]=p.display_name||"Player";
+        if(p.id===ME()&&p.theme&&SKINS.some(s=>s.id===p.theme))STATE.ui.skin=p.theme;});
       STATE.roster={};
       (chars.data||[]).forEach(r=>{const ch=Object.assign({},r.data,{id:r.id,owner_id:r.owner_id,name:r.name||r.data.name});
         STATE.roster[r.id]=ch;Cloud._charHash[r.id]=hashStr(JSON.stringify(ch));});
@@ -2856,7 +3008,8 @@ async function afterEnterExtras(){
 }
 async function boot(){
   load();
-  if(STATE.ui&&STATE.ui.theme)document.documentElement.setAttribute("data-theme",STATE.ui.theme);
+  if(STATE.ui&&!STATE.ui.skin)STATE.ui.skin=(STATE.ui.theme==="light")?"scroll":"erdtree"; // migrate old theme choice
+  applySkin(STATE.ui&&STATE.ui.skin?STATE.ui.skin:"erdtree");
   // parse invite + recovery from URL
   const h=location.hash||"";
   const jm=h.match(/[#&]join=([A-Za-z0-9]+)/);
