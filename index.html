@@ -754,8 +754,8 @@ function screenCampaigns(){
   add.dataset.newcamp="1";
   slots.appendChild(add);
   const tools=el("div","camptools",STATE.cloud
-    ?`<button class="btn sm" data-joincode="1">＋ Join with a code</button>`
-    :`<button class="btn ghost sm" data-export="1">⇅ Export / Import save</button>`);
+    ?`<button class="btn sm" data-joincode="1">＋ Join with a code</button><button class="btn ghost sm" data-ddbimport="1">⬇ Import from D&amp;D Beyond</button>`
+    :`<button class="btn ghost sm" data-export="1">⇅ Export / Import save</button><button class="btn ghost sm" data-ddbimport="1">⬇ Import from D&amp;D Beyond</button>`);
   wrap.appendChild(tools);
   wrap.appendChild(slots);
   if(STATE.trash&&STATE.trash.length){
@@ -832,7 +832,7 @@ function screenLobby(){
       <button class="btn sm primary" data-join="${ch.id}">Join</button>
     </div>`).join("")+`</div>`;
   join.innerHTML=`<h2>Roster</h2><div class="sub">Characters who can join this campaign</div>${jl}
-    <div style="margin-top:14px"><button class="btn ghost sm" data-buildnew="1">+ New character</button></div>`;
+    <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn ghost sm" data-buildnew="1">+ New character</button><button class="btn ghost sm" data-ddbimport="1">⬇ Import from D&amp;D Beyond</button></div>`;
   grid.appendChild(join);
 
   wrap.appendChild(grid);
@@ -1637,6 +1637,104 @@ function openBuilder(charId,ret){
   STATE.ui.draft=charId?JSON.parse(JSON.stringify(STATE.roster[charId])):blankChar();
   STATE.ui.builderNew=!charId;STATE.ui.builderReturn=ret||"lobby";STATE.ui.screen="builder";render();
 }
+/* ============================ D&D Beyond import ============================ */
+const ABIL6=["str","dex","con","int","wis","cha"];
+const DDB_NAME={strength:"str",dexterity:"dex",constitution:"con",intelligence:"int",wisdom:"wis",charisma:"cha"};
+const DDB_SKILLS=["Athletics","Acrobatics","Sleight of Hand","Stealth","Arcana","History","Investigation","Nature","Religion","Animal Handling","Insight","Medicine","Perception","Survival","Deception","Intimidation","Performance","Persuasion"];
+function stripHtml(s){return String(s||"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim();}
+function ddbToChar(d){
+  const allMods=[].concat(...Object.values(d.modifiers||{}));
+  const base=(d.stats||[]).map(s=>s.value||10);
+  const override=(d.overrideStats||[]).map(s=>s&&s.value);
+  const bonusArr=(d.bonusStats||[]).map(s=>(s&&s.value)||0);
+  const abilBonus={str:0,dex:0,con:0,int:0,wis:0,cha:0};
+  allMods.forEach(m=>{if(m.type==="bonus"&&/-score$/.test(m.subType||"")){const a=DDB_NAME[m.subType.replace("-score","")];if(a)abilBonus[a]+=(m.value||0);}});
+  const scores={};ABIL6.forEach((a,i)=>{scores[a]=override[i]!=null?override[i]:(base[i]+(bonusArr[i]||0)+abilBonus[a]);});
+  const sm=a=>Math.floor((scores[a]-10)/2);
+  const totalLevel=(d.classes||[]).reduce((t,c)=>t+(c.level||0),0)||1;
+  const prof=2+Math.floor((totalLevel-1)/4);
+  const conMod=sm("con");
+  const maxHP=(d.baseHitPoints||0)+(d.bonusHitPoints||0)+conMod*totalLevel;
+  const curHP=d.overrideHitPoints!=null?d.overrideHitPoints:Math.max(0,maxHP-(d.removedHitPoints||0));
+  const saveProf=[];allMods.forEach(m=>{if(m.type==="proficiency"&&/-saving-throws$/.test(m.subType||"")){const a=DDB_NAME[m.subType.replace("-saving-throws","")];if(a&&!saveProf.includes(a))saveProf.push(a);}});
+  const skillProf=new Set();allMods.forEach(m=>{if(m.type==="proficiency"&&DDB_SKILLS.includes(m.friendlySubtypeName))skillProf.add(m.friendlySubtypeName);});
+  const pv=(sk,ab)=>10+sm(ab)+(skillProf.has(sk)?prof:0);
+  const passives={Perception:pv("Perception","wis"),Investigation:pv("Investigation","int"),Insight:pv("Insight","wis")};
+  let speed=(d.race&&d.race.weightSpeeds&&d.race.weightSpeeds.normal&&d.race.weightSpeeds.normal.walk)||30;
+  allMods.forEach(m=>{if(m.type==="set"&&m.subType==="innate-speed-walking"&&m.value)speed=m.value;});
+  // AC best-effort
+  const dexMod=sm("dex"),strMod=sm("str");let ac=10+dexMod,acNote="unarmored";
+  const armor=(d.inventory||[]).find(it=>it.equipped&&it.definition&&it.definition.armorClass&&it.definition.armorTypeId<=3);
+  const shield=(d.inventory||[]).find(it=>it.equipped&&it.definition&&it.definition.armorTypeId===4);
+  if(armor){const at=armor.definition.armorTypeId,b=armor.definition.armorClass;ac=at===1?b+dexMod:at===2?b+Math.min(2,dexMod):b;acNote=armor.definition.name;}
+  if(shield)ac+=2;
+  allMods.forEach(m=>{if(m.type==="bonus"&&m.subType==="armor-class")ac+=(m.value||0);});
+  let spellAbility="—",spellMod=-99;
+  (d.classes||[]).forEach(c=>{const sid=c.definition&&c.definition.spellCastingAbilityId;if(sid){const a=ABIL6[sid-1];const mm=sm(a);if(mm>spellMod){spellAbility=a.toUpperCase();spellMod=mm;}}});
+  const spellDC=spellAbility!=="—"?8+prof+spellMod:0;
+  const spellAtk=spellAbility!=="—"?prof+spellMod:0;
+  const cls=(d.classes||[]).map(c=>`${c.definition&&c.definition.name} ${c.level}`).join(" / ")||"Adventurer";
+  const subtitle=[d.race&&d.race.fullName].concat((d.classes||[]).map(c=>c.subclassDefinition&&c.subclassDefinition.name).filter(Boolean)).join(" · ");
+  const abilities=[];
+  (d.classes||[]).forEach(c=>{(c.classFeatures||[]).forEach(f=>{const def=f.definition||{};const req=def.requiredLevel||1;if(req<=c.level&&def.name&&!/^\d+:/.test(def.name)){abilities.push(ab({name:def.name,type:"utility",source:(c.definition&&c.definition.name)||"Class",level:req,action:"—",text:stripHtml(def.snippet)||"See D&D Beyond for the full rules."}));}});});
+  (d.feats||[]).forEach(f=>{const def=f.definition||{};if(def.name)abilities.push(ab({name:def.name,type:"utility",source:"Feat",action:"—",text:stripHtml(def.snippet)}));});
+  (d.inventory||[]).forEach(it=>{const def=it.definition||{};if(def.filterType==="Weapon"&&def.damage&&def.damage.diceString){const fin=(def.properties||[]).some(p=>p.name==="Finesse");const amod=fin?Math.max(strMod,dexMod):strMod;abilities.push(ab({name:def.name,type:"damage",source:"Weapon",attack:"+"+(prof+amod),dmg:def.damage.diceString,flatPer:amod,dmgType:def.damageType||"",text:"Weapon attack."}));}});
+  const allSpells=[].concat(...(d.classSpells||[]).map(cs=>cs.spells||[]),...Object.values(d.spells||{}).map(v=>v||[]).flat());
+  allSpells.forEach(s=>{const def=s.definition||{};if(!def.name)return;const dmgDie=(def.modifiers||[]).find(m=>m.die&&m.die.diceString);abilities.push(ab({name:def.name,type:dmgDie?"damage":"utility",source:"Spell",level:def.level||0,dmg:dmgDie?dmgDie.die.diceString:null,text:stripHtml(def.description).slice(0,240)}));});
+  return {id:uid("ch"),name:d.name||"Imported Hero",player:d.username||"",cls,subtitle,level:totalLevel,
+    color:"#7a4fd0",token:((d.name||"?")[0]||"?").toUpperCase(),scores,saveProf,prof,baseAC:ac,maxHP,hp:curHP,speed,
+    spellAbility,spellDC,spellAtk,passives,charges:{},abilities,modifiers:[],ddbId:d.id,_acNote:acNote};
+}
+async function fetchDDB(idOrUrl){
+  const r=await fetch("/.netlify/functions/ddb?id="+encodeURIComponent(idOrUrl));
+  const j=await r.json();
+  if(!r.ok)throw new Error(j.error||("Import failed ("+r.status+")"));
+  return j;
+}
+function ddbImportModal(){
+  openModal(`<h2>Import from D&D Beyond</h2>
+    <div class="banner">Set the character to <b>Public</b> on D&D Beyond (character → Edit → Home → Character Privacy), then paste its link or ID.</div>
+    <div class="field"><label>Character link or ID</label><input id="ddbIn" placeholder="dndbeyond.com/characters/12345678"></div>
+    <div class="autherr" id="ddbErr"></div>
+    <div id="ddbPrev"></div>
+    <div class="acts"><button class="btn ghost" data-close="1">Cancel</button><button class="btn primary" data-ddbfetch="1">Fetch character</button></div>`);
+  setTimeout(()=>{const e=$("#ddbIn");if(e)e.focus();},30);
+}
+let DDB_DRAFT=null;
+async function doDdbFetch(){
+  const val=($("#ddbIn").value||"").trim();const err=$("#ddbErr");err.textContent="";
+  if(!val){err.textContent="Paste a D&D Beyond character link or ID.";return;}
+  err.style.color="var(--muted)";err.textContent="Fetching from D&D Beyond…";
+  try{
+    const data=await fetchDDB(val);const ch=ddbToChar(data);DDB_DRAFT=ch;
+    const existing=Object.values(STATE.roster).find(c=>c.ddbId===ch.ddbId);
+    err.textContent="";
+    $("#ddbPrev").innerHTML=`<div class="acctrow" style="margin-top:4px"><div class="av" style="background:linear-gradient(135deg,${ch.color},#000)">${esc(ch.token)}</div>
+      <div class="ai"><div class="nm">${esc(ch.name)}</div><div class="em">${esc(ch.cls)} · ${esc(ch.subtitle)}</div></div></div>
+      <div style="font-size:12.5px;color:var(--muted);line-height:1.6;margin-bottom:6px">
+        AC <b style="color:var(--fg)">${ch.baseAC}</b> <span style="color:var(--faint)">(${esc(ch._acNote)})</span> · HP <b style="color:var(--fg)">${ch.hp}/${ch.maxHP}</b> · Speed ${ch.speed} · Prof +${ch.prof}<br>
+        STR ${ch.scores.str} · DEX ${ch.scores.dex} · CON ${ch.scores.con} · INT ${ch.scores.int} · WIS ${ch.scores.wis} · CHA ${ch.scores.cha}<br>
+        ${ch.abilities.length} features/spells imported · Spell DC ${ch.spellDC||"—"}</div>
+      <div class="authnote">AC and multiclass saves are D&D Beyond's trickiest numbers — give them a glance and tweak in the builder if needed. ${existing?"<b>You already have this character — importing will refresh its official stats and keep your custom items.</b>":""}</div>`;
+    $("#ddbPrev").innerHTML+=`<div class="acts" style="margin-top:12px"><button class="btn primary" data-ddbcreate="${existing?existing.id:""}">${existing?"Update character":"Add to roster"}</button>
+      <button class="btn" data-ddbedit="1">Add &amp; open in builder</button></div>`;
+  }catch(e){err.style.color="var(--crit)";err.textContent=e.message||"Couldn't import.";}
+}
+function ddbCreate(existingId,openInBuilder){
+  if(!DDB_DRAFT)return;let ch=DDB_DRAFT;
+  if(existingId&&STATE.roster[existingId]){ // merge: keep custom items, role, color, token
+    const old=STATE.roster[existingId];
+    const customMods=(old.modifiers||[]);const customAb=(old.abilities||[]).filter(a=>a.dmGranted);
+    ch.id=old.id;ch.ddbId=old.ddbId||ch.ddbId;ch.color=old.color;ch.token=old.token;ch.role=old.role;ch.owner_id=old.owner_id;
+    ch.modifiers=customMods;ch.abilities=ch.abilities.concat(customAb);
+  }
+  if(STATE.cloud&&!ch.owner_id)ch.owner_id=ME();
+  STATE.roster[ch.id]=ch;DDB_DRAFT=null;
+  if(openInBuilder){openBuilder(ch.id,STATE.ui.screen==="builder"?"lobby":STATE.ui.screen);}
+  else{closeModal();render();}
+  toast(existingId?"Character updated from D&D Beyond":"Imported "+ch.name);
+}
+
 function screenBuilder(){
   const d=STATE.ui.draft;const w=el("div");
   w.appendChild(el("div","screenhead",`<div class="eyebrow">${STATE.ui.builderNew?"New character":"Edit character"}</div>
@@ -2243,8 +2341,12 @@ function updateAcctBtn(){const b=$("#acctBtn");if(!b)return;
 
 $("#acctBtn").addEventListener("click",()=>{ if(!SB){toast("Cloud unavailable — playing solo");return;} STATE.cloud?acctModal():authModal(); });
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-authmode],[data-authgo],[data-signout],[data-joincode],[data-dojoin],[data-newcharjoin],[data-copyinvite],[data-copycode],[data-forgot],[data-sendreset],[data-setpass]");if(!t)return;
+  const t=e.target.closest("[data-authmode],[data-authgo],[data-signout],[data-joincode],[data-dojoin],[data-newcharjoin],[data-copyinvite],[data-copycode],[data-forgot],[data-sendreset],[data-setpass],[data-ddbimport],[data-ddbfetch],[data-ddbcreate],[data-ddbedit]");if(!t)return;
   const d=t.dataset;
+  if(d.ddbimport!=null){ddbImportModal();return;}
+  if(d.ddbfetch!=null){doDdbFetch();return;}
+  if(d.ddbcreate!=null){ddbCreate(d.ddbcreate,false);return;}
+  if(d.ddbedit!=null){ddbCreate("",true);return;}
   if(d.authmode){authModal._mode=d.authmode;authModal();return;}
   if(d.authgo){doAuth(d.authgo);return;}
   if(d.signout){closeModal();SB.auth.signOut().finally(()=>Cloud.leave());return;}
