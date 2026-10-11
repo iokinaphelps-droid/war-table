@@ -121,6 +121,17 @@ select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px
 .slot.new:hover{color:var(--accent);border-color:var(--accent)}
 .slot.new .plus{width:40px;height:40px;border-radius:50%;border:1.5px solid currentColor;
   display:grid;place-items:center;font-size:22px;font-weight:300}
+/* nav + character cards */
+.navbar{display:flex;gap:4px;margin-bottom:18px;border-bottom:1px solid var(--line)}
+.navtab{background:none;border:none;padding:9px 14px;font-size:14px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
+.navtab.on{color:var(--fg);border-bottom-color:var(--accent)}
+.charcard{background:var(--bg2);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow);display:flex;flex-direction:column;align-items:flex-start;gap:12px}
+.charcard .token.lg{width:72px;height:72px;font-size:28px;border-radius:16px}
+.charcard .ci{width:100%}
+.charcard .cn{font-family:var(--f-display);font-weight:600;font-size:19px;line-height:1.1}
+.charcard .cc{font-size:12.5px;color:var(--muted);margin-top:3px}
+.charcard .cstats{display:flex;gap:12px;margin-top:9px;font-size:12px;color:var(--muted);font-family:var(--f-mono)}
+.charcard .crow{display:flex;gap:8px;flex-wrap:wrap;width:100%;margin-top:2px}
 
 /* ---- lobby ---- */
 .lobbygrid{display:grid;grid-template-columns:1fr;gap:22px}
@@ -136,6 +147,10 @@ select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px
   font-family:var(--f-display);font-weight:900;font-size:17px;color:#fff;position:relative}
 .token.sm{width:30px;height:30px;font-size:13px;border-radius:9px}
 .token.lg{width:54px;height:54px;font-size:23px;border-radius:14px}
+.token.hasimg{background-size:cover;background-position:center top;color:transparent}
+.portraitbox{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
+.portraitbox .pv{width:120px;height:120px;border-radius:16px;border:1px solid var(--line2);background:var(--bg3) center/cover no-repeat;flex:none;display:grid;place-items:center;color:var(--faint);font-size:11px;text-align:center;overflow:hidden}
+.portraitbox .pc{flex:1;min-width:180px}
 .member .who{flex:1;min-width:0}
 .member .who .nm{font-weight:600;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .member .who .cl{color:var(--muted);font-size:12px}
@@ -391,6 +406,29 @@ select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px
 .brow .bi{flex:1;min-width:0}.brow .bi .n{font-weight:600;font-size:14px}.brow .bi .m{font-size:11.5px;color:var(--muted);font-family:var(--f-mono)}
 .brow .dotc{width:10px;height:10px;border-radius:3px;flex:none}
 .bbar{position:sticky;bottom:0;display:flex;gap:10px;justify-content:flex-end;padding:14px 0;background:linear-gradient(transparent,var(--bg) 40%)}
+/* ---- wizard ---- */
+.wizprog{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin-bottom:16px;scrollbar-width:none}
+.wizprog::-webkit-scrollbar{display:none}
+.wizstep{flex:none;font-size:11.5px;font-weight:600;color:var(--faint);padding:5px 11px;border-radius:999px;border:1px solid var(--line);background:var(--bg3);white-space:nowrap}
+.wizstep.on{color:#fff;background:var(--accent);border-color:var(--accent)}
+:root[data-theme="dark"] .wizstep.on,:root:not([data-theme="light"]) .wizstep.on{color:#140f24}
+.wizstep.done{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 40%,var(--line2))}
+.wizbody{min-height:200px;margin-bottom:10px}
+.pickgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:9px}
+.pickcard{text-align:left;background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:12px;transition:.12s}
+.pickcard:hover{border-color:var(--accent)}
+.pickcard.on{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 40%,transparent)}
+.pickcard .pt{font-family:var(--f-display);font-weight:600;font-size:16px}
+.pickcard .pm{font-size:11.5px;color:var(--muted);margin-top:3px;font-family:var(--f-mono)}
+.wizdetail{font-size:13px;color:var(--muted);margin-top:12px;line-height:1.5}.wizdetail b{color:var(--fg)}
+.chiprow{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+.chip.sm{font-size:11px;padding:4px 9px}
+.abilassign{display:flex;flex-direction:column;gap:8px;max-width:420px}
+.aarow{display:flex;align-items:center;gap:12px}
+.aarow .al{width:38px;font-weight:700;font-size:13px}
+.aarow select,.aarow input{background:var(--bg3);border:1px solid var(--line2);border-radius:9px;padding:7px 9px;font-size:14px;color:var(--fg)}
+.aarow .ar{font-size:13px;color:var(--muted);font-family:var(--f-mono)}.aarow .ar b{color:var(--fg)}
+.pbctl{display:flex;align-items:center;gap:7px}
 .bpreview{display:flex;align-items:center;gap:12px;margin-bottom:4px}
 /* ---- map ---- */
 .maptools{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
@@ -460,7 +498,7 @@ select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0"></script>
 <div id="bar">
-  <div class="brand" data-nav="campaigns">
+  <div class="brand" data-nav="characters">
     <svg class="rune" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2l2.6 5.6L21 8.4l-4.5 4.3L17.8 19 12 15.8 6.2 19l1.3-6.3L3 8.4l6.4-.8z"/></svg>
     <span>War Table</span>
   </div>
@@ -645,7 +683,7 @@ function freshState(){
         party:["aster","vernig"],ready:{aster:false,vernig:false},
         session:{live:false},settings:{cooldowns:true}},
     },
-    ui:{screen:"campaigns",campId:null,viewAs:"dm",tab:"sheet",calcAbility:null,theme:null},
+    ui:{screen:"characters",campId:null,viewAs:"dm",tab:"sheet",calcAbility:null,theme:null},
   };
 }
 function load(){
@@ -687,7 +725,8 @@ function render(){
   // top bar context + view switcher
   const camp=curCamp();
   const ctx=$("#ctx"),va=$("#viewas");
-  if(ui.screen==="campaigns"||ui.screen==="builder"){ctx.innerHTML=(ui.screen==="builder"&&camp)?`<span>›</span><b>${esc(camp.name)}</b>`:"";va.hidden=true;}
+  if(ui.screen==="campaigns"||ui.screen==="builder"||ui.screen==="characters"||ui.screen==="wizard"){
+    ctx.innerHTML=(ui.screen==="builder"&&camp)?`<span>›</span><b>${esc(camp.name)}</b>`:"";va.hidden=true;}
   else if(camp){
     ctx.innerHTML=`<span>›</span><b>${esc(camp.name)}</b>`+
       (camp.session.live?` <span class="pill live"><span class="dot"></span>Live</span>`:` <span class="pill"><span class="dot"></span>In lobby</span>`);
@@ -704,10 +743,12 @@ function render(){
     } else va.hidden=true;
   }
   const scr=$("#screen");scr.innerHTML="";
-  if(ui.screen==="campaigns")scr.appendChild(screenCampaigns());
+  if(ui.screen==="characters")scr.appendChild(screenCharacters());
+  else if(ui.screen==="campaigns")scr.appendChild(screenCampaigns());
   else if(ui.screen==="lobby")scr.appendChild(screenLobby());
   else if(ui.screen==="play")scr.appendChild(screenPlay());
   else if(ui.screen==="builder")scr.appendChild(screenBuilder());
+  else if(ui.screen==="wizard")scr.appendChild(screenWizard());
   $("#foot").innerHTML=footNote();
   save();
   if(STATE.cloud)Cloud.afterRender();
@@ -725,9 +766,44 @@ function footNote(){
   return "Solo mode — saved locally in this browser.";
 }
 
+/* ============================ nav ============================ */
+function navBar(active){
+  return `<div class="navbar"><button class="navtab ${active==="characters"?"on":""}" data-nav="characters">Characters</button>
+    <button class="navtab ${active==="campaigns"?"on":""}" data-nav="campaigns">Campaigns</button></div>`;
+}
+/* ============================ screen: characters ============================ */
+function screenCharacters(){
+  const wrap=el("div");
+  const mine=Object.values(STATE.roster).filter(ch=>!STATE.cloud||(ch.owner_id||ME())===ME());
+  wrap.appendChild(el("div",null,navBar("characters")));
+  wrap.appendChild(el("div","screenhead",
+    `<div class="eyebrow">Your heroes</div><h1>Characters</h1>
+     <p>Build or import your characters here, then take one into a campaign. Your roster follows you across devices.</p>`));
+  const tools=el("div","camptools");
+  tools.innerHTML=`<button class="btn primary sm" data-wiznew="1">✦ Build (guided)</button>
+    <button class="btn sm" data-buildnew="1">Quick build</button>
+    <button class="btn sm ghost" data-ddbimport="1">⬇ Import from D&amp;D Beyond</button>`;
+  wrap.appendChild(tools);
+  const grid=el("div","slots");
+  if(mine.length===0)grid.appendChild(el("div","empty","No characters yet. Build one or import from D&D Beyond to get started."));
+  mine.forEach(ch=>{
+    const s=el("div","charcard");const role=charRole(ch);
+    s.innerHTML=`${avatarHTML(ch,"lg")}
+      <div class="ci"><div class="cn">${esc(ch.name)} ${role?`<span class="rolechip">${esc(role)}</span>`:""}</div>
+        <div class="cc">${esc(ch.cls)}${ch.subtitle?" · "+esc(ch.subtitle):""}</div>
+        <div class="cstats"><span>AC ${effAC(ch).ac}</span><span>HP ${ch.hp??ch.maxHP}/${ch.maxHP}</span><span>Spd ${ch.speed}</span></div></div>
+      <div class="crow"><button class="btn sm primary" data-joinwith="${ch.id}">Join a campaign →</button>
+        <button class="btn sm ghost" data-buildedit="${ch.id}">Edit</button></div>`;
+    grid.appendChild(s);
+  });
+  wrap.appendChild(grid);
+  return wrap;
+}
+
 /* ============================ screen: campaigns ============================ */
 function screenCampaigns(){
   const wrap=el("div");
+  wrap.appendChild(el("div",null,navBar("campaigns")));
   wrap.appendChild(el("div","screenhead",
     `<div class="eyebrow">Choose your table</div><h1>Campaigns</h1>
      <p>Each campaign is its own save slot — party, characters, and progress kept together. The DM picks one, the party joins, and the session begins.</p>`));
@@ -832,7 +908,7 @@ function screenLobby(){
       <button class="btn sm primary" data-join="${ch.id}">Join</button>
     </div>`).join("")+`</div>`;
   join.innerHTML=`<h2>Roster</h2><div class="sub">Characters who can join this campaign</div>${jl}
-    <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn ghost sm" data-buildnew="1">+ New character</button><button class="btn ghost sm" data-ddbimport="1">⬇ Import from D&amp;D Beyond</button></div>`;
+    <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" data-wiznew="1">✦ Build (guided)</button><button class="btn ghost sm" data-buildnew="1">Quick build</button><button class="btn ghost sm" data-ddbimport="1">⬇ Import from D&amp;D Beyond</button></div>`;
   grid.appendChild(join);
 
   wrap.appendChild(grid);
@@ -877,7 +953,7 @@ function sheetView(ch){
   const {ac,overridden}=effAC(ch);
   // header
   w.appendChild(el("div","sheethead",
-    `<div class="token lg" style="${tokenStyle(ch)}">${ch.token}</div>
+    `${avatarHTML(ch,"lg")}
      <div class="who"><h1>${esc(ch.name)}</h1><div class="cl">${esc(ch.cls)} · ${esc(ch.subtitle||"")}</div></div>
      <button class="btn sm ghost" style="margin-left:auto" data-buildedit="${ch.id}">Edit sheet</button>`));
   // vitals
@@ -1637,6 +1713,21 @@ function openBuilder(charId,ret){
   STATE.ui.draft=charId?JSON.parse(JSON.stringify(STATE.roster[charId])):blankChar();
   STATE.ui.builderNew=!charId;STATE.ui.builderReturn=ret||"lobby";STATE.ui.screen="builder";render();
 }
+/* ============================ portrait generator ============================ */
+function portraitPrompt(ch){
+  const bits=["fantasy character portrait","head and shoulders",ch.subtitle||"",ch.cls||"",
+    ch.appearance||"",(charRole(ch)?charRole(ch)+" role":""),"dungeons and dragons","digital painting, dramatic lighting, highly detailed"];
+  return bits.filter(Boolean).join(", ");
+}
+function buildPortraitURL(ch,seed){
+  const p=encodeURIComponent(portraitPrompt(ch));
+  return `https://image.pollinations.ai/prompt/${p}?width=512&height=512&nologo=true&model=flux&seed=${seed||1}`;
+}
+function avatarHTML(ch,cls){ // cls: "lg"|"sm"|"" — uses portrait image if present
+  if(ch&&ch.portrait)return `<div class="token ${cls||""} hasimg" style="background-image:url('${ch.portrait}')"></div>`;
+  return `<div class="token ${cls||""}" style="${tokenStyle(ch)}">${esc(ch?ch.token:"?")}</div>`;
+}
+
 /* ============================ D&D Beyond import ============================ */
 const ABIL6=["str","dex","con","int","wis","cha"];
 const DDB_NAME={strength:"str",dexterity:"dex",constitution:"con",intelligence:"int",wisdom:"wis",charisma:"cha"};
@@ -1735,6 +1826,224 @@ function ddbCreate(existingId,openInBuilder){
   toast(existingId?"Character updated from D&D Beyond":"Imported "+ch.name);
 }
 
+/* ============================ guided builder (SRD 5.1 core) ============================ */
+const SRD={
+  races:{
+    "Human":{speed:30,size:"Medium",asi:{str:1,dex:1,con:1,int:1,wis:1,cha:1},traits:["Versatile: +1 to every ability"]},
+    "Hill Dwarf":{speed:25,size:"Medium",asi:{con:2,wis:1},traits:["Darkvision 60 ft","Dwarven Resilience (adv. & resist poison)","Stonecunning","Dwarven Toughness (+1 HP/level)"]},
+    "Mountain Dwarf":{speed:25,size:"Medium",asi:{con:2,str:2},traits:["Darkvision 60 ft","Dwarven Resilience","Dwarven Armor Training"]},
+    "High Elf":{speed:30,size:"Medium",asi:{dex:2,int:1},skills:["Perception"],traits:["Darkvision 60 ft","Fey Ancestry","Trance (4h rest)","Cantrip (one wizard cantrip)"]},
+    "Wood Elf":{speed:35,size:"Medium",asi:{dex:2,wis:1},skills:["Perception"],traits:["Darkvision 60 ft","Fey Ancestry","Trance","Mask of the Wild"]},
+    "Lightfoot Halfling":{speed:25,size:"Small",asi:{dex:2,cha:1},traits:["Lucky","Brave","Halfling Nimbleness","Naturally Stealthy"]},
+    "Stout Halfling":{speed:25,size:"Small",asi:{dex:2,con:1},traits:["Lucky","Brave","Halfling Nimbleness","Stout Resilience (adv. & resist poison)"]},
+    "Dragonborn":{speed:30,size:"Medium",asi:{str:2,cha:1},traits:["Draconic Ancestry","Breath Weapon","Damage Resistance"]},
+    "Rock Gnome":{speed:25,size:"Small",asi:{int:2,con:1},traits:["Darkvision 60 ft","Gnome Cunning","Artificer's Lore","Tinker"]},
+    "Half-Elf":{speed:30,size:"Medium",asi:{cha:2},chooseAsi:2,chooseSkills:2,traits:["Darkvision 60 ft","Fey Ancestry"]},
+    "Half-Orc":{speed:30,size:"Medium",asi:{str:2,con:1},skills:["Intimidation"],traits:["Darkvision 60 ft","Relentless Endurance","Savage Attacks"]},
+    "Tiefling":{speed:30,size:"Medium",asi:{cha:2,int:1},traits:["Darkvision 60 ft","Hellish Resistance (resist fire)","Infernal Legacy (Thaumaturgy)"]},
+  },
+  classes:{
+    "Barbarian":{hd:12,saves:["str","con"],skN:2,skills:["Animal Handling","Athletics","Intimidation","Nature","Perception","Survival"],feats:["Rage","Unarmored Defense"]},
+    "Bard":{hd:8,saves:["dex","cha"],skN:3,skills:["ANY"],feats:["Spellcasting","Bardic Inspiration (d6)"],spell:"cha"},
+    "Cleric":{hd:8,saves:["wis","cha"],skN:2,skills:["History","Insight","Medicine","Persuasion","Religion"],feats:["Spellcasting","Divine Domain"],spell:"wis"},
+    "Druid":{hd:8,saves:["int","wis"],skN:2,skills:["Arcana","Animal Handling","Insight","Medicine","Nature","Perception","Religion","Survival"],feats:["Druidic","Spellcasting"],spell:"wis"},
+    "Fighter":{hd:10,saves:["str","con"],skN:2,skills:["Acrobatics","Animal Handling","Athletics","History","Insight","Intimidation","Perception","Survival"],feats:["Fighting Style","Second Wind"]},
+    "Monk":{hd:8,saves:["str","dex"],skN:2,skills:["Acrobatics","Athletics","History","Insight","Religion","Stealth"],feats:["Unarmored Defense","Martial Arts"]},
+    "Paladin":{hd:10,saves:["wis","cha"],skN:2,skills:["Athletics","Insight","Intimidation","Medicine","Persuasion","Religion"],feats:["Divine Sense","Lay on Hands"]},
+    "Ranger":{hd:10,saves:["str","dex"],skN:3,skills:["Animal Handling","Athletics","Insight","Investigation","Nature","Perception","Stealth","Survival"],feats:["Favored Enemy","Natural Explorer"]},
+    "Rogue":{hd:8,saves:["dex","int"],skN:4,skills:["Acrobatics","Athletics","Deception","Insight","Intimidation","Investigation","Perception","Performance","Persuasion","Sleight of Hand","Stealth"],feats:["Expertise","Sneak Attack","Thieves' Cant"]},
+    "Sorcerer":{hd:6,saves:["con","cha"],skN:2,skills:["Arcana","Deception","Insight","Intimidation","Persuasion","Religion"],feats:["Spellcasting","Sorcerous Origin"],spell:"cha"},
+    "Warlock":{hd:8,saves:["wis","cha"],skN:2,skills:["Arcana","Deception","History","Intimidation","Investigation","Nature","Religion"],feats:["Otherworldly Patron","Pact Magic"],spell:"cha"},
+    "Wizard":{hd:6,saves:["int","wis"],skN:2,skills:["Arcana","History","Insight","Investigation","Medicine","Religion"],feats:["Spellcasting","Arcane Recovery"],spell:"int"},
+  },
+  backgrounds:{
+    "Acolyte":{skills:["Insight","Religion"],feature:"Shelter of the Faithful"},
+    "Criminal":{skills:["Deception","Stealth"],feature:"Criminal Contact"},
+    "Folk Hero":{skills:["Animal Handling","Survival"],feature:"Rustic Hospitality"},
+    "Noble":{skills:["History","Persuasion"],feature:"Position of Privilege"},
+    "Sage":{skills:["Arcana","History"],feature:"Researcher"},
+    "Soldier":{skills:["Athletics","Intimidation"],feature:"Military Rank"},
+    "Entertainer":{skills:["Acrobatics","Performance"],feature:"By Popular Demand"},
+    "Outlander":{skills:["Athletics","Survival"],feature:"Wanderer"},
+  },
+};
+const SKILL_ABILITY={Athletics:"str",Acrobatics:"dex","Sleight of Hand":"dex",Stealth:"dex",Arcana:"int",History:"int",Investigation:"int",Nature:"int",Religion:"int","Animal Handling":"wis",Insight:"wis",Medicine:"wis",Perception:"wis",Survival:"wis",Deception:"cha",Intimidation:"cha",Performance:"cha",Persuasion:"cha"};
+const ALL_SKILLS=Object.keys(SKILL_ABILITY);
+const STD_ARRAY=[15,14,13,12,10,8];
+const POINT_COST={8:0,9:1,10:2,11:3,12:4,13:5,14:7,15:9};
+const WIZ_STEPS=["Race","Class","Background","Abilities","Skills","Details","Review"];
+
+function newWiz(){return {step:0,race:null,cls:null,bg:null,method:"array",
+  assign:{str:"",dex:"",con:"",int:"",wis:"",cha:""},pb:{str:8,dex:8,con:8,int:8,wis:8,cha:8},
+  classSkills:[],raceSkills:[],heAsi:[],name:"",player:STATE.user?STATE.user.name:"",appearance:"",role:"",color:"#7a4fd0",portrait:null,portraitSeed:null};}
+function openWizard(){STATE.ui.wiz=newWiz();STATE.ui.wizReturn=STATE.ui.screen;STATE.ui.screen="wizard";render();}
+
+function wizBaseScores(wiz){ // scores before racial ASI
+  const s={};
+  if(wiz.method==="array"){ABIL6.forEach(a=>{const v=parseInt(wiz.assign[a],10);s[a]=isNaN(v)?10:v;});}
+  else if(wiz.method==="pointbuy"){ABIL6.forEach(a=>s[a]=wiz.pb[a]);}
+  else {ABIL6.forEach(a=>{const v=parseInt(wiz.assign[a],10);s[a]=isNaN(v)?10:v;});}
+  return s;
+}
+function wizFinalScores(wiz){
+  const s=wizBaseScores(wiz);const r=SRD.races[wiz.race];
+  if(r){Object.entries(r.asi||{}).forEach(([a,v])=>s[a]+=v); (wiz.heAsi||[]).forEach(a=>s[a]+=1);}
+  return s;
+}
+function wizSkills(wiz){ // merged skill proficiencies
+  const set=new Set();
+  const r=SRD.races[wiz.race];if(r&&r.skills)r.skills.forEach(x=>set.add(x));
+  (wiz.raceSkills||[]).forEach(x=>set.add(x));
+  (wiz.classSkills||[]).forEach(x=>set.add(x));
+  const bg=SRD.backgrounds[wiz.bg];if(bg)bg.skills.forEach(x=>set.add(x));
+  return [...set];
+}
+function wizToChar(wiz){
+  const scores=wizFinalScores(wiz);const sm=a=>Math.floor((scores[a]-10)/2);
+  const cls=SRD.classes[wiz.cls],race=SRD.races[wiz.race],bg=SRD.backgrounds[wiz.bg];
+  const prof=2;const conMod=sm("con");
+  let maxHP=(cls?cls.hd:8)+conMod;if(wiz.race==="Hill Dwarf")maxHP+=1;
+  const saveProf=cls?cls.saves.slice():[];
+  const skills=wizSkills(wiz);const skillSet=new Set(skills);
+  const pv=(sk)=>10+sm(SKILL_ABILITY[sk])+(skillSet.has(sk)?prof:0);
+  const passives={Perception:pv("Perception"),Investigation:pv("Investigation"),Insight:pv("Insight")};
+  const speed=race?race.speed:30;
+  const ac=10+sm("dex");
+  const spellAb=cls&&cls.spell?cls.spell.toUpperCase():"—";
+  const spellDC=spellAb!=="—"?8+prof+sm(cls.spell):0;
+  const spellAtk=spellAb!=="—"?prof+sm(cls.spell):0;
+  const abilities=[];
+  (cls?cls.feats:[]).forEach(f=>abilities.push(ab({name:f,type:"utility",source:wiz.cls,action:"—",text:"Level 1 "+wiz.cls+" feature."})));
+  (race?race.traits:[]).forEach(t=>abilities.push(ab({name:t.split(":")[0].split("(")[0].trim(),type:"utility",source:wiz.race,action:"—",text:t})));
+  if(bg)abilities.push(ab({name:bg.feature,type:"utility",source:wiz.bg,action:"—",text:wiz.bg+" background feature."}));
+  return {id:uid("ch"),name:wiz.name||"New Hero",player:wiz.player||"",cls:wiz.cls+" 1",
+    subtitle:[wiz.race,wiz.bg].filter(Boolean).join(" · "),level:1,color:wiz.color||"#7a4fd0",
+    token:((wiz.name||"?")[0]||"?").toUpperCase(),scores,saveProf,prof,baseAC:ac,maxHP,hp:maxHP,speed,
+    spellAbility:spellAb,spellDC,spellAtk,passives,charges:{},abilities,modifiers:[],role:wiz.role||"",
+    appearance:wiz.appearance,portrait:wiz.portrait,portraitSeed:wiz.portraitSeed};
+}
+
+function screenWizard(){
+  const wiz=STATE.ui.wiz;const w=el("div");const step=wiz.step;
+  w.appendChild(el("div","screenhead",`<div class="eyebrow">Guided build · SRD core</div><h1 style="font-size:clamp(22px,4vw,30px)">New character</h1>`));
+  // progress
+  const prog=el("div","wizprog");
+  prog.innerHTML=WIZ_STEPS.map((s,i)=>`<span class="wizstep ${i===step?"on":""} ${i<step?"done":""}">${i+1}. ${s}</span>`).join("");
+  w.appendChild(prog);
+  const body=el("div","wizbody");
+  body.appendChild(wizStep(wiz,step));
+  w.appendChild(body);
+  // nav
+  const nav=el("div","bbar");
+  const canNext=wizCanAdvance(wiz,step);
+  nav.innerHTML=`<button class="btn ghost" data-wizcancel="1">Cancel</button>
+    ${step>0?`<button class="btn" data-wizback="1">← Back</button>`:""}
+    ${step<WIZ_STEPS.length-1?`<button class="btn primary" data-wiznext="1" ${canNext?"":"disabled"}>Next →</button>`:`<button class="btn primary" data-wizcreate="1">Create character</button>`}`;
+  w.appendChild(nav);
+  return w;
+}
+function wizCanAdvance(wiz,step){
+  if(step===0)return !!wiz.race&&(SRD.races[wiz.race].chooseAsi?wiz.heAsi.length===SRD.races[wiz.race].chooseAsi:true)&&(SRD.races[wiz.race].chooseSkills?wiz.raceSkills.length===SRD.races[wiz.race].chooseSkills:true);
+  if(step===1)return !!wiz.cls;
+  if(step===2)return !!wiz.bg;
+  if(step===3){const s=wizBaseScores(wiz);if(wiz.method==="array"){const used=ABIL6.map(a=>wiz.assign[a]).filter(x=>x!=="");return used.length===6&&new Set(used).size===6;}return true;}
+  if(step===4){const need=SRD.classes[wiz.cls].skN;return wiz.classSkills.length===need;}
+  if(step===5)return !!(wiz.name&&wiz.name.trim());
+  return true;
+}
+function wizStep(wiz,step){
+  const d=el("div");
+  if(step===0){ // Race
+    d.innerHTML=`<div class="sub" style="margin-bottom:10px">Pick a lineage. Ability bonuses and traits apply automatically.</div>`;
+    const grid=el("div","pickgrid");
+    Object.entries(SRD.races).forEach(([n,r])=>{const asi=Object.entries(r.asi||{}).map(([a,v])=>a.toUpperCase()+" +"+v).join(", ");
+      grid.innerHTML+=`<button class="pickcard ${wiz.race===n?"on":""}" data-wizrace="${esc(n)}"><div class="pt">${esc(n)}</div><div class="pm">${asi||"—"} · ${r.speed} ft · ${r.size}</div></button>`;});
+    d.appendChild(grid);
+    const r=SRD.races[wiz.race];
+    if(r){let extra=`<div class="wizdetail"><b>Traits:</b> ${r.traits.join(" · ")}</div>`;
+      if(r.chooseAsi)extra+=`<div class="wizdetail"><b>Choose ${r.chooseAsi} abilities for +1:</b><div class="chiprow">${ABIL6.filter(a=>a!=="cha").map(a=>`<button class="chip ${wiz.heAsi.includes(a)?"on":""}" data-wizheasi="${a}">${a.toUpperCase()}</button>`).join("")}</div></div>`;
+      if(r.chooseSkills)extra+=`<div class="wizdetail"><b>Choose ${r.chooseSkills} skills:</b><div class="chiprow">${ALL_SKILLS.map(s=>`<button class="chip sm ${wiz.raceSkills.includes(s)?"on":""}" data-wizraceskill="${esc(s)}">${esc(s)}</button>`).join("")}</div></div>`;
+      d.innerHTML+=extra;}
+  } else if(step===1){ // Class
+    d.innerHTML=`<div class="sub" style="margin-bottom:10px">Your class sets hit points, saving throws, and your level-1 kit.</div>`;
+    const grid=el("div","pickgrid");
+    Object.entries(SRD.classes).forEach(([n,c])=>{grid.innerHTML+=`<button class="pickcard ${wiz.cls===n?"on":""}" data-wizclass="${esc(n)}"><div class="pt">${esc(n)}</div><div class="pm">d${c.hd} HD · ${c.saves.map(s=>s.toUpperCase()).join("/")} saves${c.spell?" · "+c.spell.toUpperCase()+" caster":""}</div></button>`;});
+    d.appendChild(grid);
+    const c=SRD.classes[wiz.cls];if(c)d.innerHTML+=`<div class="wizdetail"><b>Level 1:</b> ${c.feats.join(" · ")}</div>`;
+  } else if(step===2){ // Background
+    d.innerHTML=`<div class="sub" style="margin-bottom:10px">Backgrounds grant two skill proficiencies and a feature.</div>`;
+    const grid=el("div","pickgrid");
+    Object.entries(SRD.backgrounds).forEach(([n,b])=>{grid.innerHTML+=`<button class="pickcard ${wiz.bg===n?"on":""}" data-wizbg="${esc(n)}"><div class="pt">${esc(n)}</div><div class="pm">${b.skills.join(", ")}</div></button>`;});
+    d.appendChild(grid);
+  } else if(step===3){ // Abilities
+    d.innerHTML=`<div class="sub" style="margin-bottom:10px">Set your six ability scores. Racial bonuses are added on top.</div>
+      <div class="chiprow" style="margin-bottom:14px">
+        <button class="chip ${wiz.method==="array"?"on":""}" data-wizmethod="array">Standard array</button>
+        <button class="chip ${wiz.method==="pointbuy"?"on":""}" data-wizmethod="pointbuy">Point buy</button>
+        <button class="chip ${wiz.method==="manual"?"on":""}" data-wizmethod="manual">Manual</button></div>`;
+    const r=SRD.races[wiz.race];const final=wizFinalScores(wiz);
+    if(wiz.method==="array"){
+      const used=ABIL6.map(a=>wiz.assign[a]).filter(x=>x!=="");
+      d.innerHTML+=`<div class="sub">Assign each value once: ${STD_ARRAY.join(", ")}</div>`;
+      const grid=el("div","abilassign");
+      ABIL6.forEach(a=>{const racial=(r&&r.asi&&r.asi[a]||0)+((wiz.heAsi||[]).includes(a)?1:0);
+        grid.innerHTML+=`<div class="aarow"><span class="al">${a.toUpperCase()}</span>
+          <select data-wizassign="${a}"><option value="">—</option>${STD_ARRAY.map(v=>`<option value="${v}" ${wiz.assign[a]==v?"selected":""} ${used.includes(String(v))&&wiz.assign[a]!=v?"disabled":""}>${v}</option>`).join("")}</select>
+          <span class="ar">${racial?`+${racial}`:""} = <b>${final[a]}</b> (${mod(final[a])})</span></div>`;});
+      d.appendChild(grid);
+    } else if(wiz.method==="pointbuy"){
+      const spent=ABIL6.reduce((t,a)=>t+(POINT_COST[wiz.pb[a]]||0),0);const left=27-spent;
+      d.innerHTML+=`<div class="sub">Points left: <b style="color:${left<0?"var(--crit)":"var(--ok)"}">${left}</b> / 27 · each score 8–15</div>`;
+      const grid=el("div","abilassign");
+      ABIL6.forEach(a=>{const racial=(r&&r.asi&&r.asi[a]||0)+((wiz.heAsi||[]).includes(a)?1:0);
+        grid.innerHTML+=`<div class="aarow"><span class="al">${a.toUpperCase()}</span>
+          <span class="pbctl"><button class="hpbtn" data-wizpb="${a}|-1">−</button><b class="mono" style="width:24px;display:inline-block;text-align:center">${wiz.pb[a]}</b><button class="hpbtn" data-wizpb="${a}|1">+</button></span>
+          <span class="ar">${racial?`+${racial}`:""} = <b>${final[a]}</b> (${mod(final[a])})</span></div>`;});
+      d.appendChild(grid);
+    } else {
+      const grid=el("div","abilassign");
+      ABIL6.forEach(a=>{const racial=(r&&r.asi&&r.asi[a]||0)+((wiz.heAsi||[]).includes(a)?1:0);
+        grid.innerHTML+=`<div class="aarow"><span class="al">${a.toUpperCase()}</span>
+          <input data-wizassign="${a}" inputmode="numeric" value="${wiz.assign[a]||""}" style="width:60px" placeholder="10">
+          <span class="ar">${racial?`+${racial}`:""} = <b>${final[a]}</b></span></div>`;});
+      d.appendChild(grid);
+    }
+  } else if(step===4){ // Skills
+    const c=SRD.classes[wiz.cls];const pool=(c.skills[0]==="ANY")?ALL_SKILLS:c.skills;
+    const bgSk=SRD.backgrounds[wiz.bg].skills;const raceSk=(SRD.races[wiz.race].skills||[]).concat(wiz.raceSkills||[]);
+    const already=new Set([...bgSk,...raceSk]);
+    d.innerHTML=`<div class="sub" style="margin-bottom:10px">Pick <b>${c.skN}</b> ${wiz.cls} skills. Your background and race already grant: ${[...already].join(", ")||"none"}.</div>`;
+    const grid=el("div","chiprow");
+    pool.forEach(s=>{const owned=already.has(s);const picked=wiz.classSkills.includes(s);
+      grid.innerHTML+=`<button class="chip ${picked?"on":""}" data-wizclassskill="${esc(s)}" ${owned?"disabled title='already proficient'":""} style="${owned?"opacity:.45":""}">${esc(s)}${owned?" ✓":""}</button>`;});
+    d.appendChild(grid);
+  } else if(step===5){ // Details
+    d.innerHTML=`<div class="bgrid">
+      <div class="bfield"><label>Name</label><input data-wizf="name" value="${esc(wiz.name)}" placeholder="Character name"></div>
+      <div class="bfield"><label>Player</label><input data-wizf="player" value="${esc(wiz.player)}"></div>
+      <div class="bfield"><label>Party role</label><select data-wizf="role"><option value="">—</option>${ROLES.map(x=>`<option ${wiz.role===x?"selected":""}>${x}</option>`).join("")}</select></div>
+      <div class="bfield"><label>Color</label><input type="color" data-wizf="color" value="${wiz.color}"></div></div>
+      <div class="bsec" style="margin-top:14px"><h2>Portrait</h2>
+      <div class="portraitbox"><div class="pv" style="${wiz.portrait?`background-image:url('${wiz.portrait}')`:""}">${wiz.portrait?"":"optional"}</div>
+      <div class="pc"><div class="bfield"><label>Appearance</label><input data-wizf="appearance" value="${esc(wiz.appearance)}" placeholder="e.g. tall tiefling, crimson skin, golden eyes"></div>
+      <div style="margin-top:8px"><button class="btn sm" data-wizportrait="1">✨ Generate portrait</button>${wiz.portrait?` <button class="btn sm ghost" data-wizportrait="re">↻</button>`:""}</div></div></div></div>`;
+  } else { // Review
+    const ch=wizToChar(wiz);
+    d.innerHTML=`<div class="acctrow">${avatarHTML(ch,"lg")}<div class="ai"><div class="nm">${esc(ch.name)}</div><div class="em">${esc(ch.cls)} · ${esc(ch.subtitle)}</div></div></div>
+      <div class="vitals" style="margin-top:10px">
+        <div class="vital"><div class="k">AC</div><div class="v">${ch.baseAC}</div></div>
+        <div class="vital"><div class="k">HP</div><div class="v">${ch.maxHP}</div></div>
+        <div class="vital"><div class="k">Speed</div><div class="v">${ch.speed}</div></div>
+        <div class="vital"><div class="k">Prof</div><div class="v">+${ch.prof}</div></div>
+        ${ch.spellDC?`<div class="vital"><div class="k">Spell DC</div><div class="v">${ch.spellDC}</div></div>`:""}</div>
+      <div class="abil6" style="margin-top:8px">${ABIL6.map(a=>`<div class="ascore ${ch.saveProf.includes(a)?"sv":""}"><div class="ab">${a}${ch.saveProf.includes(a)?" •":""}</div><div class="md">${mod(ch.scores[a])}</div><div class="sc">${ch.scores[a]}</div></div>`).join("")}</div>
+      <div class="wizdetail" style="margin-top:12px"><b>Skills:</b> ${wizSkills(wiz).join(", ")||"none"}</div>
+      <div class="wizdetail"><b>Features:</b> ${ch.abilities.map(a=>esc(a.name)).join(" · ")}</div>
+      <div class="authnote">Unarmored AC shown — equip armor in the sheet to raise it. You can fine-tune anything in the full builder after creating.</div>`;
+  }
+  return d;
+}
+
 function screenBuilder(){
   const d=STATE.ui.draft;const w=el("div");
   w.appendChild(el("div","screenhead",`<div class="eyebrow">${STATE.ui.builderNew?"New character":"Edit character"}</div>
@@ -1747,6 +2056,16 @@ function screenBuilder(){
     ${inp("Name","name")}${inp("Player","player")}${inp("Class & level (text)","cls")}${inp("Subtitle (race/subclass)","subtitle")}
     ${inp("Level","level","num")}${inp("Token letter","token")}${inp("Color","color","color")}
     <div class="bfield"><label>Party role</label><select data-bf="role"><option value="">—</option>${ROLES.map(x=>`<option ${d.role===x?"selected":""}>${x}</option>`).join("")}</select></div></div></div>`;
+  // portrait
+  form.innerHTML+=`<div class="bsec"><h2>Portrait</h2><div class="sub">Describe your hero's look, then generate an AI portrait. It becomes their avatar.</div>
+    <div class="portraitbox">
+      <div class="pv" style="${d.portrait?`background-image:url('${d.portrait}')`:""}">${d.portrait?"":"no portrait yet"}</div>
+      <div class="pc">
+        <div class="bfield"><label>Appearance</label><input data-bf="appearance" value="${esc(d.appearance||"")}" placeholder="e.g. silver-haired half-elf, scarred, violet eyes, dark leather"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="btn sm" data-genportrait="1">✨ Generate portrait</button>
+          ${d.portrait?`<button class="btn sm ghost" data-genportrait="re">↻ Regenerate</button><button class="btn sm ghost" data-clearportrait="1">Remove</button>`:""}</div>
+        <div style="font-size:11.5px;color:var(--faint);margin-top:8px">Free AI generation — may take a few seconds and quality varies. Uses your name, race, class, role, and the description above.</div>
+      </div></div></div>`;
   // scores
   let sc=`<div class="bsec"><h2>Ability scores</h2><div class="scoregrid">`;
   ["str","dex","con","int","wis","cha"].forEach(k=>sc+=`<div class="bfield"><label>${k}</label><input data-bf="scores.${k}" inputmode="numeric" value="${d.scores[k]}"></div>`);
@@ -2101,6 +2420,9 @@ document.addEventListener("click",e=>{
   if(d.rmmod){STATE.ui.draft.modifiers.splice(+d.rmmod,1);render();return;}
   if(d.modsave){const dr=STATE.ui.draft;const o={id:uid("mod"),label:($("#mLabel").value||"Modifier").trim(),source:$("#mSource").value,kind:$("#mKind").value,value:parseInt($("#mValue").value,10)||0,active:true};
     if(d.modsave==="new")dr.modifiers.push(o);else{o.id=dr.modifiers[+d.modsave].id;dr.modifiers[+d.modsave]=o;}closeModal();render();return;}
+  if(d.genportrait){const dr=STATE.ui.draft;const seed=(d.genportrait==="re"||dr.portrait)?Math.floor(Math.random()*1e6):Math.floor(Math.random()*1e6);
+    dr.portrait=buildPortraitURL(dr,seed);dr.portraitSeed=seed;render();toast("Generating portrait…");return;}
+  if(d.clearportrait){STATE.ui.draft.portrait=null;render();return;}
   if(d.buildsave){const dr=STATE.ui.draft;if(dr.token)dr.token=String(dr.token).slice(0,2);
     if(STATE.cloud&&!dr.owner_id)dr.owner_id=ME();
     STATE.roster[dr.id]=dr;const ret=STATE.ui.builderReturn||"lobby";STATE.ui.draft=null;STATE.ui.screen=ret;render();toast("Character saved");return;}
@@ -2120,6 +2442,46 @@ document.addEventListener("change",e=>{
     const r=new FileReader();r.onload=()=>{MAPIMG[curCamp().id]=r.result;render();};r.readAsDataURL(f);return;}
   const bf=e.target.closest&&e.target.closest("[data-bf]");
   if(bf&&STATE.ui.draft){const num=bf.getAttribute("inputmode")==="numeric";let v=bf.value;if(num){v=parseInt(v,10);if(isNaN(v))v=0;}setPath(STATE.ui.draft,bf.dataset.bf,v);}
+});
+
+/* wizard + characters events */
+document.addEventListener("click",e=>{
+  const t=e.target.closest("[data-wiznew],[data-wizrace],[data-wizclass],[data-wizbg],[data-wizheasi],[data-wizraceskill],[data-wizclassskill],[data-wizmethod],[data-wizpb],[data-wizportrait],[data-wiznext],[data-wizback],[data-wizcancel],[data-wizcreate],[data-joinwith]");
+  if(!t)return;const d=t.dataset;const wiz=STATE.ui.wiz;
+  if(d.wiznew!=null){openWizard();return;}
+  if(d.joinwith!=null){const ch=STATE.roster[d.joinwith];if(!ch)return;
+    if(!STATE.cloud){toast("Sign in (☁) to join online campaigns");return;}
+    joinModal("",d.joinwith);return;}
+  if(!wiz)return;
+  if(d.wizrace!=null){wiz.race=d.wizrace;wiz.heAsi=[];wiz.raceSkills=[];render();return;}
+  if(d.wizclass!=null){wiz.cls=d.wizclass;wiz.classSkills=[];render();return;}
+  if(d.wizbg!=null){wiz.bg=d.wizbg;render();return;}
+  if(d.wizheasi!=null){const a=d.wizheasi;const max=SRD.races[wiz.race].chooseAsi;
+    if(wiz.heAsi.includes(a))wiz.heAsi=wiz.heAsi.filter(x=>x!==a);else if(wiz.heAsi.length<max)wiz.heAsi.push(a);render();return;}
+  if(d.wizraceskill!=null){const s=d.wizraceskill;const max=SRD.races[wiz.race].chooseSkills;
+    if(wiz.raceSkills.includes(s))wiz.raceSkills=wiz.raceSkills.filter(x=>x!==s);else if(wiz.raceSkills.length<max)wiz.raceSkills.push(s);render();return;}
+  if(d.wizclassskill!=null){const s=d.wizclassskill;const max=SRD.classes[wiz.cls].skN;
+    if(wiz.classSkills.includes(s))wiz.classSkills=wiz.classSkills.filter(x=>x!==s);else if(wiz.classSkills.length<max)wiz.classSkills.push(s);render();return;}
+  if(d.wizmethod!=null){wiz.method=d.wizmethod;render();return;}
+  if(d.wizpb!=null){const [a,delta]=d.wizpb.split("|");const nv=wiz.pb[a]+(+delta);if(nv<8||nv>15)return;
+    const spent=ABIL6.reduce((s,x)=>s+(POINT_COST[x===a?nv:wiz.pb[x]]||0),0);if((+delta)>0&&spent>27){toast("Not enough points");return;}wiz.pb[a]=nv;render();return;}
+  if(d.wizportrait!=null){const tmp={name:wiz.name,subtitle:[wiz.race,wiz.bg].filter(Boolean).join(" · "),cls:wiz.cls,appearance:wiz.appearance,role:wiz.role};
+    const seed=Math.floor(Math.random()*1e6);wiz.portrait=buildPortraitURL(tmp,seed);wiz.portraitSeed=seed;render();toast("Generating portrait…");return;}
+  if(d.wizback!=null){wiz.step=Math.max(0,wiz.step-1);render();return;}
+  if(d.wiznext!=null){if(wizCanAdvance(wiz,wiz.step))wiz.step=Math.min(WIZ_STEPS.length-1,wiz.step+1);render();return;}
+  if(d.wizcancel!=null){STATE.ui.wiz=null;STATE.ui.screen=STATE.ui.wizReturn||"characters";render();return;}
+  if(d.wizcreate!=null){const ch=wizToChar(wiz);if(STATE.cloud)ch.owner_id=ME();STATE.roster[ch.id]=ch;STATE.ui.wiz=null;
+    STATE.ui.draft=null;STATE.ui.screen="characters";render();toast("Created "+ch.name);return;}
+});
+document.addEventListener("change",e=>{
+  const wiz=STATE.ui.wiz;if(!wiz)return;
+  if(e.target.dataset.wizassign!=null){wiz.assign[e.target.dataset.wizassign]=e.target.value;render();return;}
+  if(e.target.dataset.wizf!=null){wiz[e.target.dataset.wizf]=e.target.value;if(["role","color"].includes(e.target.dataset.wizf))render();return;}
+});
+document.addEventListener("input",e=>{
+  const wiz=STATE.ui.wiz;if(!wiz)return;
+  if(e.target.dataset.wizassign!=null&&wiz.method==="manual"){wiz.assign[e.target.dataset.wizassign]=e.target.value;}
+  if(e.target.dataset.wizf!=null&&!["role","color"].includes(e.target.dataset.wizf)){wiz[e.target.dataset.wizf]=e.target.value;}
 });
 
 /* theme toggle */
@@ -2152,7 +2514,7 @@ const Cloud={
   cloudShell(){const theme=STATE&&STATE.ui?STATE.ui.theme:null;
     return {roster:{},campaigns:{},trash:[],diceHist:(STATE&&STATE.diceHist)||[],
       user:STATE.user,cloud:true,
-      ui:{screen:"campaigns",campId:null,viewAs:"dm",tab:"sheet",calcAbility:null,theme}};},
+      ui:{screen:"characters",campId:null,viewAs:"dm",tab:"sheet",calcAbility:null,theme}};},
   async enter(user){
     const name=(user.user_metadata&&user.user_metadata.display_name)||(user.email||"").split("@")[0];
     STATE.user={id:user.id,email:user.email,name};
@@ -2311,11 +2673,13 @@ async function doAuth(mode){
   }catch(e){err.textContent=e.message||"Something went wrong.";}
 }
 let PENDING_JOIN=null;
-async function joinModal(prefill){
-  const mine=Object.values(STATE.roster).filter(ch=>(ch.owner_id||ME())===ME());
+async function joinModal(prefill,lockChar){
+  let mine=Object.values(STATE.roster).filter(ch=>(ch.owner_id||ME())===ME());
+  if(lockChar)mine=mine.filter(ch=>ch.id===lockChar);
   let picker;
   if(mine.length===0)picker=`<div class="authnote">You'll need a character first. Create one, then come back to join.</div>
     <div style="margin-top:10px"><button class="btn" data-newcharjoin="1">+ New character</button></div>`;
+  else if(lockChar)picker=`<input type="hidden" id="joChar" value="${esc(lockChar)}"><div class="authnote">Joining with <b>${esc(mine[0].name)}</b>.</div>`;
   else picker=`<div class="field"><label>Join with which character?</label><select id="joChar">${mine.map(c=>`<option value="${c.id}">${esc(c.name)} — ${esc(c.cls)}</option>`).join("")}</select></div>`;
   openModal(`<h2>Join a campaign</h2>
     <div class="field"><label>Invite code</label><input id="joCode" placeholder="6-character code" value="${esc(prefill||"")}" style="text-transform:uppercase;letter-spacing:.1em;font-family:var(--f-mono)"></div>
