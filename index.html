@@ -439,9 +439,20 @@ select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px
 .trashrow{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--line);border-radius:11px;background:var(--bg3);margin-bottom:7px}
 .trashrow .ti{flex:1}.trashrow .ti .n{font-weight:600;font-size:13.5px}.trashrow .ti .m{font-size:11px;color:var(--faint)}
 .bigta{width:100%;min-height:130px;background:var(--bg3);border:1px solid var(--line2);border-radius:10px;padding:11px;font-family:var(--f-mono);font-size:11.5px;color:var(--fg);resize:vertical}
+/* ---- auth / cloud ---- */
+#acctBtn.online{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,var(--line2))}
+.authtabs{display:flex;gap:6px;margin-bottom:14px}
+.authtab{flex:1;padding:9px;border:1px solid var(--line2);background:var(--bg3);border-radius:10px;font-weight:600;font-size:13.5px;color:var(--muted)}
+.authtab.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.autherr{font-size:12.5px;color:var(--crit);margin-top:4px;min-height:1px}
+.authnote{font-size:12px;color:var(--muted);margin-top:12px;line-height:1.5}
+.acctrow{display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid var(--line);border-radius:12px;background:var(--bg3);margin-bottom:14px}
+.acctrow .av{width:38px;height:38px;border-radius:11px;flex:none;background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 55%,#000));display:grid;place-items:center;color:#fff;font-family:var(--f-display);font-weight:900}
+.acctrow .ai{flex:1;min-width:0}.acctrow .ai .nm{font-weight:700;font-size:14px}.acctrow .ai .em{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .foot{max-width:1120px;margin:30px auto 0;padding:0 clamp(16px,4vw,28px);color:var(--faint);font-size:12px;line-height:1.6}
 </style>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0"></script>
 <div id="bar">
   <div class="brand" data-nav="campaigns">
     <svg class="rune" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2l2.6 5.6L21 8.4l-4.5 4.3L17.8 19 12 15.8 6.2 19l1.3-6.3L3 8.4l6.4-.8z"/></svg>
@@ -451,6 +462,7 @@ select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px
   <div class="spacer"></div>
   <div class="viewas" id="viewas" hidden></div>
   <button class="iconbtn" id="diceBtn" title="Dice roller" aria-label="Dice roller">🎲</button>
+  <button class="iconbtn" id="acctBtn" title="Account" aria-label="Account">☁</button>
   <button class="iconbtn" id="themeBtn" title="Toggle theme" aria-label="Toggle theme">◐</button>
 </div>
 
@@ -674,10 +686,15 @@ function render(){
     ctx.innerHTML=`<span>›</span><b>${esc(camp.name)}</b>`+
       (camp.session.live?` <span class="pill live"><span class="dot"></span>Live</span>`:` <span class="pill"><span class="dot"></span>In lobby</span>`);
     if(ui.screen==="play"){
-      va.hidden=false;
-      const opts=[`<option value="dm">Dungeon Master</option>`].concat(
-        camp.party.map(id=>`<option value="${id}" ${ui.viewAs===id?"selected":""}>${esc(STATE.roster[id].name)}</option>`));
-      va.innerHTML=`<label>Viewing as</label><select class="sel" id="vaSel">${opts.join("")}</select>`;
+      if(STATE.cloud&&!amDM(camp)){ // players are locked to their own character
+        const mine=myCharId(camp);if(mine&&STATE.roster[mine])ui.viewAs=mine;
+        va.hidden=true;
+      }else{
+        va.hidden=false;
+        const opts=[`<option value="dm">Dungeon Master</option>`].concat(
+          camp.party.filter(id=>STATE.roster[id]).map(id=>`<option value="${id}" ${ui.viewAs===id?"selected":""}>${esc(STATE.roster[id].name)}</option>`));
+        va.innerHTML=`<label>Viewing as</label><select class="sel" id="vaSel">${opts.join("")}</select>`;
+      }
     } else va.hidden=true;
   }
   const scr=$("#screen");scr.innerHTML="";
@@ -687,13 +704,19 @@ function render(){
   else if(ui.screen==="builder")scr.appendChild(screenBuilder());
   $("#foot").innerHTML=footNote();
   save();
+  if(STATE.cloud)Cloud.afterRender();
 }
 function footNote(){
+  if(STATE.cloud){
+    if(STATE.ui.screen==="play")
+      return "Live mode: the DM runs the board and its state syncs to everyone. Players watch their own sheet update in real time. Sign out from the ☁ menu.";
+    return "Signed in as <b>"+esc(STATE.user.name||STATE.user.email)+"</b>. Your campaigns and characters sync to your whole party, live and across devices.";
+  }
   if(STATE.ui.screen==="campaigns")
-    return "Single-device prototype. Everything is editable and saved in this browser. Live multi-device sync, accounts, maps, and character art come with the backend step.";
+    return "Solo mode — saved in this browser only. Tap ☁ to sign in and sync with your party across devices.";
   if(STATE.ui.screen==="play")
-    return "Prototype note: the <b>Viewing as</b> switch stands in for each person's own screen. On the real build, every player sees only their own sheet and the DM sees all — live, across devices.";
-  return "Prototype — campaign state is saved locally in this browser only.";
+    return "Solo mode: the <b>Viewing as</b> switch previews each seat. Sign in (☁) for real live multi-device play.";
+  return "Solo mode — saved locally in this browser.";
 }
 
 /* ============================ screen: campaigns ============================ */
@@ -774,7 +797,7 @@ function screenLobby(){
 
   // join panel
   const join=el("div","panel");
-  const available=Object.values(STATE.roster).filter(ch=>!camp.party.includes(ch.id));
+  const available=Object.values(STATE.roster).filter(ch=>!camp.party.includes(ch.id)&&(!STATE.cloud||(ch.owner_id||ME())===ME()));
   let jl="";
   if(available.length===0)jl=`<div class="empty">Every character is in the party.</div>`;
   else jl=`<div class="joinable">`+available.map(ch=>`
@@ -1235,7 +1258,7 @@ function advanceTurn(b,guard){
   b.turnIdx++;if(b.turnIdx>=b.order.length){b.turnIdx=0;b.round++;blog(b,`— Round ${b.round} —`);}
   enterTurn(b,true,guard);
 }
-function canAct(b,isDM){const c=curCombatant(b);if(!c)return false;if(isDM)return true;return c.charId===STATE.ui.viewAs;}
+function canAct(b,isDM){const c=curCombatant(b);if(!c)return false;if(STATE.cloud)return isDM;if(isDM)return true;return c.charId===STATE.ui.viewAs;}
 function reorder(b,id,dir){const i=b.order.indexOf(id);const j=i+dir;if(j<0||j>=b.order.length)return;
   const cur=b.order[b.turnIdx];[b.order[i],b.order[j]]=[b.order[j],b.order[i]];b.turnIdx=b.order.indexOf(cur);}
 
@@ -1735,14 +1758,27 @@ document.addEventListener("click",e=>{
   if(d.newcamp){newCampaignModal();return;}
   if(d.createcamp){
     const name=($("#ncName").value||"").trim()||"Untitled Campaign";
-    const dm=($("#ncDM").value||"Turtle").trim();
+    const dm=STATE.cloud?(STATE.user.name||"DM"):(($("#ncDM").value||"Turtle").trim());
     const id=uid("camp");
-    STATE.campaigns[id]={id,name,dm,created:Date.now(),lastPlayed:Date.now(),party:[],ready:{},session:{live:false},settings:{cooldowns:true}};
+    STATE.campaigns[id]={id,name,dm,dm_id:STATE.cloud?ME():null,created:Date.now(),lastPlayed:Date.now(),party:[],ready:{},members:[],lore:[],session:{live:false},settings:{cooldowns:true}};
     STATE.ui.campId=id;closeModal();go("lobby");toast("Campaign created");return;}
-  if(d.del){const c=STATE.campaigns[d.del];if(!STATE.trash)STATE.trash=[];STATE.trash.unshift({camp:c,at:Date.now()});delete STATE.campaigns[d.del];render();toast("Moved to Recently Deleted — restore anytime");return;}
-  if(d.join){const camp=curCamp();if(!camp.party.includes(d.join)){camp.party.push(d.join);camp.ready[d.join]=false;}render();toast(STATE.roster[d.join].name+" joined");return;}
-  if(d.leave){const camp=curCamp();camp.party=camp.party.filter(x=>x!==d.leave);delete camp.ready[d.leave];render();return;}
-  if(d.ready){const camp=curCamp();camp.ready[d.ready]=!camp.ready[d.ready];render();return;}
+  if(d.del){const c=STATE.campaigns[d.del];
+    if(STATE.cloud){if(!amDM(c)){toast("Only the DM can delete this campaign");return;}Cloud.delCampaign(d.del);delete STATE.campaigns[d.del];render();toast("Campaign deleted");return;}
+    if(!STATE.trash)STATE.trash=[];STATE.trash.unshift({camp:c,at:Date.now()});delete STATE.campaigns[d.del];render();toast("Moved to Recently Deleted — restore anytime");return;}
+  if(d.join){const camp=curCamp();
+    if(STATE.cloud){const ch=STATE.roster[d.join];if(!ch||(ch.owner_id&&ch.owner_id!==ME())){toast("You can only join with your own character");return;}
+      if(myMember(camp)){toast("You're already in with a character");return;}
+      camp.members.push({campaign_id:camp.id,user_id:ME(),character_id:d.join,role:amDM(camp)?"dm":"player",ready:false});}
+    if(!camp.party.includes(d.join)){camp.party.push(d.join);camp.ready[d.join]=false;}
+    if(STATE.cloud)Cloud.join(camp.id,d.join);
+    render();toast(STATE.roster[d.join].name+" joined");return;}
+  if(d.leave){const camp=curCamp();
+    if(STATE.cloud){const m=(camp.members||[]).find(x=>x.character_id===d.leave);if(m&&m.user_id!==ME()&&!amDM(camp)){toast("Only that player or the DM can remove them");return;}if(m){Cloud.leaveCamp(camp.id,m.user_id);camp.members=camp.members.filter(x=>x!==m);}}
+    camp.party=camp.party.filter(x=>x!==d.leave);delete camp.ready[d.leave];render();return;}
+  if(d.ready){const camp=curCamp();
+    if(STATE.cloud){const m=(camp.members||[]).find(x=>x.character_id===d.ready);if(!m||(m.user_id!==ME()&&!amDM(camp))){toast("You can only ready your own character");return;}
+      const nv=!camp.ready[d.ready];camp.ready[d.ready]=nv;if(m)m.ready=nv;Cloud.setReady(camp.id,nv);render();return;}
+    camp.ready[d.ready]=!camp.ready[d.ready];render();return;}
   if(d.startsession){const camp=curCamp();camp.session.live=true;camp.lastPlayed=Date.now();STATE.ui.screen="play";STATE.ui.tab="sheet";
     if(STATE.ui.viewAs!=="dm"&&!camp.party.includes(STATE.ui.viewAs))STATE.ui.viewAs="dm";render();toast("Session started — the night begins");return;}
   if(d.endsession){const camp=curCamp();camp.session.live=false;go("lobby");toast("Session ended");return;}
@@ -1815,6 +1851,7 @@ let PENDING_PHOTO=null;
 document.addEventListener("click",e=>{
   const t=e.target.closest("[data-startbtl],[data-endbtl],[data-addenemy],[data-addenemysave],[data-nextturn],[data-cell],[data-selbtl],[data-dmgc],[data-revhp],[data-revac],[data-rmc],[data-addnote],[data-delnote],[data-brollinit],[data-rollallinit],[data-begincombat],[data-reroll],[data-reup],[data-redn],[data-passturn],[data-ballroll],[data-bclear],[data-bmod],[data-bperinst],[data-bbonus],[data-bapply],[data-eapply],[data-cond],[data-adddot],[data-dotsave],[data-rmdot]");
   if(!t)return;const d=t.dataset;const camp=curCamp();const b=migrateBattle(ensureBattle(camp));const isDM=STATE.ui.viewAs==="dm";
+  if(STATE.cloud&&!isDM&&!("addnote" in d)&&!("delnote" in d)){toast("The DM is running this encounter");return;}
   if(d.startbtl){startEncounter(camp);render();return;}
   if(d.endbtl){b.active=false;b.phase="none";render();toast("Encounter ended");return;}
   if(d.reroll){b.phase="setup";b.combatants.forEach(c=>c.initRoll=null);render();return;}
@@ -1865,11 +1902,12 @@ document.addEventListener("click",e=>{
     blog(b,`${c?c.name:"Enemy"} hits ${tgt.name} for ${v}.`);advanceTurn(b,0);render();toast(`${v} to ${tgt.name}`);return;}
   if(d.addnote){const txt=($("#noteText").value||"").trim();if(!txt&&!PENDING_PHOTO){toast("Write something first");return;}
     if(!camp.lore)camp.lore=[];
-    const who=STATE.ui.viewAs==="dm"?"DM":(STATE.roster[STATE.ui.viewAs]?STATE.roster[STATE.ui.viewAs].name:"Player");
-    const id=uid("n");camp.lore.push({id,author:who,ts:Date.now(),text:txt,hadPhoto:!!PENDING_PHOTO});
+    const who=STATE.cloud?(STATE.user.name||"Player"):(STATE.ui.viewAs==="dm"?"DM":(STATE.roster[STATE.ui.viewAs]?STATE.roster[STATE.ui.viewAs].name:"Player"));
+    const id=uid("n");const note={id,author:who,ts:Date.now(),text:txt,hadPhoto:!!PENDING_PHOTO};camp.lore.push(note);
     if(PENDING_PHOTO){PHOTOS[id]=PENDING_PHOTO;PENDING_PHOTO=null;}
+    if(STATE.cloud)Cloud.addLore(camp.id,note);
     render();toast("Note added");return;}
-  if(d.delnote){camp.lore=(camp.lore||[]).filter(n=>n.id!==d.delnote);delete PHOTOS[d.delnote];render();return;}
+  if(d.delnote){if(STATE.cloud){try{SB.from("lore_notes").delete().eq("id",d.delnote);}catch(e){}}camp.lore=(camp.lore||[]).filter(n=>n.id!==d.delnote);delete PHOTOS[d.delnote];render();return;}
 });
 document.addEventListener("change",e=>{
   if(e.target.id==="notePhoto"){const f=e.target.files&&e.target.files[0];if(!f)return;
@@ -1901,6 +1939,9 @@ const _diceBtn=$("#diceBtn");if(_diceBtn)_diceBtn.addEventListener("click",diceD
 document.addEventListener("click",e=>{
   const t=e.target.closest("[data-dieface],[data-adv],[data-roll],[data-copysave],[data-importsave],[data-maptool],[data-mapcell],[data-maptok],[data-mapreveal],[data-saveprof],[data-addcharge],[data-rmcharge],[data-chargesave],[data-addab],[data-editab],[data-rmab],[data-absave],[data-addmod],[data-rmmod],[data-modsave],[data-buildsave],[data-buildcancel],[data-buildnew],[data-buildedit],[data-deathsave],[data-restore],[data-purge],[data-pinsave],[data-export]");
   if(!t)return;const d=t.dataset;
+  // In cloud mode the DM owns the shared map; players can't paint it
+  if(STATE.cloud&&STATE.ui.viewAs!=="dm"&&("maptool" in d||"mapcell" in d||"maptok" in d||"mapreveal" in d||"pinsave" in d)){toast("The DM controls the map");return;}
+  if(STATE.cloud&&("export" in d||"importsave" in d)){toast("Your table already syncs to the cloud — no export needed");return;}
   if(d.dieface){DICE.die=+d.dieface;diceDrawer();return;}
   if(d.adv){DICE.adv=d.adv;diceDrawer();return;}
   if(d.roll){doDiceRoll();return;}
@@ -1936,7 +1977,9 @@ document.addEventListener("click",e=>{
   if(d.rmmod){STATE.ui.draft.modifiers.splice(+d.rmmod,1);render();return;}
   if(d.modsave){const dr=STATE.ui.draft;const o={id:uid("mod"),label:($("#mLabel").value||"Modifier").trim(),source:$("#mSource").value,kind:$("#mKind").value,value:parseInt($("#mValue").value,10)||0,active:true};
     if(d.modsave==="new")dr.modifiers.push(o);else{o.id=dr.modifiers[+d.modsave].id;dr.modifiers[+d.modsave]=o;}closeModal();render();return;}
-  if(d.buildsave){const dr=STATE.ui.draft;if(dr.token)dr.token=String(dr.token).slice(0,2);STATE.roster[dr.id]=dr;const ret=STATE.ui.builderReturn||"lobby";STATE.ui.draft=null;STATE.ui.screen=ret;render();toast("Character saved");return;}
+  if(d.buildsave){const dr=STATE.ui.draft;if(dr.token)dr.token=String(dr.token).slice(0,2);
+    if(STATE.cloud&&!dr.owner_id)dr.owner_id=ME();
+    STATE.roster[dr.id]=dr;const ret=STATE.ui.builderReturn||"lobby";STATE.ui.draft=null;STATE.ui.screen=ret;render();toast("Character saved");return;}
   if(d.buildcancel){const ret=STATE.ui.builderReturn||"lobby";STATE.ui.draft=null;STATE.ui.screen=ret;render();return;}
   if(d.buildnew){openBuilder(null,STATE.ui.screen);return;}
   if(d.buildedit){openBuilder(d.buildedit,STATE.ui.screen);return;}
@@ -1963,8 +2006,176 @@ $("#themeBtn").addEventListener("click",()=>{
   root.setAttribute("data-theme",next);STATE.ui.theme=next;save();
 });
 
+/* ============================ cloud (Supabase) ============================ */
+const SB_URL="https://tocngduvalglawxycaal.supabase.co";
+const SB_KEY="sb_publishable_G65-RPLlw3Zq9VcSi7DagA_2a6fG5Ge";
+let SB=null;
+try{ if(window.supabase&&window.supabase.createClient) SB=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true}}); }catch(e){ console.warn("Supabase init failed",e); }
+
+function hashStr(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))|0;return h;}
+function debounce(fn,ms){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);};}
+function ME(){return STATE.user&&STATE.user.id;}
+function myMember(camp){return (camp.members||[]).find(m=>m.user_id===ME());}
+function myCharId(camp){const m=myMember(camp);return m?m.character_id:null;}
+function amDM(camp){return camp&&camp.dm_id===ME();}
+
+const PROF={};
+const Cloud={
+  _charHash:{},_campHash:{},_chan:null,
+  cloudShell(){const theme=STATE&&STATE.ui?STATE.ui.theme:null;
+    return {roster:{},campaigns:{},trash:[],diceHist:(STATE&&STATE.diceHist)||[],
+      user:STATE.user,cloud:true,
+      ui:{screen:"campaigns",campId:null,viewAs:"dm",tab:"sheet",calcAbility:null,theme}};},
+  async enter(user){
+    const name=(user.user_metadata&&user.user_metadata.display_name)||(user.email||"").split("@")[0];
+    STATE.user={id:user.id,email:user.email,name};
+    STATE=Object.assign(Cloud.cloudShell(),{user:STATE.user});
+    await Cloud.loadAll();
+    Cloud.subscribe();
+    render();
+    updateAcctBtn();
+  },
+  async leave(){
+    try{ if(Cloud._chan){ SB.removeChannel(Cloud._chan); Cloud._chan=null; } }catch(e){}
+    STATE=freshState();      // back to solo demo
+    STATE.cloud=false;STATE.user=null;
+    if(STATE.ui.theme)document.documentElement.setAttribute("data-theme",STATE.ui.theme);
+    render();updateAcctBtn();
+  },
+  async loadAll(){
+    try{
+      const [profs,chars,camps,mems,lore]=await Promise.all([
+        SB.from("profiles").select("*"),
+        SB.from("characters").select("*"),
+        SB.from("campaigns").select("*"),
+        SB.from("campaign_members").select("*"),
+        SB.from("lore_notes").select("*").order("created_at",{ascending:true}),
+      ]);
+      (profs.data||[]).forEach(p=>PROF[p.id]=p.display_name||"Player");
+      STATE.roster={};
+      (chars.data||[]).forEach(r=>{const ch=Object.assign({},r.data,{id:r.id,owner_id:r.owner_id,name:r.name||r.data.name});
+        STATE.roster[r.id]=ch;Cloud._charHash[r.id]=hashStr(JSON.stringify(ch));});
+      STATE.campaigns={};
+      (camps.data||[]).forEach(r=>{STATE.campaigns[r.id]=Cloud.mkCamp(r);Cloud._campHash[r.id]=hashStr(JSON.stringify(Cloud.campRow(STATE.campaigns[r.id])));});
+      (mems.data||[]).forEach(m=>{const c=STATE.campaigns[m.campaign_id];if(c){c.members.push(m);if(m.character_id){c.party.push(m.character_id);c.ready[m.character_id]=m.ready;}}});
+      (lore.data||[]).forEach(n=>{const c=STATE.campaigns[n.campaign_id];if(c)c.lore.push({id:n.id,author:n.author_name,ts:new Date(n.created_at).getTime(),text:n.body,hadPhoto:false});});
+    }catch(e){console.warn("loadAll failed",e);toast("Couldn't load your cloud data");}
+  },
+  mkCamp(r){return {id:r.id,dm_id:r.dm_id,name:r.name,dm:PROF[r.dm_id]||"DM",
+    settings:r.settings||{cooldowns:true},session:r.session||{live:false},
+    battle:r.battle||null,map:r.map||null,party:[],ready:{},members:[],lore:[],
+    created:r.created_at?new Date(r.created_at).getTime():Date.now(),lastPlayed:Date.now()};},
+  campRow(c){return {id:c.id,dm_id:c.dm_id||ME(),name:c.name,settings:c.settings||{},
+    session:c.session||{},battle:c.battle||null,map:c.map||null};},
+  charRow(ch){return {id:ch.id,owner_id:ch.owner_id||ME(),name:ch.name,data:ch};},
+  dmOwnsChar(id){for(const cid in STATE.campaigns){const c=STATE.campaigns[cid];if(c.dm_id===ME()&&(c.party||[]).includes(id))return true;}return false;},
+  afterRender:debounce(async function(){
+    if(!STATE.cloud||!SB)return;const me=ME();
+    for(const id in STATE.roster){const ch=STATE.roster[id];if((ch.owner_id||me)!==me&&!Cloud.dmOwnsChar(id))continue;
+      const row=Cloud.charRow(ch);const h=hashStr(JSON.stringify(row.data));
+      if(Cloud._charHash[id]!==h){Cloud._charHash[id]=h;try{await SB.from("characters").upsert(row);}catch(e){}}}
+    for(const id in STATE.campaigns){const c=STATE.campaigns[id];if((c.dm_id||me)!==me)continue;
+      const row=Cloud.campRow(c);const h=hashStr(JSON.stringify(row));
+      if(Cloud._campHash[id]!==h){Cloud._campHash[id]=h;try{await SB.from("campaigns").upsert(row);}catch(e){}}}
+  },500),
+  async join(campId,charId){const c=STATE.campaigns[campId];const role=amDM(c)?"dm":"player";
+    try{await SB.from("campaign_members").upsert({campaign_id:campId,user_id:ME(),character_id:charId,role,ready:false});}catch(e){toast("Join failed");}},
+  async leaveCamp(campId,userId){try{await SB.from("campaign_members").delete().eq("campaign_id",campId).eq("user_id",userId);}catch(e){}},
+  async setReady(campId,ready){try{await SB.from("campaign_members").update({ready}).eq("campaign_id",campId).eq("user_id",ME());}catch(e){}},
+  async addLore(campId,note){try{await SB.from("lore_notes").insert({id:note.id,campaign_id:campId,author_id:ME(),author_name:note.author,body:note.text});}catch(e){}},
+  async delCampaign(campId){try{await SB.from("campaigns").delete().eq("id",campId);}catch(e){}},
+  async delCharacter(id){try{await SB.from("characters").delete().eq("id",id);delete Cloud._charHash[id];}catch(e){}},
+  async reloadMembers(campId){const c=STATE.campaigns[campId];if(!c)return;
+    try{const {data}=await SB.from("campaign_members").select("*").eq("campaign_id",campId);
+      c.members=data||[];c.party=[];c.ready={};(data||[]).forEach(m=>{if(m.character_id){c.party.push(m.character_id);c.ready[m.character_id]=m.ready;}});
+    }catch(e){}},
+  subscribe(){
+    if(!SB)return;
+    Cloud._chan=SB.channel("wartable")
+      .on("postgres_changes",{event:"*",schema:"public",table:"characters"},async p=>{
+        if(p.eventType==="DELETE"){if(p.old&&p.old.id){delete STATE.roster[p.old.id];}}
+        else{const r=p.new;const ch=Object.assign({},r.data,{id:r.id,owner_id:r.owner_id,name:r.name||r.data.name});
+          const h=hashStr(JSON.stringify(ch));if(Cloud._charHash[r.id]===h)return;Cloud._charHash[r.id]=h;STATE.roster[r.id]=ch;}
+        render();})
+      .on("postgres_changes",{event:"*",schema:"public",table:"campaigns"},async p=>{
+        if(p.eventType==="DELETE"){if(p.old&&p.old.id)delete STATE.campaigns[p.old.id];}
+        else{const r=p.new;const h=hashStr(JSON.stringify(Cloud.campRow(r)));
+          if(Cloud._campHash[r.id]===h&&STATE.campaigns[r.id])return;Cloud._campHash[r.id]=h;
+          const existing=STATE.campaigns[r.id];const fresh=Cloud.mkCamp(r);
+          if(existing){fresh.party=existing.party;fresh.ready=existing.ready;fresh.members=existing.members;fresh.lore=existing.lore;}
+          else{await Cloud.reloadMembers(r.id);}
+          STATE.campaigns[r.id]=fresh;}
+        render();})
+      .on("postgres_changes",{event:"*",schema:"public",table:"campaign_members"},async p=>{
+        const cid=(p.new&&p.new.campaign_id)||(p.old&&p.old.campaign_id);if(cid&&STATE.campaigns[cid]){await Cloud.reloadMembers(cid);render();}})
+      .on("postgres_changes",{event:"INSERT",schema:"public",table:"lore_notes"},p=>{
+        const n=p.new;const c=STATE.campaigns[n.campaign_id];if(c){if(!c.lore.find(x=>x.id===n.id)){c.lore.push({id:n.id,author:n.author_name,ts:new Date(n.created_at).getTime(),text:n.body,hadPhoto:false});render();}}})
+      .subscribe();
+  },
+};
+
+/* ---- auth UI ---- */
+function authModal(){
+  const mode=authModal._mode||"in";
+  openModal(`<h2>${mode==="in"?"Sign in":"Create account"}</h2>
+    <div class="authtabs"><button class="authtab ${mode==="in"?"on":""}" data-authmode="in">Sign in</button>
+      <button class="authtab ${mode==="up"?"on":""}" data-authmode="up">Sign up</button></div>
+    ${mode==="up"?`<div class="field"><label>Display name</label><input id="auName" placeholder="What your party calls you"></div>`:""}
+    <div class="field"><label>Email</label><input id="auEmail" type="email" placeholder="you@example.com"></div>
+    <div class="field"><label>Password</label><input id="auPass" type="password" placeholder="At least 6 characters"></div>
+    <div class="autherr" id="auErr"></div>
+    <div class="acts"><button class="btn ghost" data-close="1">Play solo</button>
+      <button class="btn primary" data-authgo="${mode}">${mode==="in"?"Sign in":"Create account"}</button></div>
+    <div class="authnote">Sign in on any device to find your campaigns and characters. Changes sync live to everyone at the table. Play solo to use this browser only.</div>`);
+  setTimeout(()=>{const e=$("#auEmail");if(e)e.focus();},30);
+}
+function acctModal(){
+  const u=STATE.user;const init=(u.name||u.email||"?")[0].toUpperCase();
+  openModal(`<h2>Account</h2>
+    <div class="acctrow"><div class="av">${esc(init)}</div><div class="ai"><div class="nm">${esc(u.name||"Player")}</div><div class="em">${esc(u.email)}</div></div>
+      <span class="pill live"><span class="dot"></span>Synced</span></div>
+    <div class="authnote">Your campaigns and characters live in the cloud and sync live to your whole party. You can open War Table on any device and sign in to pick up where you left off.</div>
+    <div class="acts"><button class="btn ghost" data-close="1">Close</button><button class="btn" data-signout="1">Sign out</button></div>`);
+}
+async function doAuth(mode){
+  const email=($("#auEmail").value||"").trim();const pass=$("#auPass").value||"";
+  const err=$("#auErr");err.textContent="";
+  if(!email||!pass){err.textContent="Enter an email and password.";return;}
+  try{
+    if(mode==="up"){const name=($("#auName")&&$("#auName").value||"").trim()||email.split("@")[0];
+      const {data,error}=await SB.auth.signUp({email,password:pass,options:{data:{display_name:name}}});
+      if(error)throw error;
+      if(!data.session){err.textContent="Account made — now sign in.";authModal._mode="in";authModal();return;}
+      closeModal();await Cloud.enter(data.user);toast("Welcome, "+name);
+    }else{
+      const {data,error}=await SB.auth.signInWithPassword({email,password:pass});
+      if(error)throw error;
+      closeModal();await Cloud.enter(data.user);toast("Signed in");
+    }
+  }catch(e){err.textContent=e.message||"Something went wrong.";}
+}
+function updateAcctBtn(){const b=$("#acctBtn");if(!b)return;
+  if(STATE.cloud){b.classList.add("online");b.textContent="☁";b.title="Account — synced";}
+  else{b.classList.remove("online");b.textContent="☁";b.title="Sign in to sync";}}
+
+$("#acctBtn").addEventListener("click",()=>{ if(!SB){toast("Cloud unavailable — playing solo");return;} STATE.cloud?acctModal():authModal(); });
+document.addEventListener("click",e=>{
+  const t=e.target.closest("[data-authmode],[data-authgo],[data-signout]");if(!t)return;
+  if(t.dataset.authmode){authModal._mode=t.dataset.authmode;authModal();return;}
+  if(t.dataset.authgo){doAuth(t.dataset.authgo);return;}
+  if(t.dataset.signout){closeModal();SB.auth.signOut().finally(()=>Cloud.leave());return;}
+});
+
 /* ============================ boot ============================ */
-load();
-if(STATE.ui.theme)document.documentElement.setAttribute("data-theme",STATE.ui.theme);
-render();
+async function boot(){
+  load();
+  if(STATE.ui&&STATE.ui.theme)document.documentElement.setAttribute("data-theme",STATE.ui.theme);
+  if(SB){
+    try{const {data:{session}}=await SB.auth.getSession();
+      if(session&&session.user){await Cloud.enter(session.user);return;}
+    }catch(e){console.warn(e);}
+  }
+  STATE.cloud=false;render();updateAcctBtn();
+}
+boot();
 </script>
