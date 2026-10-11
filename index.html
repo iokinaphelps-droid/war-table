@@ -449,6 +449,12 @@ select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px
 .acctrow{display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid var(--line);border-radius:12px;background:var(--bg3);margin-bottom:14px}
 .acctrow .av{width:38px;height:38px;border-radius:11px;flex:none;background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 55%,#000));display:grid;place-items:center;color:#fff;font-family:var(--f-display);font-weight:900}
 .acctrow .ai{flex:1;min-width:0}.acctrow .ai .nm{font-weight:700;font-size:14px}.acctrow .ai .em{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rolechip{display:inline-block;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:1.5px 7px;border-radius:999px;background:var(--accent-soft);color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line2));vertical-align:middle}
+.rolechip.dm{background:color-mix(in srgb,var(--gold) 14%,transparent);color:var(--gold);border-color:color-mix(in srgb,var(--gold) 45%,var(--line2))}
+.invitebox{margin-top:16px;padding:14px;border:1px solid var(--line2);border-radius:13px;background:var(--bg3)}
+.invitebox .il{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);margin-bottom:7px}
+.invitebox .code{font-family:var(--f-mono);font-weight:700;font-size:26px;letter-spacing:.14em;color:var(--accent)}
+.invitebox .ir{display:flex;gap:8px;margin-top:11px;flex-wrap:wrap}
 .foot{max-width:1120px;margin:30px auto 0;padding:0 clamp(16px,4vw,28px);color:var(--faint);font-size:12px;line-height:1.6}
 </style>
 
@@ -747,7 +753,9 @@ function screenCampaigns(){
   add.innerHTML=`<div class="plus">+</div><div>New campaign</div><small style="color:var(--faint)">Create a save slot</small>`;
   add.dataset.newcamp="1";
   slots.appendChild(add);
-  const tools=el("div","camptools",`<button class="btn ghost sm" data-export="1">⇅ Export / Import save</button>`);
+  const tools=el("div","camptools",STATE.cloud
+    ?`<button class="btn sm" data-joincode="1">＋ Join with a code</button>`
+    :`<button class="btn ghost sm" data-export="1">⇅ Export / Import save</button>`);
   wrap.appendChild(tools);
   wrap.appendChild(slots);
   if(STATE.trash&&STATE.trash.length){
@@ -772,25 +780,41 @@ function screenLobby(){
   let pm="";
   if(camp.party.length===0)pm=`<div class="empty">No one has joined yet. Add characters from the roster →</div>`;
   else pm=`<div class="memberlist">`+camp.party.map(id=>{
-    const ch=STATE.roster[id];const rdy=camp.ready[id];
+    const ch=STATE.roster[id];if(!ch)return "";const rdy=camp.ready[id];const role=charRole(ch);
     return `<div class="member ${rdy?"rdy":""}">
       <div class="token" style="${tokenStyle(ch)}">${ch.token}</div>
-      <div class="who"><div class="nm">${esc(ch.name)}</div><div class="cl">${esc(ch.cls)} · ${esc(ch.player)}</div></div>
+      <div class="who"><div class="nm">${esc(ch.name)} ${role?`<span class="rolechip">${esc(role)}</span>`:""}</div><div class="cl">${esc(ch.cls)} · ${esc(ch.player)}</div></div>
       <button class="st ${rdy?"on":""}" data-ready="${id}">${rdy?"Ready":"Not ready"}</button>
       <button class="iconbtn" style="width:30px;height:30px;font-size:13px" data-leave="${id}" title="Leave">✕</button>
     </div>`;}).join("")+`</div>`;
   party.innerHTML=`<h2>Party</h2><div class="sub">Saved to this campaign as they join</div>${pm}`;
 
-  // start box (DM only control, but shown with note)
+  const isHost=!STATE.cloud||amDM(camp); // host = DM
+  // invite box (cloud + DM)
+  if(STATE.cloud&&amDM(camp)&&camp.invite_code){
+    const link=location.origin+location.pathname+"#join="+camp.invite_code;
+    const iv=el("div","invitebox");
+    iv.innerHTML=`<div class="il">Invite your party</div><div class="code">${esc(camp.invite_code)}</div>
+      <div class="ir"><button class="btn sm" data-copyinvite="${esc(link)}">Copy invite link</button>
+        <button class="btn sm ghost" data-copycode="${esc(camp.invite_code)}">Copy code</button></div>
+      <div style="font-size:12px;color:var(--muted);margin-top:9px">Share the link or code. They sign in, pick a character, and join your fireteam.</div>`;
+    party.appendChild(iv);
+  }
+
+  // start box — host (DM) controls; players see status
   const readyCount=camp.party.filter(id=>camp.ready[id]).length;
   const start=el("div","startbox");
   if(camp.session.live){
-    start.innerHTML=`<div class="note"><b>Session is live.</b> Jump in, or the DM can end the night.</div>
+    start.innerHTML=`<div class="note"><b>Session is live.</b> ${isHost?"Jump in, or end the night.":"The host has started — drop in."}</div>
       <button class="btn primary" data-enterplay="1">Enter play →</button>
-      <button class="btn ghost" data-endsession="1">End session</button>`;
-  }else{
-    start.innerHTML=`<div class="note">${readyCount}/${camp.party.length} ready. The DM presses start when the table's set.</div>
+      ${isHost?`<button class="btn ghost" data-endsession="1">End session</button>`:""}`;
+  }else if(isHost){
+    start.innerHTML=`<div class="note">${readyCount}/${camp.party.length} ready. You're the host — press start when the table's set.</div>
       <button class="btn primary" data-startsession="1" ${camp.party.length===0?"disabled":""}>Start session</button>`;
+  }else{
+    const meReady=myMember(camp)&&myMember(camp).ready;
+    start.innerHTML=`<div class="note">${readyCount}/${camp.party.length} ready. ${meReady?"Waiting on the host to start.":"Ready up when you're set."}</div>
+      <span class="pill ${meReady?"live":""}"><span class="dot"></span>${meReady?"You're ready":"Not ready"}</span>`;
   }
   party.appendChild(start);
   grid.appendChild(party);
@@ -1105,13 +1129,13 @@ function dmConsole(){
   // party cards
   const grid=el("div","dmgrid");
   camp.party.forEach(id=>{
-    const ch=STATE.roster[id];const cur=ch.hp??ch.maxHP;const pct=Math.max(0,Math.min(100,cur/ch.maxHP*100));
+    const ch=STATE.roster[id];if(!ch)return;const cur=ch.hp??ch.maxHP;const pct=Math.max(0,Math.min(100,cur/ch.maxHP*100));
     const cls=pct<=25?"crit":pct<=50?"low":"";
-    const {ac}=effAC(ch);
+    const {ac}=effAC(ch);const role=charRole(ch);
     const chgs=Object.values(ch.charges||{}).map(c=>`<span class="chgtag">${esc(c.label)} ${c.cur}/${c.max}</span>`).join("");
     const pc=el("div","pcard");
     pc.innerHTML=`<div class="ph"><div class="token sm" style="${tokenStyle(ch)}">${ch.token}</div>
-        <div><div class="nm">${esc(ch.name)}</div><div class="cl">${esc(ch.cls)} · AC ${ac}</div></div></div>
+        <div><div class="nm">${esc(ch.name)} ${role?`<span class="rolechip">${esc(role)}</span>`:""}</div><div class="cl">${esc(ch.cls)} · AC ${ac}</div></div></div>
       <div class="hpbar"><i class="${cls}" style="width:${pct}%"></i></div>
       <div class="hpn">${cur} / ${ch.maxHP} HP${ch.tempHP?` (+${ch.tempHP})`:""}</div>
       <div class="chgs">${chgs||'<span class="chgtag">no tracked charges</span>'}</div>
@@ -1623,7 +1647,8 @@ function screenBuilder(){
   // identity
   form.innerHTML+=`<div class="bsec"><h2>Identity</h2><div class="bgrid">
     ${inp("Name","name")}${inp("Player","player")}${inp("Class & level (text)","cls")}${inp("Subtitle (race/subclass)","subtitle")}
-    ${inp("Level","level","num")}${inp("Token letter","token")}${inp("Color","color","color")}</div></div>`;
+    ${inp("Level","level","num")}${inp("Token letter","token")}${inp("Color","color","color")}
+    <div class="bfield"><label>Party role</label><select data-bf="role"><option value="">—</option>${ROLES.map(x=>`<option ${d.role===x?"selected":""}>${x}</option>`).join("")}</select></div></div></div>`;
   // scores
   let sc=`<div class="bsec"><h2>Ability scores</h2><div class="scoregrid">`;
   ["str","dex","con","int","wis","cha"].forEach(k=>sc+=`<div class="bfield"><label>${k}</label><input data-bf="scores.${k}" inputmode="numeric" value="${d.scores[k]}"></div>`);
@@ -1760,7 +1785,7 @@ document.addEventListener("click",e=>{
     const name=($("#ncName").value||"").trim()||"Untitled Campaign";
     const dm=STATE.cloud?(STATE.user.name||"DM"):(($("#ncDM").value||"Turtle").trim());
     const id=uid("camp");
-    STATE.campaigns[id]={id,name,dm,dm_id:STATE.cloud?ME():null,created:Date.now(),lastPlayed:Date.now(),party:[],ready:{},members:[],lore:[],session:{live:false},settings:{cooldowns:true}};
+    STATE.campaigns[id]={id,name,dm,dm_id:STATE.cloud?ME():null,invite_code:STATE.cloud?inviteCode():null,created:Date.now(),lastPlayed:Date.now(),party:[],ready:{},members:[],lore:[],session:{live:false},settings:{cooldowns:true}};
     STATE.ui.campId=id;closeModal();go("lobby");toast("Campaign created");return;}
   if(d.del){const c=STATE.campaigns[d.del];
     if(STATE.cloud){if(!amDM(c)){toast("Only the DM can delete this campaign");return;}Cloud.delCampaign(d.del);delete STATE.campaigns[d.del];render();toast("Campaign deleted");return;}
@@ -1779,9 +1804,10 @@ document.addEventListener("click",e=>{
     if(STATE.cloud){const m=(camp.members||[]).find(x=>x.character_id===d.ready);if(!m||(m.user_id!==ME()&&!amDM(camp))){toast("You can only ready your own character");return;}
       const nv=!camp.ready[d.ready];camp.ready[d.ready]=nv;if(m)m.ready=nv;Cloud.setReady(camp.id,nv);render();return;}
     camp.ready[d.ready]=!camp.ready[d.ready];render();return;}
-  if(d.startsession){const camp=curCamp();camp.session.live=true;camp.lastPlayed=Date.now();STATE.ui.screen="play";STATE.ui.tab="sheet";
+  if(d.startsession){const camp=curCamp();if(STATE.cloud&&!amDM(camp)){toast("Only the host can start");return;}
+    camp.session.live=true;camp.lastPlayed=Date.now();STATE.ui.screen="play";STATE.ui.tab="sheet";
     if(STATE.ui.viewAs!=="dm"&&!camp.party.includes(STATE.ui.viewAs))STATE.ui.viewAs="dm";render();toast("Session started — the night begins");return;}
-  if(d.endsession){const camp=curCamp();camp.session.live=false;go("lobby");toast("Session ended");return;}
+  if(d.endsession){const camp=curCamp();if(STATE.cloud&&!amDM(camp)){toast("Only the host can end the session");return;}camp.session.live=false;go("lobby");toast("Session ended");return;}
   if(d.enterplay){STATE.ui.screen="play";STATE.ui.tab="sheet";render();return;}
   if(d.tab){STATE.ui.tab=d.tab;render();return;}
   if(d.filter){const ch=viewedChar();if(ch){ch._filter=ch._filter||{};ch._filter.active=d.filter;render();}return;}
@@ -2014,6 +2040,9 @@ try{ if(window.supabase&&window.supabase.createClient) SB=window.supabase.create
 
 function hashStr(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))|0;return h;}
 function debounce(fn,ms){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);};}
+function inviteCode(){const a="ABCDEFGHJKMNPQRSTUVWXYZ23456789";return Array.from({length:6},()=>a[Math.floor(Math.random()*a.length)]).join("");}
+const ROLES=["DPS","Support","Tank","Healer","Controller","Utility"];
+function charRole(ch){return ch&&ch.role?ch.role:null;}
 function ME(){return STATE.user&&STATE.user.id;}
 function myMember(camp){return (camp.members||[]).find(m=>m.user_id===ME());}
 function myCharId(camp){const m=myMember(camp);return m?m.character_id:null;}
@@ -2061,12 +2090,14 @@ const Cloud={
       (lore.data||[]).forEach(n=>{const c=STATE.campaigns[n.campaign_id];if(c)c.lore.push({id:n.id,author:n.author_name,ts:new Date(n.created_at).getTime(),text:n.body,hadPhoto:false});});
     }catch(e){console.warn("loadAll failed",e);toast("Couldn't load your cloud data");}
   },
-  mkCamp(r){return {id:r.id,dm_id:r.dm_id,name:r.name,dm:PROF[r.dm_id]||"DM",
+  mkCamp(r){return {id:r.id,dm_id:r.dm_id,name:r.name,dm:PROF[r.dm_id]||"DM",invite_code:r.invite_code,
     settings:r.settings||{cooldowns:true},session:r.session||{live:false},
     battle:r.battle||null,map:r.map||null,party:[],ready:{},members:[],lore:[],
     created:r.created_at?new Date(r.created_at).getTime():Date.now(),lastPlayed:Date.now()};},
-  campRow(c){return {id:c.id,dm_id:c.dm_id||ME(),name:c.name,settings:c.settings||{},
+  campRow(c){return {id:c.id,dm_id:c.dm_id||ME(),name:c.name,invite_code:c.invite_code||null,settings:c.settings||{},
     session:c.session||{},battle:c.battle||null,map:c.map||null};},
+  async joinByCode(code,charId){const {data,error}=await SB.rpc("join_campaign",{p_code:code,p_char:charId});if(error)throw error;await Cloud.loadAll();return data;},
+  async peekCode(code){const {data,error}=await SB.rpc("peek_campaign",{p_code:code});if(error)throw error;return (data&&data[0])||null;},
   charRow(ch){return {id:ch.id,owner_id:ch.owner_id||ME(),name:ch.name,data:ch};},
   dmOwnsChar(id){for(const cid in STATE.campaigns){const c=STATE.campaigns[cid];if(c.dm_id===ME()&&(c.party||[]).includes(id))return true;}return false;},
   afterRender:debounce(async function(){
@@ -2117,18 +2148,45 @@ const Cloud={
 /* ---- auth UI ---- */
 function authModal(){
   const mode=authModal._mode||"in";
+  if(mode==="reset"){
+    openModal(`<h2>Reset password</h2>
+      <div class="field"><label>Email</label><input id="auEmail" type="email" placeholder="you@example.com"></div>
+      <div class="autherr" id="auErr"></div>
+      <div class="acts"><button class="btn ghost" data-authmode="in">← Back</button>
+        <button class="btn primary" data-sendreset="1">Send reset link</button></div>
+      <div class="authnote">We'll email you a link to set a new password. Check spam if it doesn't arrive in a minute.</div>`);
+    setTimeout(()=>{const e=$("#auEmail");if(e)e.focus();},30);return;
+  }
   openModal(`<h2>${mode==="in"?"Sign in":"Create account"}</h2>
     <div class="authtabs"><button class="authtab ${mode==="in"?"on":""}" data-authmode="in">Sign in</button>
       <button class="authtab ${mode==="up"?"on":""}" data-authmode="up">Sign up</button></div>
     ${mode==="up"?`<div class="field"><label>Display name</label><input id="auName" placeholder="What your party calls you"></div>`:""}
     <div class="field"><label>Email</label><input id="auEmail" type="email" placeholder="you@example.com"></div>
     <div class="field"><label>Password</label><input id="auPass" type="password" placeholder="At least 6 characters"></div>
+    ${mode==="in"?`<div style="text-align:right;margin-top:-6px"><button class="btn ghost sm" data-forgot="1" style="font-size:12px;padding:3px 6px">Forgot password?</button></div>`:""}
     <div class="autherr" id="auErr"></div>
     <div class="acts"><button class="btn ghost" data-close="1">Play solo</button>
       <button class="btn primary" data-authgo="${mode}">${mode==="in"?"Sign in":"Create account"}</button></div>
     <div class="authnote">Sign in on any device to find your campaigns and characters. Changes sync live to everyone at the table. Play solo to use this browser only.</div>`);
   setTimeout(()=>{const e=$("#auEmail");if(e)e.focus();},30);
 }
+async function doSendReset(){const email=($("#auEmail").value||"").trim();const err=$("#auErr");err.textContent="";
+  if(!email){err.textContent="Enter your email.";return;}
+  try{const {error}=await SB.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
+    if(error)throw error;closeModal();toast("Reset link sent — check your email");}
+  catch(e){err.textContent=e.message||"Couldn't send reset email.";}}
+function setPasswordModal(){
+  openModal(`<h2>Set a new password</h2>
+    <div class="field"><label>New password</label><input id="npPass" type="password" placeholder="At least 6 characters"></div>
+    <div class="autherr" id="npErr"></div>
+    <div class="acts"><button class="btn primary" data-setpass="1">Update password</button></div>`);
+  setTimeout(()=>{const e=$("#npPass");if(e)e.focus();},30);
+}
+async function doSetPassword(){const pass=$("#npPass").value||"";const err=$("#npErr");err.textContent="";
+  if(pass.length<6){err.textContent="At least 6 characters.";return;}
+  try{const {data,error}=await SB.auth.updateUser({password:pass});if(error)throw error;
+    closeModal();toast("Password updated");if(data&&data.user&&!STATE.cloud)await Cloud.enter(data.user);}
+  catch(e){err.textContent=e.message||"Couldn't update password.";}}
 function acctModal(){
   const u=STATE.user;const init=(u.name||u.email||"?")[0].toUpperCase();
   openModal(`<h2>Account</h2>
@@ -2146,34 +2204,88 @@ async function doAuth(mode){
       const {data,error}=await SB.auth.signUp({email,password:pass,options:{data:{display_name:name}}});
       if(error)throw error;
       if(!data.session){err.textContent="Account made — now sign in.";authModal._mode="in";authModal();return;}
-      closeModal();await Cloud.enter(data.user);toast("Welcome, "+name);
+      closeModal();await Cloud.enter(data.user);toast("Welcome, "+name);await afterEnterExtras();
     }else{
       const {data,error}=await SB.auth.signInWithPassword({email,password:pass});
       if(error)throw error;
-      closeModal();await Cloud.enter(data.user);toast("Signed in");
+      closeModal();await Cloud.enter(data.user);toast("Signed in");await afterEnterExtras();
     }
   }catch(e){err.textContent=e.message||"Something went wrong.";}
 }
+let PENDING_JOIN=null;
+async function joinModal(prefill){
+  const mine=Object.values(STATE.roster).filter(ch=>(ch.owner_id||ME())===ME());
+  let picker;
+  if(mine.length===0)picker=`<div class="authnote">You'll need a character first. Create one, then come back to join.</div>
+    <div style="margin-top:10px"><button class="btn" data-newcharjoin="1">+ New character</button></div>`;
+  else picker=`<div class="field"><label>Join with which character?</label><select id="joChar">${mine.map(c=>`<option value="${c.id}">${esc(c.name)} — ${esc(c.cls)}</option>`).join("")}</select></div>`;
+  openModal(`<h2>Join a campaign</h2>
+    <div class="field"><label>Invite code</label><input id="joCode" placeholder="6-character code" value="${esc(prefill||"")}" style="text-transform:uppercase;letter-spacing:.1em;font-family:var(--f-mono)"></div>
+    <div id="joPeek" style="font-size:12.5px;color:var(--muted);min-height:1px"></div>
+    ${picker}
+    <div class="autherr" id="joErr"></div>
+    <div class="acts"><button class="btn ghost" data-close="1">Cancel</button>
+      ${mine.length?`<button class="btn primary" data-dojoin="1">Join fireteam</button>`:""}</div>`);
+  setTimeout(()=>{const c=$("#joCode");if(c){c.focus();if(prefill)peekJoin();}},30);
+}
+async function peekJoin(){const code=($("#joCode").value||"").trim();const el2=$("#joPeek");if(!el2)return;
+  if(code.length<4){el2.textContent="";return;}
+  try{const c=await Cloud.peekCode(code);el2.innerHTML=c?`Found: <b style="color:var(--fg)">${esc(c.name)}</b> — DM ${esc(c.dm_name)}`:`<span style="color:var(--crit)">No campaign with that code</span>`;}
+  catch(e){el2.textContent="";}}
+async function doJoin(){const code=($("#joCode").value||"").trim();const charId=($("#joChar")||{}).value;const err=$("#joErr");err.textContent="";
+  if(!code){err.textContent="Enter the invite code.";return;}
+  try{const cid=await Cloud.joinByCode(code,charId);closeModal();STATE.ui.campId=cid;go("lobby");toast("Joined the fireteam");}
+  catch(e){err.textContent=e.message||"Couldn't join.";}}
+
 function updateAcctBtn(){const b=$("#acctBtn");if(!b)return;
   if(STATE.cloud){b.classList.add("online");b.textContent="☁";b.title="Account — synced";}
   else{b.classList.remove("online");b.textContent="☁";b.title="Sign in to sync";}}
 
 $("#acctBtn").addEventListener("click",()=>{ if(!SB){toast("Cloud unavailable — playing solo");return;} STATE.cloud?acctModal():authModal(); });
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-authmode],[data-authgo],[data-signout]");if(!t)return;
-  if(t.dataset.authmode){authModal._mode=t.dataset.authmode;authModal();return;}
-  if(t.dataset.authgo){doAuth(t.dataset.authgo);return;}
-  if(t.dataset.signout){closeModal();SB.auth.signOut().finally(()=>Cloud.leave());return;}
+  const t=e.target.closest("[data-authmode],[data-authgo],[data-signout],[data-joincode],[data-dojoin],[data-newcharjoin],[data-copyinvite],[data-copycode],[data-forgot],[data-sendreset],[data-setpass]");if(!t)return;
+  const d=t.dataset;
+  if(d.authmode){authModal._mode=d.authmode;authModal();return;}
+  if(d.authgo){doAuth(d.authgo);return;}
+  if(d.signout){closeModal();SB.auth.signOut().finally(()=>Cloud.leave());return;}
+  if(d.joincode){joinModal("");return;}
+  if(d.dojoin){doJoin();return;}
+  if(d.newcharjoin){closeModal();openBuilder(null,"campaigns");return;}
+  if(d.copyinvite){copyText(d.copyinvite,"Invite link copied");return;}
+  if(d.copycode){copyText(d.copycode,"Code copied");return;}
+  if(d.forgot){authModal._mode="reset";authModal();return;}
+  if(d.sendreset){doSendReset();return;}
+  if(d.setpass){doSetPassword();return;}
 });
+function copyText(txt,msg){if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(()=>toast(msg)).catch(()=>toast("Copy failed — select it manually"));}else toast("Copy not supported here");}
+document.addEventListener("input",e=>{ if(e.target.id==="joCode")peekJoin(); });
 
 /* ============================ boot ============================ */
+let RECOVERING=false;
+async function afterEnterExtras(){
+  if(PENDING_JOIN){const code=PENDING_JOIN;PENDING_JOIN=null;joinModal(code);}
+}
 async function boot(){
   load();
   if(STATE.ui&&STATE.ui.theme)document.documentElement.setAttribute("data-theme",STATE.ui.theme);
+  // parse invite + recovery from URL
+  const h=location.hash||"";
+  const jm=h.match(/[#&]join=([A-Za-z0-9]+)/);
+  if(jm)PENDING_JOIN=jm[1].toUpperCase();
+  RECOVERING=/type=recovery/.test(h);
+  if(jm&&!RECOVERING){try{history.replaceState(null,"",location.pathname);}catch(e){}}
   if(SB){
+    SB.auth.onAuthStateChange((ev,sess)=>{
+      if(ev==="PASSWORD_RECOVERY"){RECOVERING=true;setPasswordModal();}
+    });
     try{const {data:{session}}=await SB.auth.getSession();
-      if(session&&session.user){await Cloud.enter(session.user);return;}
+      if(RECOVERING){STATE.cloud=false;render();updateAcctBtn();setPasswordModal();return;}
+      if(session&&session.user){await Cloud.enter(session.user);await afterEnterExtras();return;}
     }catch(e){console.warn(e);}
+    // not logged in but has a pending invite → prompt sign-in first
+    if(PENDING_JOIN){STATE.cloud=false;render();updateAcctBtn();authModal._mode="in";authModal();
+      const n=$("#auErr");if(n){n.style.color="var(--muted)";n.textContent="Sign in to join the fireteam you were invited to.";}
+      return;}
   }
   STATE.cloud=false;render();updateAcctBtn();
 }
