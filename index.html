@@ -772,9 +772,12 @@ function render(){
         const mine=myCharId(camp);if(mine&&STATE.roster[mine])ui.viewAs=mine;
         va.hidden=true;
       }else{
+        // DM may view-as only their OWN heroes + the DM console — never another player's seat
+        const mineIds=camp.party.filter(id=>STATE.roster[id]&&(!STATE.cloud||STATE.roster[id].owner_id===ME()));
+        if(ui.viewAs!=="dm"&&!mineIds.includes(ui.viewAs))ui.viewAs="dm";
         va.hidden=false;
-        const opts=[`<option value="dm">Dungeon Master</option>`].concat(
-          camp.party.filter(id=>STATE.roster[id]).map(id=>`<option value="${id}" ${ui.viewAs===id?"selected":""}>${esc(STATE.roster[id].name)}</option>`));
+        const opts=[`<option value="dm"${ui.viewAs==="dm"?" selected":""}>Dungeon Master</option>`].concat(
+          mineIds.map(id=>`<option value="${id}" ${ui.viewAs===id?"selected":""}>${esc(STATE.roster[id].name)}</option>`));
         va.innerHTML=`<label>Viewing as</label><select class="sel" id="vaSel">${opts.join("")}</select>`;
       }
     } else va.hidden=true;
@@ -965,8 +968,9 @@ function screenPlay(){
        <div style="margin-top:16px"><button class="btn primary sm" data-nav="lobby">← Back to lobby</button></div>`));
     return wrap;
   }
-  const isDM=STATE.ui.viewAs==="dm";
-  const railChar=isDM?null:viewedChar();
+  const viewingDM=STATE.ui.viewAs==="dm";          // which seat the view switch is on
+  const host=STATE.cloud?amDM(camp):viewingDM;      // board/battle authority (DM keeps it even while playing a PC)
+  const railChar=viewingDM?null:viewedChar();
   const main=el("div","playmain");
   // tabs
   const tabs=el("div","tabs");
@@ -977,11 +981,11 @@ function screenPlay(){
   main.appendChild(tabs);
   const body=el("div");
   const tab=STATE.ui.tab;
-  if(tab==="sheet")body.appendChild(isDM?dmConsole():sheetView(viewedChar()));
-  else if(tab==="calc")body.appendChild(isDM?dmCalcNote():calcView(viewedChar()));
-  else if(tab==="map")body.appendChild(mapView(isDM));
-  else if(tab==="battle")body.appendChild(battleRouter(isDM));
-  else if(tab==="lore")body.appendChild(loreView(isDM));
+  if(tab==="sheet")body.appendChild(viewingDM?dmConsole():sheetView(viewedChar()));
+  else if(tab==="calc")body.appendChild(viewingDM?dmCalcNote():calcView(viewedChar()));
+  else if(tab==="map")body.appendChild(mapView(host));
+  else if(tab==="battle")body.appendChild(battleRouter(host));
+  else if(tab==="lore")body.appendChild(loreView(viewingDM));
   main.appendChild(body);
   if(railChar){const lay=el("div","playwrap");lay.appendChild(statusRail(railChar));lay.appendChild(main);wrap.appendChild(lay);}
   else wrap.appendChild(main);
@@ -1424,7 +1428,21 @@ function advanceTurn(b,guard){
   b.turnIdx++;if(b.turnIdx>=b.order.length){b.turnIdx=0;b.round++;blog(b,`— Round ${b.round} —`);}
   enterTurn(b,true,guard);
 }
-function canAct(b,isDM){const c=curCombatant(b);if(!c)return false;if(STATE.cloud)return isDM;if(isDM)return true;return c.charId===STATE.ui.viewAs;}
+/* who controls a combatant: "dm" for enemies/NPCs, else the owning user id */
+function controllerOf(c){
+  if(!c)return null;
+  if(c.side==="enemy"||!c.charId)return "dm";
+  const ch=STATE.roster[c.charId];
+  if(!ch)return "dm";
+  return ch.owner_id||"dm";
+}
+function canAct(b,isDM){
+  const c=curCombatant(b);if(!c)return false;
+  if(!STATE.cloud){if(isDM)return true;return c.charId===STATE.ui.viewAs;}
+  const ctrl=controllerOf(c);        // in cloud: control follows ownership, not the view switch
+  if(ctrl==="dm")return isDM;         // enemies & NPCs → the host acts
+  return ctrl===ME();                 // a hero → only its owner acts (DM can't play other players)
+}
 function reorder(b,id,dir){const i=b.order.indexOf(id);const j=i+dir;if(j<0||j>=b.order.length)return;
   const cur=b.order[b.turnIdx];[b.order[i],b.order[j]]=[b.order[j],b.order[i]];b.turnIdx=b.order.indexOf(cur);}
 
@@ -2366,12 +2384,22 @@ function liveCalc(ch,a,st){
 let PENDING_PHOTO=null;
 document.addEventListener("click",e=>{
   const t=e.target.closest("[data-startbtl],[data-endbtl],[data-addenemy],[data-addenemysave],[data-nextturn],[data-cell],[data-selbtl],[data-dmgc],[data-revhp],[data-revac],[data-rmc],[data-addnote],[data-delnote],[data-brollinit],[data-rollallinit],[data-begincombat],[data-reroll],[data-reup],[data-redn],[data-passturn],[data-bmove],[data-ballroll],[data-bclear],[data-bmod],[data-bperinst],[data-bbonus],[data-bapply],[data-eapply],[data-cond],[data-adddot],[data-dotsave],[data-rmdot]");
-  if(!t)return;const d=t.dataset;const camp=curCamp();const b=migrateBattle(ensureBattle(camp));const isDM=STATE.ui.viewAs==="dm";
-  if(STATE.cloud&&!isDM&&!("addnote" in d)&&!("delnote" in d)){toast("The DM is running this encounter");return;}
+  if(!t)return;const d=t.dataset;const camp=curCamp();const b=migrateBattle(ensureBattle(camp));
+  const isDM=STATE.cloud?amDM(camp):(STATE.ui.viewAs==="dm"); // host authority (DM keeps it even while viewing a PC)
+  const mayAct=canAct(b,isDM);
+  if(STATE.cloud&&!isDM){
+    const HOST_ONLY={startbtl:1,endbtl:1,reroll:1,rollallinit:1,begincombat:1,reup:1,redn:1,nextturn:1,addenemy:1,addenemysave:1,revhp:1,revac:1,rmc:1,cond:1,adddot:1,dotsave:1,rmdot:1};
+    const TURN={bmove:1,ballroll:1,bclear:1,bmod:1,bperinst:1,bbonus:1,bapply:1,eapply:1,passturn:1};
+    for(const k in d){if(HOST_ONLY[k]){toast("The DM runs the encounter");return;}}
+    let needsTurn=false;for(const k in d){if(TURN[k])needsTurn=true;}
+    if(needsTurn&&!mayAct){const c=curCombatant(b);toast(c?`Hang tight — it's ${c.name.split(" ")[0]}'s turn`:"Wait for your turn");return;}
+  }
   if(d.startbtl){startEncounter(camp);render();return;}
   if(d.endbtl){b.active=false;b.phase="none";render();toast("Encounter ended");return;}
   if(d.reroll){b.phase="setup";b.combatants.forEach(c=>c.initRoll=null);render();return;}
-  if(d.brollinit){const c=b.combatants.find(x=>x.id===d.brollinit);if(c)c.initRoll=rollDie(20);render();return;}
+  if(d.brollinit){const c=b.combatants.find(x=>x.id===d.brollinit);
+    if(STATE.cloud&&!isDM&&controllerOf(c)!==ME()){toast("Roll your own initiative");return;}
+    if(c)c.initRoll=rollDie(20);render();return;}
   if(d.rollallinit){b.combatants.forEach(c=>{if(c.initRoll==null)c.initRoll=rollDie(20);});render();return;}
   if(d.begincombat){if(b.combatants.every(c=>c.initRoll==null)){toast("Roll initiative first");return;}
     b.combatants.forEach(c=>{if(c.initRoll==null)c.initRoll=rollDie(20);});beginCombat(b);render();return;}
@@ -2391,7 +2419,9 @@ document.addEventListener("click",e=>{
     if(isDM||c.charId===STATE.ui.viewAs){c.x=x;c.y=y;b.movedId=c.id;b.selId=null;render();}
     else{b.selId=null;toast("You can only move your own token");render();}return;}
   if(d.selbtl){b.selId=b.selId===d.selbtl?null:d.selbtl;render();return;}
-  if(d.dmgc){dmgModal(d.dmgc);return;}
+  if(d.dmgc){const cc=b.combatants.find(x=>x.id===d.dmgc);
+    if(STATE.cloud&&!isDM&&controllerOf(cc)!==ME()){toast("You can only change your own HP");return;}
+    dmgModal(d.dmgc);return;}
   if(d.revhp){const c=b.combatants.find(c=>c.id===d.revhp);if(c)c.revealHP=!c.revealHP;render();return;}
   if(d.revac){const c=b.combatants.find(c=>c.id===d.revac);if(c)c.revealAC=!c.revealAC;render();return;}
   if(d.rmc){b.combatants=b.combatants.filter(c=>c.id!==d.rmc);b.order=b.order.filter(id=>id!==d.rmc);if(b.turnIdx>=b.order.length)b.turnIdx=0;render();return;}
@@ -2436,7 +2466,8 @@ document.addEventListener("change",e=>{
 });
 document.addEventListener("input",e=>{
   const cl=e.target.classList;if(!cl)return;
-  if(cl.contains("initin")){const b=migrateBattle(ensureBattle(curCamp()));const c=b.combatants.find(x=>x.id===e.target.dataset.binit);
+  if(cl.contains("initin")){const camp=curCamp();const b=migrateBattle(ensureBattle(camp));const c=b.combatants.find(x=>x.id===e.target.dataset.binit);
+    if(STATE.cloud&&!amDM(camp)&&controllerOf(c)!==ME())return;
     if(c){let v=parseInt(e.target.value,10);c.initRoll=isNaN(v)?null:Math.max(1,Math.min(20,v));}return;}
   if(cl.contains("bdie")){const b=migrateBattle(ensureBattle(curCamp()));const c=curCombatant(b);
     if(!c||c.side==="enemy"||!BACT)return;const ch=STATE.roster[c.charId];const a=ch.abilities.find(x=>x.id===BACT.abilityId);if(!a)return;
@@ -2457,7 +2488,7 @@ document.addEventListener("click",e=>{
   const t=e.target.closest("[data-dieface],[data-adv],[data-roll],[data-copysave],[data-importsave],[data-maptool],[data-mapcell],[data-maptok],[data-mapreveal],[data-saveprof],[data-addcharge],[data-rmcharge],[data-chargesave],[data-addab],[data-editab],[data-rmab],[data-absave],[data-addmod],[data-rmmod],[data-modsave],[data-buildsave],[data-buildcancel],[data-buildnew],[data-buildedit],[data-deathsave],[data-restore],[data-purge],[data-pinsave],[data-export]");
   if(!t)return;const d=t.dataset;
   // In cloud mode the DM owns the shared map; players can't paint it
-  if(STATE.cloud&&STATE.ui.viewAs!=="dm"&&("maptool" in d||"mapcell" in d||"maptok" in d||"mapreveal" in d||"pinsave" in d)){toast("The DM controls the map");return;}
+  if(STATE.cloud&&!amDM(curCamp())&&("maptool" in d||"mapcell" in d||"mapreveal" in d||"pinsave" in d)){toast("The DM controls the map");return;}
   if(STATE.cloud&&("export" in d||"importsave" in d)){toast("Your table already syncs to the cloud — no export needed");return;}
   if(d.dieface){DICE.die=+d.dieface;diceDrawer();return;}
   if(d.adv){DICE.adv=d.adv;diceDrawer();return;}
@@ -2467,9 +2498,9 @@ document.addEventListener("click",e=>{
   if(d.importsave){try{const p=JSON.parse(($("#impTa").value||"").trim());if(p&&p.roster&&p.campaigns){STATE.roster=p.roster;STATE.campaigns=p.campaigns;STATE.ui={screen:"campaigns",viewAs:"dm",tab:"sheet"};closeModal();render();toast("Save imported");}else toast("That doesn't look like a War Table save");}catch(err){toast("Couldn't read that JSON");}return;}
   if(d.maptool){const m=ensureMap(curCamp());m.tool=d.maptool;m.selTok=null;render();return;}
   if(d.mapreveal){const m=ensureMap(curCamp());if(d.mapreveal==="all"){m.revealed=[];for(let y=1;y<=m.rows;y++)for(let x=1;x<=m.cols;x++)m.revealed.push(mapKey(x,y));}else m.revealed=[];render();return;}
-  if(d.maptok){const m=ensureMap(curCamp());const isDM=STATE.ui.viewAs==="dm";
+  if(d.maptok){const m=ensureMap(curCamp());const isDM=STATE.cloud?amDM(curCamp()):(STATE.ui.viewAs==="dm");
     if((isDM&&m.tool==="move")||(!isDM&&d.maptok===STATE.ui.viewAs))m.selTok=m.selTok===d.maptok?null:d.maptok;render();return;}
-  if(d.mapcell){const m=ensureMap(curCamp());const isDM=STATE.ui.viewAs==="dm";const [x,y]=d.mapcell.split(",").map(Number);
+  if(d.mapcell){const m=ensureMap(curCamp());const isDM=STATE.cloud?amDM(curCamp()):(STATE.ui.viewAs==="dm");const [x,y]=d.mapcell.split(",").map(Number);
     if(isDM){
       if(m.tool==="reveal"){if(!m.revealed.includes(d.mapcell))m.revealed.push(d.mapcell);}
       else if(m.tool==="hide"){m.revealed=m.revealed.filter(k=>k!==d.mapcell);}
@@ -2584,7 +2615,7 @@ function amDM(camp){return camp&&camp.dm_id===ME();}
 
 const PROF={};
 const Cloud={
-  _charHash:{},_campHash:{},_chan:null,
+  _charHash:{},_campHash:{},_battleHash:{},_chan:null,
   cloudShell(){const theme=STATE&&STATE.ui?STATE.ui.theme:null;
     return {roster:{},campaigns:{},trash:[],diceHist:(STATE&&STATE.diceHist)||[],
       user:STATE.user,cloud:true,
@@ -2607,12 +2638,13 @@ const Cloud={
   },
   async loadAll(){
     try{
-      const [profs,chars,camps,mems,lore]=await Promise.all([
+      const [profs,chars,camps,mems,lore,battles]=await Promise.all([
         SB.from("profiles").select("*"),
         SB.from("characters").select("*"),
         SB.from("campaigns").select("*"),
         SB.from("campaign_members").select("*"),
         SB.from("lore_notes").select("*").order("created_at",{ascending:true}),
+        SB.from("battles").select("*"),
       ]);
       (profs.data||[]).forEach(p=>PROF[p.id]=p.display_name||"Player");
       STATE.roster={};
@@ -2622,6 +2654,7 @@ const Cloud={
       (camps.data||[]).forEach(r=>{STATE.campaigns[r.id]=Cloud.mkCamp(r);Cloud._campHash[r.id]=hashStr(JSON.stringify(Cloud.campRow(STATE.campaigns[r.id])));});
       (mems.data||[]).forEach(m=>{const c=STATE.campaigns[m.campaign_id];if(c){c.members.push(m);if(m.character_id){c.party.push(m.character_id);c.ready[m.character_id]=m.ready;}}});
       (lore.data||[]).forEach(n=>{const c=STATE.campaigns[n.campaign_id];if(c)c.lore.push({id:n.id,author:n.author_name,ts:new Date(n.created_at).getTime(),text:n.body,hadPhoto:false});});
+      (battles&&battles.data||[]).forEach(r=>{const c=STATE.campaigns[r.campaign_id];if(c&&r.state){c.battle=r.state;Cloud._battleHash[r.campaign_id]=hashStr(JSON.stringify(r.state));}});
     }catch(e){console.warn("loadAll failed",e);toast("Couldn't load your cloud data");}
   },
   mkCamp(r){return {id:r.id,dm_id:r.dm_id,name:r.name,dm:PROF[r.dm_id]||"DM",invite_code:r.invite_code,
@@ -2629,7 +2662,7 @@ const Cloud={
     battle:r.battle||null,map:r.map||null,party:[],ready:{},members:[],lore:[],
     created:r.created_at?new Date(r.created_at).getTime():Date.now(),lastPlayed:Date.now()};},
   campRow(c){return {id:c.id,dm_id:c.dm_id||ME(),name:c.name,invite_code:c.invite_code||null,settings:c.settings||{},
-    session:c.session||{},battle:c.battle||null,map:c.map||null};},
+    session:c.session||{},map:c.map||null};}, // battle lives in its own shared table now
   async joinByCode(code,charId){const {data,error}=await SB.rpc("join_campaign",{p_code:code,p_char:charId});if(error)throw error;await Cloud.loadAll();return data;},
   async peekCode(code){const {data,error}=await SB.rpc("peek_campaign",{p_code:code});if(error)throw error;return (data&&data[0])||null;},
   charRow(ch){return {id:ch.id,owner_id:ch.owner_id||ME(),name:ch.name,data:ch};},
@@ -2642,6 +2675,12 @@ const Cloud={
     for(const id in STATE.campaigns){const c=STATE.campaigns[id];if((c.dm_id||me)!==me)continue;
       const row=Cloud.campRow(c);const h=hashStr(JSON.stringify(row));
       if(Cloud._campHash[id]!==h){Cloud._campHash[id]=h;try{await SB.from("campaigns").upsert(row);}catch(e){}}}
+    // shared battle doc — any member at the table may push the encounter forward
+    for(const id in STATE.campaigns){const c=STATE.campaigns[id];if(!c.battle)continue;
+      if(!(amDM(c)||(c.members||[]).some(m=>m.user_id===me)))continue;
+      const h=hashStr(JSON.stringify(c.battle));
+      if(Cloud._battleHash[id]!==h){Cloud._battleHash[id]=h;
+        try{await SB.from("battles").upsert({campaign_id:id,state:c.battle,updated_by:me,updated_at:new Date().toISOString()});}catch(e){}}}
   },500),
   async join(campId,charId){const c=STATE.campaigns[campId];const role=amDM(c)?"dm":"player";
     try{await SB.from("campaign_members").upsert({campaign_id:campId,user_id:ME(),character_id:charId,role,ready:false});}catch(e){toast("Join failed");}},
@@ -2667,12 +2706,22 @@ const Cloud={
         else{const r=p.new;const h=hashStr(JSON.stringify(Cloud.campRow(r)));
           if(Cloud._campHash[r.id]===h&&STATE.campaigns[r.id])return;Cloud._campHash[r.id]=h;
           const existing=STATE.campaigns[r.id];const fresh=Cloud.mkCamp(r);
-          if(existing){fresh.party=existing.party;fresh.ready=existing.ready;fresh.members=existing.members;fresh.lore=existing.lore;}
+          if(existing){fresh.party=existing.party;fresh.ready=existing.ready;fresh.members=existing.members;fresh.lore=existing.lore;fresh.battle=existing.battle;}
           else{await Cloud.reloadMembers(r.id);}
           STATE.campaigns[r.id]=fresh;}
         render();})
       .on("postgres_changes",{event:"*",schema:"public",table:"campaign_members"},async p=>{
         const cid=(p.new&&p.new.campaign_id)||(p.old&&p.old.campaign_id);if(cid&&STATE.campaigns[cid]){await Cloud.reloadMembers(cid);render();}})
+      .on("postgres_changes",{event:"*",schema:"public",table:"battles"},p=>{
+        if(p.eventType==="DELETE")return;
+        const r=p.new;const c=STATE.campaigns[r.campaign_id];if(!c||!r.state)return;
+        const h=hashStr(JSON.stringify(r.state));
+        if(Cloud._battleHash[r.campaign_id]===h)return;   // our own echo
+        Cloud._battleHash[r.campaign_id]=h;c.battle=r.state;
+        // keep my own heroes' sheet HP in step with the board
+        (r.state.combatants||[]).forEach(cb=>{const ch=cb.charId&&STATE.roster[cb.charId];
+          if(ch&&(ch.owner_id===ME()))ch.hp=cb.hp;});
+        render();})
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"lore_notes"},p=>{
         const n=p.new;const c=STATE.campaigns[n.campaign_id];if(c){if(!c.lore.find(x=>x.id===n.id)){c.lore.push({id:n.id,author:n.author_name,ts:new Date(n.created_at).getTime(),text:n.body,hadPhoto:false});render();}}})
       .subscribe();
