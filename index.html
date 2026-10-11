@@ -484,6 +484,9 @@ select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px
 .condtoggle .ct.on{background:var(--c-control);border-color:var(--c-control);color:#fff}
 .cbt.down{opacity:.6}
 /* ---- pokémon-style move grid ---- */
+.bfilters{display:flex;gap:6px;flex-wrap:wrap;margin:7px 0 10px}
+.useblk{margin-top:6px;padding:14px;background:var(--bg3);border:1px solid var(--line);border-radius:12px}
+.useblk .usetext{margin:0 0 11px;color:var(--muted);font-size:13px;line-height:1.5}
 .movegrid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin:7px 0 14px}
 @media(max-width:480px){.movegrid{grid-template-columns:1fr}}
 .movebtn{text-align:left;border:1px solid var(--line2);border-left:4px solid var(--mt);border-radius:12px;background:var(--bg3);padding:10px 12px;display:flex;flex-direction:column;gap:2px;transition:.12s}
@@ -627,6 +630,21 @@ select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px
 .tc-desc{color:var(--muted);font-size:12.5px;line-height:1.45;margin:5px 0 11px}
 .tc-cta{display:flex}
 .tc-active{font-size:12.5px;font-weight:600;color:var(--accent);display:inline-flex;align-items:center;gap:5px}
+
+/* ---- companions ---- */
+.compsec{margin:22px 0 6px}
+.comphd{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.comphint{color:var(--muted);font-size:12.5px;line-height:1.45;margin:6px 0 11px;max-width:62ch}
+.compgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.compcard{display:flex;align-items:center;gap:11px;padding:11px 13px;background:var(--bg3);border:1px solid var(--line);border-radius:12px}
+.compcard .ci{min-width:0;flex:1}
+.compcard .cn{font-family:var(--f-display);font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.compcard .cmeta{color:var(--muted);font-size:11.5px;font-family:var(--f-mono)}
+.compcard .crow{display:flex;gap:5px}
+.atklist{display:flex;flex-direction:column;gap:7px;margin-bottom:9px}
+.atkrow{display:grid;grid-template-columns:1.4fr 1fr .7fr .6fr 1fr auto;gap:6px;align-items:center}
+@media(max-width:560px){.atkrow{grid-template-columns:1fr 1fr;}.atkrow .ai{min-width:0}}
+.atkrow .ai{width:100%;padding:7px 8px;background:var(--bg2);border:1px solid var(--line2);border-radius:8px;font-size:13px;min-width:0}
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0"></script>
@@ -1217,31 +1235,112 @@ function sheetView(ch){
     Object.entries(ch.passives).map(([k,v])=>`Passive ${k} <b style="color:var(--fg)" class="mono">${v}</b>`).join(" · ")+
     (ch.saveProf.length?` · Saves: ${ch.saveProf.map(s=>s.toUpperCase()).join(", ")}`:"")+`</div>`));
 
+  // companions (pets / mounts / bound allies)
+  w.appendChild(companionSection(ch));
   // ability list w/ filters
   w.appendChild(abilitySection(ch));
   return w;
+}
+/* ---- companions: pets, mounts, bound allies — separate from the character ---- */
+function companionSection(ch){
+  const sec=el("div","compsec");
+  const list=(ch.companions||[]).map(cp=>{
+    const atks=(cp.abilities||[]).length;
+    return `<div class="compcard">
+      <div class="token sm" style="${tokenStyle({color:cp.color||ch.color})}">${esc(cp.token||cp.name[0])}</div>
+      <div class="ci"><div class="cn">${esc(cp.name)}</div>
+        <div class="cmeta">AC ${cp.ac||10} · ${cp.maxHP||1} HP · ${atks} move${atks===1?"":"s"}</div></div>
+      <div class="crow"><button class="btn sm ghost" data-compedit="${ch.id}|${cp.id}">Edit</button>
+        <button class="btn sm ghost" data-comprm="${ch.id}|${cp.id}">Remove</button></div></div>`;
+  }).join("");
+  sec.innerHTML=`<div class="comphd"><div class="seclabel2" style="margin:0">Companions</div>
+      <button class="btn sm" data-compadd="${ch.id}">+ Add companion</button></div>
+    <p class="comphint">A pet, mount, or bound ally. It joins battle as its own combatant on your turn — you roll and choose how it attacks, separate from ${esc(ch.name.split(" ")[0])}.</p>
+    ${list?`<div class="compgrid">${list}</div>`:'<div class="empty" style="margin-top:4px">No companions yet.</div>'}`;
+  return sec;
+}
+let COMPEDIT=null; // {charId, comp}
+function compBlank(){return {id:uid("comp"),name:"",token:"",color:"#8a6bd6",ac:12,maxHP:10,speed:30,dexMod:0,abilities:[],charges:{},modifiers:[]};}
+function openCompanion(charId,compId){
+  const ch=STATE.roster[charId];if(!ch)return;ch.companions=ch.companions||[];
+  const existing=compId?ch.companions.find(c=>c.id===compId):null;
+  COMPEDIT={charId,comp:existing?JSON.parse(JSON.stringify(existing)):compBlank(),isNew:!existing};
+  renderCompModal();
+}
+function renderCompModal(){
+  const c=COMPEDIT.comp;
+  const typeOpts=TYPES.map(t=>`<option value="${t}">${t[0].toUpperCase()+t.slice(1)}</option>`).join("");
+  const atkRows=(c.abilities||[]).map((a,i)=>`
+    <div class="atkrow">
+      <input class="ai" data-caf="${i}|name" value="${esc(a.name||"")}" placeholder="Attack name">
+      <select class="ai asel" data-caf="${i}|type">${TYPES.map(t=>`<option value="${t}" ${a.type===t?"selected":""}>${t[0].toUpperCase()+t.slice(1)}</option>`).join("")}</select>
+      <input class="ai aid" data-caf="${i}|dmg" value="${esc(a.dmg||"")}" placeholder="1d8">
+      <input class="ai aif" data-caf="${i}|flatPer" inputmode="numeric" value="${a.flatPer||0}" placeholder="+0">
+      <input class="ai" data-caf="${i}|dmgType" value="${esc(a.dmgType||"")}" placeholder="piercing">
+      <button class="btn sm ghost" data-comprmatk="${i}">✕</button>
+    </div>`).join("");
+  openModal(`<h2>${COMPEDIT.isNew?"New companion":"Edit companion"}</h2>
+    <div class="banner">A pet, mount or summon. It fights as its own combatant — rolls its own initiative and acts on its own turn, controlled by you.</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <div class="field" style="flex:2;min-width:150px"><label>Name</label><input id="cfName" data-cf="name" value="${esc(c.name)}" placeholder="e.g. Ember the wolf"></div>
+      <div class="field" style="flex:1;min-width:70px"><label>Token</label><input data-cf="token" value="${esc(c.token)}" placeholder="E" maxlength="2"></div>
+      <div class="field" style="min-width:70px"><label>Color</label><input type="color" data-cf="color" value="${c.color||"#8a6bd6"}"></div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <div class="field" style="flex:1;min-width:70px"><label>AC</label><input data-cf="ac" inputmode="numeric" value="${c.ac}"></div>
+      <div class="field" style="flex:1;min-width:70px"><label>Max HP</label><input data-cf="maxHP" inputmode="numeric" value="${c.maxHP}"></div>
+      <div class="field" style="flex:1;min-width:70px"><label>Speed</label><input data-cf="speed" inputmode="numeric" value="${c.speed}"></div>
+      <div class="field" style="flex:1;min-width:70px"><label>Init (DEX)</label><input data-cf="dexMod" inputmode="numeric" value="${c.dexMod}"></div>
+    </div>
+    <div class="seclabel2" style="margin:14px 0 4px">Moves <small style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)">name · type · dice · bonus · damage type</small></div>
+    <div class="atklist">${atkRows||'<div class="empty" style="margin:0 0 8px">No moves yet — add one so it can attack.</div>'}</div>
+    <button class="btn sm" data-compaddatk="1">+ Add move</button>
+    <div class="acts" style="margin-top:16px"><button class="btn ghost" data-close="1">Cancel</button>
+      <button class="btn primary" data-compsave="1">Save companion</button></div>`);
+  setTimeout(()=>{const n=$("#cfName");if(n&&!c.name)n.focus();},30);
+}
+function readCompFields(){
+  if(!COMPEDIT)return;const c=COMPEDIT.comp;
+  document.querySelectorAll("[data-cf]").forEach(inp=>{const k=inp.dataset.cf;
+    let v=inp.value;if(["ac","maxHP","speed","dexMod"].includes(k)){v=parseInt(v,10);if(isNaN(v))v=0;}c[k]=v;});
+  document.querySelectorAll("[data-caf]").forEach(inp=>{const [i,k]=inp.dataset.caf.split("|");const a=c.abilities[+i];if(!a)return;
+    let v=inp.value;if(k==="flatPer"){v=parseInt(v,10);if(isNaN(v))v=0;}a[k]=v;});
 }
 
 /* ---- ability section + filters ---- */
 function abilitySection(ch){
   const sec=el("div");
-  const f=ch._filter||(ch._filter={active:"all"});
+  const f=ch._filter||(ch._filter={active:"all",sort:"none"});
+  if(!f.sort)f.sort="none";
   const filters=el("div","filters");
   const defs=[["all","All"],["new","New this level"],["dm","DM-granted"]];
   let fh=defs.map(([k,l])=>`<button class="chip ${k==="dm"?"flag":""} ${f.active===k?"on":""}" data-filter="${k}">${l}</button>`).join("");
   fh+=`<span class="sp"></span>`;
   fh+=TYPES.map(t=>`<button class="chip ${f.active==="type:"+t?"on":""}" data-filter="type:${t}" style="--_c:var(--c-${t})">${t[0].toUpperCase()+t.slice(1)}</button>`).join("");
+  fh+=`<span class="sp"></span>`;
+  fh+=`<button class="chip ${f.sort!=="none"?"on":""}" data-abilsort="1">Level ${f.sort==="asc"?"↑ low→high":f.sort==="desc"?"↓ high→low":"—"}</button>`;
   filters.innerHTML=fh;
   sec.appendChild(filters);
 
+  // filter: hide non-matching entirely (no graying)
+  const matches=a=>{const isNew=a.level===ch.level;
+    if(f.active==="new")return isNew;
+    if(f.active==="dm")return!!a.dmGranted;
+    if(f.active.startsWith("type:"))return a.type===f.active.slice(5);
+    return true;};
+  const usable=a=>!a.passive&&(!a.charge||(ch.charges[a.charge]&&ch.charges[a.charge].cur>0));
+  const rank=a=>usable(a)?0:(a.passive?2:1); // active/usable first, passives last
+  const shown=ch.abilities.filter(matches).slice().sort((a,b)=>{
+    const r=rank(a)-rank(b);if(r)return r;
+    if(f.sort==="asc")return (a.level||0)-(b.level||0)||0;
+    if(f.sort==="desc")return (b.level||0)-(a.level||0)||0;
+    return 0;});
+
   const cards=el("div","cards");
-  ch.abilities.forEach(a=>{
+  if(shown.length===0)cards.appendChild(el("div","empty","Nothing matches this filter."));
+  shown.forEach(a=>{
     const isNew=a.level===ch.level;
-    let show=true;
-    if(f.active==="new")show=isNew;
-    else if(f.active==="dm")show=a.dmGranted;
-    else if(f.active.startsWith("type:"))show=a.type===f.active.slice(5);
-    const card=el("div","card"+(a.passive?" passive":"")+(show?"":" dim")+((f.active!=="all"&&show&&(f.active==="dm"||f.active==="new"))?" hot":""));
+    const card=el("div","card"+(a.passive?" passive":"")+((f.active==="dm"||f.active==="new")?" hot":""));
     card.style.setProperty("--ct",`var(--c-${a.type})`);
     let tags=`<span class="tag type">${a.type}</span><span class="tag">${esc(a.source)}</span>`;
     if(a.dmGranted)tags+=`<span class="tag dm">DM</span>`;
@@ -1325,7 +1424,7 @@ function calcView(ch){
       <button class="sw ${md.on?"on":""}" data-modtoggle="${md.key}" aria-label="toggle"></button></div>`;
   });
   // special: +10 spell dmg per-instance ruling
-  if(a.type==="damage"&&ch.modifiers.find(x=>x.kind==="spelldmg-flat"&&x.active)&&a.instances>1){
+  if(a.type==="damage"&&(ch.modifiers||[]).find(x=>x.kind==="spelldmg-flat"&&x.active)&&a.instances>1){
     mh+=`<div class="modrow"><div class="lab">+10 applies per beam/ray<small>DM ruling: on = ×${a.instances} instances, off = once</small></div>
       <span class="val">${st.perInstance?"×"+a.instances:"×1"}</span>
       <button class="sw ${st.perInstance?"on":""}" data-perinst="1" aria-label="toggle"></button></div>`;
@@ -1475,10 +1574,15 @@ function ensureBattle(camp){
 }
 function startEncounter(camp){
   const b=ensureBattle(camp);b.combatants=[];b.order=[];b.round=1;b.turnIdx=0;b.movedId=null;b.selId=null;b.log=[];
-  camp.party.forEach((id,i)=>{const ch=STATE.roster[id];const {ac}=effAC(ch);
+  camp.party.forEach((id,i)=>{const ch=STATE.roster[id];if(!ch)return;const {ac}=effAC(ch);
     b.combatants.push({id:uid("c"),side:"party",charId:id,name:ch.name,token:ch.token,color:ch.color,
       ac,maxHP:ch.maxHP,hp:ch.hp??ch.maxHP,dmgTaken:0,revealHP:true,revealAC:true,
-      initRoll:null,dexMod:modN(ch.scores.dex),conditions:[],dots:[],x:1,y:Math.min(i+1,b.rows)});});
+      initRoll:null,dexMod:modN(ch.scores.dex),conditions:[],dots:[],x:1,y:Math.min(i+1,b.rows)});
+    (ch.companions||[]).forEach(comp=>{const chp=comp.maxHP||1;
+      b.combatants.push({id:uid("c"),side:"party",charId:id,companionId:comp.id,isCompanion:true,
+        name:comp.name,token:comp.token||comp.name[0].toUpperCase(),color:comp.color||ch.color,
+        ac:comp.ac||10,maxHP:chp,hp:chp,dmgTaken:0,revealHP:true,revealAC:true,
+        initRoll:null,dexMod:comp.dexMod||0,conditions:[],dots:[],x:2,y:Math.min(i+1,b.rows)});});});
   b.active=true;b.phase="setup";
 }
 function battleView(isDM){
@@ -1541,6 +1645,7 @@ function battleView(isDM){
 const SKIP_CONDS=["Frozen","Stunned","Paralyzed","Unconscious"];
 const CARD_CONDS=["Frozen","Stunned","Paralyzed","Prone","Poisoned","Restrained"];
 let BACT=null; // transient active-turn action state
+let BFILTER="all"; // battle move-grid type filter
 function migrateBattle(b){
   if(!b.phase)b.phase=b.active?"active":"none";
   if(!b.order)b.order=b.combatants.map(c=>c.id);
@@ -1580,6 +1685,12 @@ function enterTurn(b,applyStart,guard){
 function advanceTurn(b,guard){
   b.turnIdx++;if(b.turnIdx>=b.order.length){b.turnIdx=0;b.round++;blog(b,`— Round ${b.round} —`);}
   enterTurn(b,true,guard);
+}
+/* the sheet a combatant acts from — its companion, or its character */
+function actorOf(c){
+  if(c&&c.companionId){const owner=STATE.roster[c.charId];
+    return owner&&(owner.companions||[]).find(k=>k.id===c.companionId)||null;}
+  return c?STATE.roster[c.charId]:null;
 }
 /* who controls a combatant: "dm" for enemies/NPCs, else the owning user id */
 function controllerOf(c){
@@ -1625,9 +1736,10 @@ function battleSetup(b,isDM,w){
   w.appendChild(list);
   if(isDM){const unrolled=b.combatants.filter(c=>c.initRoll==null).length;
     w.appendChild(el("div","startbox",`<div class="note">${unrolled?`${unrolled} still need a roll — or roll for them.`:"Everyone's in."}</div>
+      <button class="btn sm" data-addenemy="1">+ Add opponent</button>
       <button class="btn ghost sm" data-rollallinit="1">🎲 Roll remaining</button>
       <button class="btn primary" data-begincombat="1">Begin combat →</button>`));
-  }else w.appendChild(el("div","empty","Enter your roll — the DM starts combat when the table's set."));
+  }else w.appendChild(el("div","empty","Enter your roll — the DM adds the opponents and starts combat when the table's set."));
 }
 function battleActive(b,isDM,w){
   const cur=curCombatant(b);
@@ -1668,12 +1780,15 @@ function battleActive(b,isDM,w){
     w.appendChild(lp);}
 }
 function combatantCard(b,c,isDM,me,cur){
-  const en=c.side==="enemy";const mine=!!(me&&c.id===me.id);const ally=!en&&!mine;
+  const en=c.side==="enemy";
+  // "mine" = my own combatant, or one of my companions (shares my charId)
+  const mine=!!(me&&(c.id===me.id||(c.companionId&&c.charId===me.charId)));
+  const comp=!!c.companionId;const ally=!en&&!mine;
   const seeStats=isDM||mine||(en&&c.revealHP);const seeAC=isDM||mine||(en&&c.revealAC);const down=c.hp<=0;
   const card=el("div","cbt"+(cur&&c.id===cur.id?" turn":"")+(down&&seeStats?" down":""));
   card.style.setProperty("--sidec",en?"var(--c-damage)":c.color);
   let h=`<div class="cth"><div class="token sm" style="${en?"background:linear-gradient(135deg,#b4453f,#6d1f1b)":tokenStyle({color:c.color})}">${esc(c.token)}</div>
-      <div class="nm">${esc(c.name)}${mine?' <span class="soon" style="color:var(--accent);border-color:var(--accent)">you</span>':""}${down&&seeStats?' <span class="soon" style="color:var(--crit);border-color:var(--crit)">down</span>':""}</div></div>`;
+      <div class="nm">${esc(c.name)}${comp?' <span class="soon" style="color:var(--c-support);border-color:var(--c-support)">companion</span>':mine?' <span class="soon" style="color:var(--accent);border-color:var(--accent)">you</span>':""}${down&&seeStats?' <span class="soon" style="color:var(--crit);border-color:var(--crit)">down</span>':""}</div></div>`;
   if(seeStats){const pct=Math.max(0,Math.min(100,c.hp/c.maxHP*100));const clp=pct<=25?"crit":pct<=50?"low":"";
     h+=`<div class="hpbar"><i class="${clp}" style="width:${pct}%"></i></div><div class="hpn">${c.hp} / ${c.maxHP} HP</div>`;}
   else if(ally)h+=`<div class="masked">Fighting alongside you</div>`;
@@ -1713,25 +1828,43 @@ function ensureBACT(c,a){
   return BACT;
 }
 function partyActionForm(b,c){
-  const ch=STATE.roster[c.charId];const rollable=ch.abilities.filter(a=>a.dmg&&!a.passive);
-  if(rollable.length===0)return `<div class="awaiting">No dice-rolled attack on this sheet — resolve it at the table and press Skip.</div>`;
-  let aid=(BACT&&BACT.combatantId===c.id&&BACT.abilityId)?BACT.abilityId:rollable[0].id;
-  let a=rollable.find(x=>x.id===aid)||rollable[0];const st=ensureBACT(c,a);
-  const m=a.dmg.match(/(\d+)d(\d+)/);const count=+m[1],die=+m[2];
-  let html=`<label style="font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)">Choose a move</label><div class="movegrid">`+
-    rollable.map(x=>{const sel=x.id===a.id;
-      const pp=(x.charge&&ch.charges[x.charge])?`${ch.charges[x.charge].cur}/${ch.charges[x.charge].max}`:"∞";
-      const dice=(x.instances>1?x.instances+"×":"")+x.dmg+(x.flatPer?"+"+x.flatPer:"");
+  const ch=actorOf(c);
+  if(!ch)return `<div class="awaiting">This combatant has no sheet to act from — resolve it at the table and press Skip.</div>`;
+  const moves=(ch.abilities||[]).filter(a=>!a.passive);
+  if(moves.length===0)return `<div class="awaiting">No moves on this ${c.companionId?"companion":"sheet"} — resolve it at the table and press Skip.</div>`;
+  // every move shows; filter chips narrow by type
+  const present=TYPES.filter(t=>moves.some(m=>m.type===t));
+  const filt=(BFILTER!=="all"&&present.includes(BFILTER))?BFILTER:"all";
+  const shown=filt==="all"?moves:moves.filter(m=>m.type===filt);
+  let a=null;
+  if(BACT&&BACT.combatantId===c.id&&BACT.abilityId)a=shown.find(x=>x.id===BACT.abilityId)||null;
+  if(!a)a=shown.find(x=>x.dmg)||shown[0];
+  const st=ensureBACT(c,a);
+  let html=`<label style="font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)">Choose a move</label>
+    <div class="bfilters"><button class="chip ${filt==="all"?"on":""}" data-bmovefilter="all">All</button>`+
+    present.map(t=>`<button class="chip ${filt===t?"on":""}" data-bmovefilter="${t}" style="--_c:var(--c-${t})">${t[0].toUpperCase()+t.slice(1)}</button>`).join("")+`</div>
+    <div class="movegrid">`+
+    shown.map(x=>{const sel=x.id===a.id;
+      const pp=(x.charge&&ch.charges&&ch.charges[x.charge])?`${ch.charges[x.charge].cur}/${ch.charges[x.charge].max}`:"∞";
+      const dice=x.dmg?((x.instances>1?x.instances+"×":"")+x.dmg+(x.flatPer?"+"+x.flatPer:"")):"no roll";
       return `<button class="movebtn ${sel?"on":""}" data-bmove="${x.id}" style="--mt:var(--c-${x.type})">
         <span class="mtype">${esc(x.type)}</span><span class="mname">${esc(x.name)}</span>
-        <span class="mmeta">${esc(dice)} · PP ${pp}</span></button>`;}).join("")+`</div><div class="brolls">`;
+        <span class="mmeta">${esc(dice)} · PP ${pp}</span></button>`;}).join("")+`</div>`;
+  // a move with no damage roll: just declare it
+  if(!a.dmg){
+    html+=`<div class="useblk">${a.text?`<p class="usetext">${esc(a.text)}</p>`:'<p class="usetext">No dice to roll — declare it and the DM resolves the effect.</p>'}
+      <button class="btn primary" data-buse="${a.id}">Use ${esc(a.name)} &amp; end turn</button></div>`;
+    return html;
+  }
+  const m=a.dmg.match(/(\d+)d(\d+)/);const count=+m[1],die=+m[2];
+  html+=`<div class="brolls">`;
   for(let inst=0;inst<a.instances;inst++){let inputs="";
     for(let d=0;d<count;d++){const v=st.rolls[inst][d];
       inputs+=`<input class="bdie ${v===die?"crit":v===1?"min":""}" inputmode="numeric" data-binst="${inst}" data-bdie="${d}" value="${v||""}" placeholder="d${die}">`;}
     html+=`<div class="instblk" style="margin-bottom:8px"><div class="ih"><span class="t">${a.instances>1?instLabel(a)+" "+(inst+1):"Your rolls"} · ${count}d${die}${a.flatPer?" +"+a.flatPer:""}</span><span class="sub bsub" data-bsub="${inst}">${instSubtotal(a,st,inst)}</span></div><div class="dicegrid">${inputs}</div></div>`;}
   html+=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px"><button class="btn sm ghost" data-ballroll="1">🎲 Roll all</button><button class="btn sm ghost" data-bclear="1">Clear</button></div></div>`;
   applicableMods(ch,a,st).forEach(md=>{html+=`<div class="modrow"><div class="lab">${esc(md.label)}<small>${esc(md.note||"")}</small></div><span class="val">${md.display}</span><button class="sw ${md.on?"on":""}" data-bmod="${md.key}"></button></div>`;});
-  if(a.type==="damage"&&ch.modifiers.find(x=>x.kind==="spelldmg-flat"&&x.active)&&a.instances>1)
+  if(a.type==="damage"&&(ch.modifiers||[]).find(x=>x.kind==="spelldmg-flat"&&x.active)&&a.instances>1)
     html+=`<div class="modrow"><div class="lab">+10 per beam/ray<small>DM ruling</small></div><span class="val">${st.perInstance?"×"+a.instances:"×1"}</span><button class="sw ${st.perInstance?"on":""}" data-bperinst="1"></button></div>`;
   if(a.bonus)html+=`<div class="modrow"><div class="lab">${esc(a.bonus.toggle)}<small>${esc(a.bonus.why)}</small></div><span class="val">+${a.bonus.dice}</span><button class="sw ${st.bonusOn?"on":""}" data-bbonus="1"></button></div>`;
   const targets=b.combatants.filter(x=>x.id!==c.id);
@@ -1755,7 +1888,7 @@ function enemyActionForm(b,c){
 }
 function liveBattle(){
   const b=migrateBattle(ensureBattle(curCamp()));const c=curCombatant(b);
-  if(!c||!BACT||c.side==="enemy")return;const ch=STATE.roster[c.charId];const a=ch.abilities.find(x=>x.id===BACT.abilityId);if(!a)return;
+  if(!c||!BACT||c.side==="enemy")return;const ch=actorOf(c);if(!ch)return;const a=ch.abilities.find(x=>x.id===BACT.abilityId);if(!a)return;
   const res=computeTotal(ch,a,BACT);
   const n=document.querySelector(".actionpanel .btot");if(n)n.textContent=res.total;
   const ap=document.querySelector(".actionpanel [data-bapply]");if(ap)ap.innerHTML=`Apply ${res.total} &amp; end turn`;
@@ -1822,8 +1955,8 @@ function adjustHP(b,c,delta){
   const before=c.hp;
   c.hp=Math.max(0,Math.min(c.maxHP,c.hp+delta));
   if(delta<0)c.dmgTaken=(c.dmgTaken||0)+(before-c.hp);
-  if(c.charId&&STATE.roster[c.charId])STATE.roster[c.charId].hp=c.hp;
-  if(c.side==="party"){
+  if(c.charId&&!c.companionId&&STATE.roster[c.charId])STATE.roster[c.charId].hp=c.hp;
+  if(c.side==="party"&&!c.companionId){
     if(delta<0&&before<=0){ c.death=c.death||{s:0,f:0,dead:false,stable:false};
       if(!c.death.dead){c.death.f=Math.min(3,c.death.f+1);if(b)blog(b,`${c.name} fails a death save (struck while down).`);if(c.death.f>=3){c.death.dead=true;if(b)blog(b,`${c.name} has fallen.`);}}}
     else if(delta<0&&c.hp<=0&&before>0){ c.death={s:0,f:0,dead:false,stable:false}; if(b)blog(b,`${c.name} drops to 0 — death saves begin.`);}
@@ -2433,7 +2566,7 @@ function confirmModal(msg,onYes){
 
 /* ============================ event wiring ============================ */
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-nav],[data-open],[data-del],[data-newcamp],[data-join],[data-leave],[data-ready],[data-startsession],[data-endsession],[data-enterplay],[data-tab],[data-filter],[data-tocalc],[data-use],[data-spend],[data-rollinst],[data-rollall],[data-clearrolls],[data-modtoggle],[data-perinst],[data-bonus],[data-rest],[data-cooldowns],[data-dmview],[data-awardinsp],[data-spendinsp],[data-hpedit],[data-hp],[data-hpsave],[data-close],[data-scrim],[data-createcamp],[data-newchar],[data-dmnewchar],[data-setskin],[data-openacct]");
+  const t=e.target.closest("[data-nav],[data-open],[data-del],[data-newcamp],[data-join],[data-leave],[data-ready],[data-startsession],[data-endsession],[data-enterplay],[data-tab],[data-filter],[data-tocalc],[data-use],[data-spend],[data-rollinst],[data-rollall],[data-clearrolls],[data-modtoggle],[data-perinst],[data-bonus],[data-rest],[data-cooldowns],[data-dmview],[data-awardinsp],[data-spendinsp],[data-hpedit],[data-hp],[data-hpsave],[data-close],[data-scrim],[data-createcamp],[data-newchar],[data-dmnewchar],[data-setskin],[data-openacct],[data-abilsort]");
   if(!t)return;
   const d=t.dataset;
   if(d.scrim&&e.target!==t)return; // clicked inside modal
@@ -2472,6 +2605,7 @@ document.addEventListener("click",e=>{
   if(d.enterplay){STATE.ui.screen="play";STATE.ui.tab="sheet";render();return;}
   if(d.tab){STATE.ui.tab=d.tab;render();return;}
   if(d.filter){const ch=viewedChar();if(ch){ch._filter=ch._filter||{};ch._filter.active=d.filter;render();}return;}
+  if(d.abilsort){const ch=viewedChar();if(ch){ch._filter=ch._filter||{active:"all"};const cur=ch._filter.sort||"none";ch._filter.sort=cur==="none"?"asc":cur==="asc"?"desc":"none";render();}return;}
   if(d.tocalc){STATE.ui.tab="calc";STATE.ui.calcAbility=d.tocalc;render();return;}
   if(d.use){const ch=viewedChar();const a=ch.abilities.find(x=>x.id===d.use);
     if(a.charge){if(!spendCharge(ch,a.charge)){toast("No charges left");return;}}
@@ -2538,13 +2672,13 @@ function liveCalc(ch,a,st){
 /* battle + lore events */
 let PENDING_PHOTO=null;
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-startbtl],[data-endbtl],[data-addenemy],[data-addenemysave],[data-nextturn],[data-cell],[data-selbtl],[data-dmgc],[data-revhp],[data-revac],[data-rmc],[data-addnote],[data-delnote],[data-brollinit],[data-rollallinit],[data-begincombat],[data-reroll],[data-reup],[data-redn],[data-passturn],[data-bmove],[data-ballroll],[data-bclear],[data-bmod],[data-bperinst],[data-bbonus],[data-bapply],[data-eapply],[data-cond],[data-adddot],[data-dotsave],[data-rmdot]");
+  const t=e.target.closest("[data-startbtl],[data-endbtl],[data-addenemy],[data-addenemysave],[data-nextturn],[data-cell],[data-selbtl],[data-dmgc],[data-revhp],[data-revac],[data-rmc],[data-addnote],[data-delnote],[data-brollinit],[data-rollallinit],[data-begincombat],[data-reroll],[data-reup],[data-redn],[data-passturn],[data-bmove],[data-bmovefilter],[data-buse],[data-ballroll],[data-bclear],[data-bmod],[data-bperinst],[data-bbonus],[data-bapply],[data-eapply],[data-cond],[data-adddot],[data-dotsave],[data-rmdot]");
   if(!t)return;const d=t.dataset;const camp=curCamp();const b=migrateBattle(ensureBattle(camp));
   const isDM=STATE.cloud?amDM(camp):(STATE.ui.viewAs==="dm"); // host authority (DM keeps it even while viewing a PC)
   const mayAct=canAct(b,isDM);
   if(STATE.cloud&&!isDM){
     const HOST_ONLY={startbtl:1,endbtl:1,reroll:1,rollallinit:1,begincombat:1,reup:1,redn:1,nextturn:1,addenemy:1,addenemysave:1,revhp:1,revac:1,rmc:1,cond:1,adddot:1,dotsave:1,rmdot:1};
-    const TURN={bmove:1,ballroll:1,bclear:1,bmod:1,bperinst:1,bbonus:1,bapply:1,eapply:1,passturn:1};
+    const TURN={bmove:1,bmovefilter:1,buse:1,ballroll:1,bclear:1,bmod:1,bperinst:1,bbonus:1,bapply:1,eapply:1,passturn:1};
     for(const k in d){if(HOST_ONLY[k]){toast("The DM runs the encounter");return;}}
     let needsTurn=false;for(const k in d){if(TURN[k])needsTurn=true;}
     if(needsTurn&&!mayAct){const c=curCombatant(b);toast(c?`Hang tight — it's ${c.name.split(" ")[0]}'s turn`:"Wait for your turn");return;}
@@ -2587,14 +2721,17 @@ document.addEventListener("click",e=>{
     const label=($("#dotLabel").value||"DOT").trim();const amt=parseInt($("#dotAmt").value,10)||0;
     c.dots.push({id:uid("dot"),label,amount:amt});}closeModal();render();toast("DOT added");return;}
   if(d.rmdot){const [cid,did]=d.rmdot.split("|");const c=b.combatants.find(x=>x.id===cid);if(c)c.dots=(c.dots||[]).filter(x=>x.id!==did);render();return;}
-  if(d.bmove){const c=curCombatant(b);if(!c)return;const ch=STATE.roster[c.charId];const a=ch.abilities.find(x=>x.id===d.bmove);BACT=null;ensureBACT(c,a);render();return;}
-  if(d.ballroll){const c=curCombatant(b);if(!c||!BACT)return;const ch=STATE.roster[c.charId];const a=ch.abilities.find(x=>x.id===BACT.abilityId);if(!a)return;
+  if(d.bmove){const c=curCombatant(b);if(!c)return;const ch=actorOf(c);if(!ch)return;const a=ch.abilities.find(x=>x.id===d.bmove);BACT=null;ensureBACT(c,a);render();return;}
+  if(d.bmovefilter){BFILTER=d.bmovefilter;render();return;}
+  if(d.ballroll){const c=curCombatant(b);if(!c||!BACT)return;const ch=actorOf(c);if(!ch)return;const a=ch.abilities.find(x=>x.id===BACT.abilityId);if(!a)return;
     const die=+a.dmg.match(/(\d+)d(\d+)/)[2];BACT.rolls=BACT.rolls.map(r=>r.map(()=>rollDie(die)));BACT._bonusRoll=null;render();return;}
   if(d.bclear){if(BACT){BACT.rolls=BACT.rolls.map(r=>r.map(()=>0));BACT._bonusRoll=null;}render();return;}
   if(d.bmod){if(BACT){BACT.modOff[d.bmod]=!BACT.modOff[d.bmod];}render();return;}
   if(d.bperinst){if(BACT)BACT.perInstance=!BACT.perInstance;render();return;}
   if(d.bbonus){if(BACT){BACT.bonusOn=!BACT.bonusOn;BACT._bonusRoll=null;}render();return;}
-  if(d.bapply){const c=curCombatant(b);if(!c||!BACT)return;const ch=STATE.roster[c.charId];const a=ch.abilities.find(x=>x.id===BACT.abilityId);
+  if(d.buse){const c=curCombatant(b);if(!c)return;const ch=actorOf(c);const a=ch&&(ch.abilities||[]).find(x=>x.id===d.buse);
+    blog(b,`${c.name} uses ${a?a.name:"an action"}.`);advanceTurn(b,0);render();toast(a?a.name+" used":"Action used");return;}
+  if(d.bapply){const c=curCombatant(b);if(!c||!BACT)return;const ch=actorOf(c);if(!ch)return;const a=ch.abilities.find(x=>x.id===BACT.abilityId);
     const res=computeTotal(ch,a,BACT);const tgt=b.combatants.find(x=>x.id===BACT.targetId);if(!tgt){toast("Pick a target");return;}
     adjustHP(b,tgt,-res.total);
     blog(b,`${c.name} hits ${tgt.name} for ${res.total}${a.dmgType?" "+a.dmgType:""}.`);advanceTurn(b,0);render();toast(`${res.total} to ${tgt.name}`);return;}
@@ -2615,7 +2752,7 @@ document.addEventListener("change",e=>{
   if(e.target.id==="notePhoto"){const f=e.target.files&&e.target.files[0];if(!f)return;
     const r=new FileReader();r.onload=()=>{PENDING_PHOTO=r.result;const pn=$("#photoName");if(pn)pn.textContent=f.name+" attached";};r.readAsDataURL(f);return;}
   if(e.target.id==="bAbSel"){const b=migrateBattle(ensureBattle(curCamp()));const c=curCombatant(b);if(!c)return;
-    const ch=STATE.roster[c.charId];const a=ch.abilities.find(x=>x.id===e.target.value);BACT=null;ensureBACT(c,a);render();return;}
+    const ch=actorOf(c);if(!ch)return;const a=ch.abilities.find(x=>x.id===e.target.value);BACT=null;ensureBACT(c,a);render();return;}
   if(e.target.id==="bTargetSel"){if(BACT)BACT.targetId=e.target.value;return;}
   if(e.target.id==="eTargetSel"){if(BACT)BACT.targetId=e.target.value;return;}
 });
@@ -2625,7 +2762,7 @@ document.addEventListener("input",e=>{
     if(STATE.cloud&&!amDM(camp)&&controllerOf(c)!==ME())return;
     if(c){let v=parseInt(e.target.value,10);c.initRoll=isNaN(v)?null:Math.max(1,Math.min(20,v));}return;}
   if(cl.contains("bdie")){const b=migrateBattle(ensureBattle(curCamp()));const c=curCombatant(b);
-    if(!c||c.side==="enemy"||!BACT)return;const ch=STATE.roster[c.charId];const a=ch.abilities.find(x=>x.id===BACT.abilityId);if(!a)return;
+    if(!c||c.side==="enemy"||!BACT)return;const ch=actorOf(c);if(!ch)return;const a=ch.abilities.find(x=>x.id===BACT.abilityId);if(!a)return;
     const inst=+e.target.dataset.binst,di=+e.target.dataset.bdie;const die=+a.dmg.match(/(\d+)d(\d+)/)[2];
     let v=parseInt(e.target.value,10);if(isNaN(v))v=0;v=Math.max(0,Math.min(die,v));BACT.rolls[inst][di]=v;liveBattle();return;}
   if(e.target.id==="eFlat"){if(BACT)BACT.flat=parseInt(e.target.value,10)||0;return;}
@@ -2640,8 +2777,22 @@ function pinModal(){openModal(`<h2>Drop a pin</h2>
   setTimeout(()=>{const n=$("#pinLabel");if(n)n.focus();},30);}
 const _diceBtn=$("#diceBtn");if(_diceBtn)_diceBtn.addEventListener("click",diceDrawer);
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-dieface],[data-adv],[data-roll],[data-copysave],[data-importsave],[data-maptool],[data-mapcell],[data-maptok],[data-mapreveal],[data-saveprof],[data-addcharge],[data-rmcharge],[data-chargesave],[data-addab],[data-editab],[data-rmab],[data-absave],[data-addmod],[data-rmmod],[data-modsave],[data-buildsave],[data-buildcancel],[data-buildnew],[data-buildedit],[data-deathsave],[data-restore],[data-purge],[data-pinsave],[data-export]");
+  const t=e.target.closest("[data-dieface],[data-adv],[data-roll],[data-copysave],[data-importsave],[data-maptool],[data-mapcell],[data-maptok],[data-mapreveal],[data-saveprof],[data-addcharge],[data-rmcharge],[data-chargesave],[data-addab],[data-editab],[data-rmab],[data-absave],[data-addmod],[data-rmmod],[data-modsave],[data-buildsave],[data-buildcancel],[data-buildnew],[data-buildedit],[data-deathsave],[data-restore],[data-purge],[data-pinsave],[data-export],[data-compadd],[data-compedit],[data-comprm],[data-compaddatk],[data-comprmatk],[data-compsave]");
   if(!t)return;const d=t.dataset;
+  // companions
+  if(d.compadd){openCompanion(d.compadd,null);return;}
+  if(d.compedit){const [cid,pid]=d.compedit.split("|");openCompanion(cid,pid);return;}
+  if(d.comprm){const [cid,pid]=d.comprm.split("|");const ch=STATE.roster[cid];
+    if(ch){ch.companions=(ch.companions||[]).filter(x=>x.id!==pid);render();toast("Companion removed");}return;}
+  if(d.compaddatk){readCompFields();COMPEDIT.comp.abilities.push({id:uid("m"),name:"",type:"damage",dmg:"1d6",flatPer:0,dmgType:"",instances:1,passive:false});renderCompModal();return;}
+  if(d.comprmatk){readCompFields();COMPEDIT.comp.abilities.splice(+d.comprmatk,1);renderCompModal();return;}
+  if(d.compsave){readCompFields();const c=COMPEDIT.comp;
+    if(!c.name.trim()){toast("Give the companion a name");return;}
+    c.token=(c.token||c.name[0]||"?").slice(0,2);
+    (c.abilities||[]).forEach(a=>{a.instances=a.instances||1;if(!/\d+d\d+/.test(a.dmg||"")){a.dmg="";}});
+    const ch=STATE.roster[COMPEDIT.charId];if(ch){ch.companions=ch.companions||[];
+      const i=ch.companions.findIndex(x=>x.id===c.id);if(i>=0)ch.companions[i]=c;else ch.companions.push(c);}
+    COMPEDIT=null;closeModal();render();toast("Companion saved");return;}
   // In cloud mode the DM owns the shared map; players can't paint it
   if(STATE.cloud&&!amDM(curCamp())&&("maptool" in d||"mapcell" in d||"mapreveal" in d||"pinsave" in d)){toast("The DM controls the map");return;}
   if(STATE.cloud&&("export" in d||"importsave" in d)){toast("Your table already syncs to the cloud — no export needed");return;}
