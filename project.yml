@@ -5,3 +5,9 @@ packages:
       - name: ddb
         runtime: nodejs:18
         web: true
+      - name: dm
+        runtime: nodejs:18
+        web: true
+        limits:
+          timeout: 60000
+          memory: 256

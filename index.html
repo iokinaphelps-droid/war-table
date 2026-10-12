@@ -629,7 +629,17 @@ body.tableview #screen{max-width:none;padding:14px 18px}
 .recappush .eyebrow{color:var(--gold)}
 .srchres{display:flex;flex-direction:column;gap:5px;max-height:55vh;overflow:auto} .srchhit{display:flex;gap:10px;align-items:flex-start;text-align:left;background:var(--bg3);border:1px solid var(--line);border-radius:10px;padding:8px 10px;color:var(--fg);cursor:pointer} .srchhit:hover{border-color:var(--accent)} .srchhit .st small{display:block;color:var(--muted);font-size:12px;margin-top:2px} .srchhit mark{background:color-mix(in srgb,var(--gold) 40%,transparent);color:inherit;border-radius:3px}
 .flash{animation:flash 2.2s ease-out} @keyframes flash{0%{box-shadow:0 0 0 3px var(--gold)}100%{box-shadow:0 0 0 0 transparent}}
-.dmscreen{max-width:720px} .reftable{width:100%;border-collapse:collapse;font-size:13.5px;max-height:60vh;display:block;overflow:auto} .reftable td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top} .reftable td:first-child{font-weight:700;white-space:nowrap;width:1%;color:var(--gold)}
+.dmscreen{max-width:720px}
+.storywrap{display:flex;flex-direction:column;gap:12px} .storyhead{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap} .storymeta{font-size:12.5px;color:var(--muted);margin-top:2px}
+.storylist{display:flex;flex-direction:column;gap:10px;max-height:58vh;overflow:auto;padding:4px 2px;scroll-behavior:smooth}
+.smsg{display:flex;gap:10px;align-items:flex-start} .smsg .sau{flex:none;width:44px;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);padding-top:8px;text-align:right}
+.smsg .sbody{background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:10px 14px;font-size:15px;line-height:1.55;max-width:min(680px,100%)} .smsg .sbody p{margin:0 0 8px} .smsg .sbody p:last-child{margin:0}
+.smsg.dm .sbody{border-color:color-mix(in srgb,var(--gold) 35%,var(--line));font-family:var(--f-display);font-size:16.5px}
+.smsg.pl{flex-direction:row-reverse} .smsg.pl .sau{text-align:left} .smsg.pl .sbody{background:color-mix(in srgb,var(--accent) 12%,var(--bg2))}
+.smsg.sys .sbody{font-family:var(--f-mono);font-size:12px;color:var(--muted);border-style:dashed}
+.dots i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--muted);margin:0 2px;animation:dot 1.2s infinite} .dots i:nth-child(2){animation-delay:.2s} .dots i:nth-child(3){animation-delay:.4s} @keyframes dot{0%,80%,100%{opacity:.2}40%{opacity:1}}
+.storycomposer textarea{width:100%;background:var(--bg3);border:1px solid var(--line2);border-radius:12px;padding:10px 12px;color:var(--fg);font:inherit;font-size:16px;resize:vertical}
+.rollreqs{display:flex;flex-direction:column;gap:6px} .rollreq{display:flex;align-items:center;justify-content:space-between;gap:10px;background:color-mix(in srgb,var(--gold) 10%,var(--bg2));border:1px solid color-mix(in srgb,var(--gold) 40%,var(--line));border-radius:10px;padding:8px 12px;font-size:13.5px} .reftable{width:100%;border-collapse:collapse;font-size:13.5px;max-height:60vh;display:block;overflow:auto} .reftable td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top} .reftable td:first-child{font-weight:700;white-space:nowrap;width:1%;color:var(--gold)}
 .thp{color:var(--c-support);font-size:11px;margin-left:4px} .defrow{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px}
 .defchip{font-size:10px;padding:1px 6px;border-radius:5px;border:1px solid var(--line2);color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .defchip.immune{color:var(--ok)} .defchip.vuln{color:var(--crit)}
@@ -1348,6 +1358,7 @@ function render(){
   $("#foot").innerHTML=footNote();
   save();
   if(STATE.cloud){Cloud.syncRooms();Cloud.afterRender();}
+  if(camp&&ui.screen==="play"&&aiOn(camp))setTimeout(()=>aiMaybeRunEnemy(camp),50);
 }
 function footNote(){
   if(STATE.cloud){
@@ -1490,7 +1501,7 @@ function screenCampaigns(){
     s.innerHTML=`
       <svg class="crest" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l8 3v6c0 5-3.4 8.4-8 11-4.6-2.6-8-6-8-11V5z"/></svg>
       <h3>${esc(c.name)}</h3>
-      <div class="dm">DM · ${esc(c.dm)}</div>
+      <div class="dm">${aiOn(c)?'<span class="ktag handout">AI DM</span> ':""}DM · ${esc(c.dm)}</div>
       <div class="meta">
         <div class="m"><span class="k">Party</span><span class="v">${c.party.length}</span></div>
         <div class="m"><span class="k">Status</span><span class="v" style="font-size:13px;color:${c.session.live?"var(--ok)":"var(--muted)"}">${c.session.live?"Live":"Idle"}</span></div>
@@ -1625,7 +1636,8 @@ function screenPlay(){
   const main=el("div","playmain");
   // tabs
   const tabs=el("div","tabs");
-  PLAY_TABS.forEach(([k,label])=>{
+  const tabList=aiOn(camp)?[["story","Story"]].concat(PLAY_TABS):PLAY_TABS;
+  tabList.forEach(([k,label])=>{
     const t=el("button","tab"+(STATE.ui.tab===k?" active":""),label);
     t.dataset.tab=k;tabs.appendChild(t);
   });
@@ -1638,6 +1650,7 @@ function screenPlay(){
   else if(tab==="battle")body.appendChild(battleRouter(host));
   else if(tab==="lore")body.appendChild(loreView(host));
   else if(tab==="journal")body.appendChild(journalView(host));
+  else if(tab==="story")body.appendChild(storyView(camp,host));
   main.appendChild(body);
   if(railChar){const lay=el("div","playwrap");lay.appendChild(statusRail(railChar));lay.appendChild(main);wrap.appendChild(lay);}
   else wrap.appendChild(main);
@@ -3083,7 +3096,7 @@ function loreModal(kind,noteId){
 function searchCampaign(camp,q,isDM){q=(q||"").trim().toLowerCase();if(q.length<2||!camp)return [];const hits=[];const sn=(t,n)=>{t=String(t||"");const i=t.toLowerCase().indexOf(q);if(i<0)return esc(t.slice(0,n||90));const a=Math.max(0,i-30);return esc(t.slice(a,i))+"<mark>"+esc(t.slice(i,i+q.length))+"</mark>"+esc(t.slice(i+q.length,i+q.length+60));};
   (camp.lore||[]).filter(n=>canSeeNote(n,isDM)).forEach(n=>{if(n.kind==="npc"){const m=npcMeta(n);const blob=[n.title,m.role,m.where,m.notes,isDM?m.secret:""].join(" ");if(blob.toLowerCase().includes(q))hits.push({kind:"People",title:n.title,snip:sn([m.role,m.where,m.notes].filter(Boolean).join(" · ")),go:{tab:"lore",loref:"npc",id:n.id}});}
     else{const blob=[n.title,n.text].join(" ");if(blob.toLowerCase().includes(q))hits.push({kind:n.kind==="handout"?"Handout":n.kind==="dm"?"DM note":"Note",title:n.title||(n.text||"").slice(0,40),snip:sn(n.text),go:{tab:"lore",loref:"all",id:n.id}});}});
-  (camp.journal||[]).forEach(j=>{if((j.text||"").toLowerCase().includes(q))hits.push({kind:j.kind==="auto"?"Log":j.kind==="story"?"Story":j.kind==="recap"?"Recap":j.kind==="context"?"Context":"Downtime",title:j.author+" · "+new Date(j.ts).toLocaleDateString(),snip:sn(j.text),go:{tab:"journal",jtab:j.kind==="auto"?"log":j.kind==="story"?"story":j.kind==="downtime"?"calendar":"recap",id:j.id}});});
+  (camp.journal||[]).forEach(j=>{if((j.text||"").toLowerCase().includes(q))hits.push({kind:j.kind==="auto"?"Log":j.kind==="story"?"Story":j.kind==="ai"?"Tale":j.kind==="recap"?"Recap":j.kind==="context"?"Context":"Downtime",title:j.author+" · "+new Date(j.ts).toLocaleDateString(),snip:sn(j.text),go:j.kind==="ai"?{tab:"story"}:{tab:"journal",jtab:j.kind==="auto"?"log":j.kind==="story"?"story":j.kind==="downtime"?"calendar":"recap",id:j.id}});});
   (camp.bestiary||[]).forEach(m=>{if((m.name||"").toLowerCase().includes(q))hits.push({kind:"Bestiary",title:m.name,snip:esc(`HP ${m.hp} · AC ${m.ac} · ${(m.moves||[]).length} attacks`),go:null});});
   (camp.party||[]).map(id=>STATE.roster[id]).filter(Boolean).forEach(ch=>{if(ch.name.toLowerCase().includes(q))hits.push({kind:"Character",title:ch.name,snip:esc(ch.cls),go:{tab:"sheet",viewAs:ch.id}});
     (ch.abilities||[]).forEach(a=>{if((a.name||"").toLowerCase().includes(q))hits.push({kind:"Move",title:a.name,snip:esc(ch.name.split(" ")[0]+" · "+(a.source||"")),go:{readmore:a.name}});});});
@@ -3161,6 +3174,215 @@ function npcModal(noteId){
     <div class="nr" style="display:flex;gap:9px;align-items:center;flex-wrap:wrap"><button class="btn sm ghost" data-npcportrait="1">✨ Portrait</button><label class="btn sm ghost filebtn">📷 Photo<input type="file" accept="image/*" id="npcPhoto"></label><label style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="npcVis" ${n?(n.visible!==false?"checked":""):"checked"}> Visible to the party</label></div>
     <div class="acts"><button class="btn ghost" data-close="1">Cancel</button><button class="btn primary" data-npcsave="1">${n?"Save":"Add"}</button></div>`);
 }
+/* ============================ AI Dungeon Master ============================ */
+/* An AI-run campaign: the Story tab is the table. The model narrates, asks for rolls, spawns real encounters on the
+   battle board, keeps a hidden campaign bible it revises as the party makes choices, and bends the ending to fit. */
+const AI_TONES={family:"Family-friendly: no gore, no profanity, villains are menacing not graphic.",pg13:"PG-13: real stakes, blood and death happen off the close-up, mild language is fine.",gritty:"Gritty: consequences bite, violence is described plainly, morally grey choices, still no sexual content."};
+const AI_DIFF={easy:"EASY: encounters at ~0.6× the party's budget, enemies make tactical mistakes and spread damage, failed checks cost time not lives, generous with clues and second chances.",medium:"MEDIUM: encounters at ~1× budget, enemies fight sensibly, failure has real but recoverable cost, clues need a little work.",hard:"HARD: encounters at ~1.4× budget with synergy, enemies focus the weak and use the terrain, failures compound, the world does not wait for the party."};
+function aiOf(camp){camp.settings=camp.settings||{};return camp.settings.ai||null;}
+function aiOn(camp){return !!(camp&&aiOf(camp)&&aiOf(camp).on);}
+function aiOwner(camp){return !STATE.cloud||amDM(camp);} // the human who made the campaign runs the table's plumbing (bible writes, enemy turns)
+function aiThread(camp){return journalOf(camp).filter(j=>j.kind==="ai").sort((a,b)=>a.ts-b.ts);}
+function aiPost(camp,role,text,meta,author){const j={id:uid("j"),kind:"ai",author:role==="dm"?"DM":(author||whoAmI(false)),author_id:STATE.cloud?ME():null,ts:Date.now(),text,meta:Object.assign({role},meta||{})};journalOf(camp).push(j);if(STATE.cloud)Cloud.addJournal(camp.id,j);return j;}
+function partySummary(camp){
+  return camp.party.map(id=>STATE.roster[id]).filter(Boolean).map(ch=>{const top=(ch.abilities||[]).filter(a=>!a.passive).slice(0,8).map(a=>a.name).join(", ");
+    return `- ${ch.name} — ${ch.cls}${ch.subtitle?" ("+ch.subtitle+")":""}; HP ${ch.hp??ch.maxHP}/${ch.maxHP}, AC ${effAC(ch).ac}, passive Perception ${(ch.passives||{}).Perception||10}; notable: ${top||"—"}${ch.player?"; played by "+ch.player:""}${isNPC(ch)?"; NPC":""}`;}).join("\n");
+}
+function aiSystem(camp){
+  const ai=aiOf(camp)||{};const bible=ai.bible?JSON.stringify(ai.bible,null,0):"(none yet — write one with the bible command on your first reply)";
+  return `You are the Dungeon Master for a D&D 5e campaign played through War Table, a phone-first app. You narrate, voice NPCs, adjudicate, and keep the story moving. You never play the player characters.
+
+TONE: ${AI_TONES[ai.tone]||AI_TONES.pg13}
+DIFFICULTY: ${AI_DIFF[ai.difficulty]||AI_DIFF.medium}
+PREMISE (from the players): ${ai.premise||"(none given — invent a strong one)"}
+PACING: this campaign is ${ai.length==="oneshot"?"a ONE-SHOT: 2–3 hours, three acts, reach the climax tonight":ai.length==="short"?"a SHORT ARC: 3–5 sessions":"an OPEN CAMPAIGN: many sessions"}. In-game date: ${calLabel(camp)}.
+
+THE PARTY:
+${partySummary(camp)||"(no characters yet)"}
+
+CAMPAIGN BIBLE (hidden from players; yours to keep current):
+${bible}
+
+HOW TO RUN THE TABLE
+- Write like a great DM at a real table: vivid but tight. 80–200 words per reply unless a set piece earns more. End most replies with a clear "what do you do?" moment or a concrete choice. Address players by character name.
+- Let the party get sidetracked — side quests, tangents, a bar fight — and enjoy it. Then guide them back through the world (an NPC with news, a consequence catching up, a clue surfacing), never a wall. Track a DRIFT score 0–10 in the bible; above 6, lean harder on the reel-in.
+- There is no fixed ending. Keep the spine (threat, stakes, clock) but let the climax and resolution be whatever the party's choices earned. Revise the bible's "likely endings" as they act. Kill a darling if their decisions make it inevitable.
+- Ask for rolls when the outcome is uncertain and matters: name the check and the DC. Use the roll command so the app can prompt the player. Read the results they post ("Rolled Perception: 17") and move on; never ask for a roll you already have.
+- When violence starts, spawn a real encounter with the encounter command (SRD monster indexes only, e.g. "goblin", "bandit", "wolf", "skeleton", "orc", "ogre", "bugbear", "hobgoblin", "giant-spider", "ghoul", "cult-fanatic", "veteran", "thug", "bandit-captain", "young-red-dragon"). Size it to the DIFFICULTY and the party's level. The app runs the fight; you'll get a summary when it ends — pick up from there.
+- Track time: use the calendar command when days pass. Use the npc command when a named NPC becomes someone the party will meet again. Use the handout command for letters, maps, inscriptions, wanted posters.
+- Keep each player's spotlight fair; if one has gone quiet for a while, give their character something.
+- Rules: 5e as written, adjudicate fast, player agency over rules minutiae. Don't narrate a player's success or failure before the roll.
+
+OUTPUT FORMAT
+Plain narrative text (markdown light: *italics* for emphasis, no headings). Then, ONLY when needed, one JSON block on its own line at the very end:
+\`\`\`wt
+{"commands":[ ... ]}
+\`\`\`
+Command shapes (use any, in one array):
+{"roll":{"who":"Aster Phagos","check":"Perception","dc":13,"why":"to spot the ambush"}}
+{"encounter":{"name":"Ambush at the ford","monsters":[{"index":"goblin","count":3},{"index":"wolf","count":1}],"terrain":"a shallow river crossing, boulders for cover"}}
+{"npc":{"name":"Mirabel","role":"ferry-keeper","attitude":"friendly|neutral|wary|hostile","where":"the Drowned Rat","notes":"what the party knows"}}
+{"handout":{"title":"The sealed letter","text":"..."}}
+{"calendar":{"advance":1}}
+{"bible":{"premise":"...","spine":["act 1","act 2","act 3"],"threat":"...","clock":"what happens if they do nothing","factions":[...],"npcs":[{"name":"","wants":"","secret":""}],"secrets":[...],"likely_endings":[...],"drift":0,"notes":"..."}}  — send the whole bible when it changes materially; the app stores it.
+{"rest":"short|long"}
+{"xp":{"note":"milestone reached: level up"}}
+{"scene":"a short title for the current scene"}`;
+}
+function aiRecent(camp,n){return aiThread(camp).slice(-(n||40)).map(j=>({role:j.meta&&j.meta.role==="dm"?"assistant":"user",content:j.meta&&j.meta.role==="dm"?j.text:`[${j.author}] ${j.text}`}));}
+async function aiCall(camp,extraUser){
+  const ai=aiOf(camp);if(!ai)throw new Error("AI DM is off for this campaign");
+  const msgs=aiRecent(camp,40);if(extraUser)msgs.push({role:"user",content:extraUser});
+  if(!msgs.length)msgs.push({role:"user",content:"[system] The table is seated. Open the campaign: write the bible, then narrate the opening scene."});
+  // consecutive same-role messages are merged (the API wants alternation)
+  const merged=[];msgs.forEach(m=>{const last=merged[merged.length-1];if(last&&last.role===m.role)last.content+="\n\n"+m.content;else merged.push(Object.assign({},m));});
+  if(merged[0].role!=="user")merged.unshift({role:"user",content:"[system] continue"});
+  let token="";try{if(SB){const {data}=await SB.auth.getSession();token=data&&data.session&&data.session.access_token||"";}}catch(e){}
+  const base=/^https?:/.test(location.protocol)?"":"https://wontonvtt.app";
+  const r=await fetch(base+"/api/wartable/dm",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify({system:aiSystem(camp),messages:merged,max_tokens:1400})});
+  const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||("AI DM error "+r.status));
+  return j.text||"";
+}
+function aiParse(text){const m=text.match(/```wt\s*([\s\S]*?)```/);let cmds=[];if(m){try{const j=JSON.parse(m[1]);cmds=Array.isArray(j.commands)?j.commands:Array.isArray(j)?j:[j];}catch(e){}}
+  return {narr:text.replace(/```wt[\s\S]*?```/g,"").trim(),cmds};}
+async function aiExecute(camp,cmds){
+  const ai=aiOf(camp);const notes=[];
+  for(const c of cmds){try{
+    if(c.bible&&aiOwner(camp)){ai.bible=Object.assign({},ai.bible||{},c.bible);notes.push("bible updated");}
+    if(c.scene&&aiOwner(camp)){ai.scene=String(c.scene).slice(0,80);}
+    if(c.roll){ai.pendingRolls=(ai.pendingRolls||[]).concat([{id:uid("r"),who:c.roll.who,check:c.roll.check,dc:c.roll.dc,why:c.roll.why||"",ts:Date.now()}]).slice(-6);}
+    if(c.npc&&aiOwner(camp)){camp.lore=camp.lore||[];const meta={attitude:c.npc.attitude||"neutral",role:c.npc.role||"",where:c.npc.where||"",notes:c.npc.notes||"",secret:""};
+      const ex=camp.lore.find(n=>n.kind==="npc"&&(n.title||"").toLowerCase()===String(c.npc.name).toLowerCase());
+      if(ex){const old=npcMeta(ex);ex.text=JSON.stringify(Object.assign(old,meta,{secret:old.secret}));if(STATE.cloud)Cloud.updLore(ex);}
+      else{const note={id:uid("n"),author:"DM",author_id:STATE.cloud?ME():null,ts:Date.now(),text:JSON.stringify(meta),title:c.npc.name,kind:"npc",visible:true,image:null};camp.lore.push(note);if(STATE.cloud)Cloud.addLore(camp.id,note);}
+      notes.push("met "+c.npc.name);}
+    if(c.handout&&aiOwner(camp)){camp.lore=camp.lore||[];const note={id:uid("n"),author:"DM",author_id:STATE.cloud?ME():null,ts:Date.now(),text:c.handout.text||"",title:c.handout.title||"Handout",kind:"handout",visible:true,image:null};camp.lore.push(note);if(STATE.cloud)Cloud.addLore(camp.id,note);notes.push("handout: "+note.title);}
+    if(c.calendar&&aiOwner(camp)){calAdvance(camp,+c.calendar.advance||1);notes.push("time passes → "+calLabel(camp));}
+    if(c.rest&&aiOwner(camp)){doRest(c.rest==="long"?"long":"short");notes.push(c.rest+" rest");}
+    if(c.encounter&&aiOwner(camp)){await aiSpawnEncounter(camp,c.encounter);notes.push("encounter: "+(c.encounter.name||"fight"));}
+  }catch(e){console.warn("ai cmd failed",c,e);}}
+  return notes;
+}
+async function aiSpawnEncounter(camp,enc){
+  const party=camp.party.filter(id=>STATE.roster[id]);if(!party.length)return;
+  const rid=startRoom(camp,party,enc.name||"Encounter");const b=camp.rooms[rid];b.ai=true;b.terrain=enc.terrain||"";
+  const mons=Array.isArray(enc.monsters)?enc.monsters:[];let placed=0;
+  for(const m of mons){let base=null;try{base=await monDetail(String(m.index||"").toLowerCase().replace(/\s+/g,"-"));}catch(e){}
+    const n=Math.max(1,Math.min(8,parseInt(m.count,10)||1));
+    for(let i=0;i<n;i++){let x=b.cols,y=1;outer:for(let xx=b.cols;xx>=1;xx--)for(let yy=1;yy<=b.rows;yy++){if(!b.combatants.find(c=>c.x===xx&&c.y===yy)){x=xx;y=yy;break outer;}}
+      const nm=base?base.name:(m.name||m.index||"Foe");const label=n>1?`${nm} ${i+1}`:nm;
+      b.combatants.push({id:uid("e"),side:"enemy",name:label,token:nm[0].toUpperCase()+(n>1?String(i+1):""),ac:base?base.ac:12,maxHP:base?base.hp:11,hp:base?base.hp:11,dmgTaken:0,revealHP:false,revealAC:false,initRoll:rollDie(20),dexMod:base?base.dexMod:1,conditions:[],dots:[],x,y,
+        moves:base?JSON.parse(JSON.stringify(base.moves)):[{id:uid("m"),name:"Strike",attack:"+3",dmg:"1d6",flatPer:1,dmgType:"slashing"}],scores:base&&base.scores||null,saves:base&&base.saves||null,cr:base?base.cr:null,resist:base&&base.resist||[],immune:base&&base.immune||[],vuln:base&&base.vuln||[],tempHP:0,monIndex:base?base.index:null});placed++;}}
+  blog(b,`${enc.name||"An encounter"} begins${enc.terrain?" — "+enc.terrain:""}.`);
+  STATE.ui.roomId=rid;render();
+}
+/* the owner's client plays the monsters: pick the best attack, pick a target by difficulty, roll, apply, advance */
+let AI_TURN_T=null;
+function aiMaybeRunEnemy(camp){
+  if(!aiOn(camp)||!aiOwner(camp))return;const cr=curRoom(camp,true);if(!cr)return;const b=cr.b;if(!b.ai)return;
+  if(b.phase==="setup"){ // begin automatically once every hero has rolled
+    const heroes=b.combatants.filter(c=>c.side==="party");if(heroes.length&&heroes.every(c=>c.initRoll!=null)){b.combatants.forEach(c=>{if(c.initRoll==null)c.initRoll=rollDie(20);});beginCombat(b);render();}
+    return;}
+  if(b.phase!=="active")return;
+  const alive=b.combatants.filter(c=>c.side==="enemy"&&!isDown(c));const heroesUp=b.combatants.filter(c=>c.side==="party"&&!isDown(c));
+  if(!alive.length||!heroesUp.length){aiFinishEncounter(camp,b,alive.length===0);return;}
+  const c=curCombatant(b);if(!c||c.side!=="enemy"||isDown(c)||b.aiBusy)return;
+  b.aiBusy=true;clearTimeout(AI_TURN_T);
+  AI_TURN_T=setTimeout(()=>{try{aiEnemyTurn(camp,b,c);}finally{b.aiBusy=false;render();}},1400);
+}
+function aiEnemyTurn(camp,b,c){
+  const diff=(aiOf(camp)||{}).difficulty||"medium";const heroes=b.combatants.filter(x=>x.side==="party"&&!isDown(x));if(!heroes.length)return;
+  const avg=m=>{const mm=(m.dmg||"").match(/(\d+)d(\d+)/);return mm?(+mm[1])*((+mm[2])+1)/2+(m.flatPer||0):0;};
+  const moves=(c.moves||[]).filter(m=>m.dmg||m.save||m.attack);let m=moves.sort((a,z)=>avg(z)-avg(a))[0];
+  if(!m){blog(b,`${c.name} hesitates.`);advanceTurn(b,0);return;}
+  // target: easy → random; medium → nearest; hard → lowest HP (ties nearest)
+  const dist=h=>tileDist(b,c,h);let tgt;
+  if(diff==="easy")tgt=heroes[Math.floor(Math.random()*heroes.length)];
+  else if(diff==="hard")tgt=heroes.slice().sort((a,z)=>(a.hp/a.maxHP)-(z.hp/z.maxHP)||dist(a)-dist(z))[0];
+  else tgt=heroes.slice().sort((a,z)=>dist(a)-dist(z))[0];
+  // close in if out of reach (melee reach 5 ft, ranged fine)
+  const melee=!/ranged|range \d/i.test(m.text||"")&&!/bow|sling|javelin|dart/i.test(m.name||"");
+  if(melee&&dist(tgt)>tileFeet(b)*1.5){const sp=speedOf(c)/tileFeet(b);const dx=Math.sign(tgt.x-c.x),dy=Math.sign(tgt.y-c.y);let nx=c.x,ny=c.y,steps=0;
+    while(steps<sp&&Math.max(Math.abs(tgt.x-nx),Math.abs(tgt.y-ny))>1){const tx=nx+dx,ty=ny+dy;if(b.combatants.some(o=>o.x===tx&&o.y===ty&&o.id!==c.id&&!isDown(o)))break;nx=tx;ny=ty;steps++;}
+    if(nx!==c.x||ny!==c.y)moveCombatant(b,c,nx,ny);
+    if(Math.max(Math.abs(tgt.x-c.x),Math.abs(tgt.y-c.y))>1){blog(b,`${c.name} closes on ${tgt.name}.`);advanceTurn(b,0);return;}}
+  snapshotBattle(b,"enemy turn "+c.name);
+  if(m.save&&m.save.ability){ // area/save action: hit everyone it can reasonably catch
+    const targets=heroes.filter(h=>dist(h)<=((m.aoe&&m.aoe.size)||15)+5);const dice=(m.dmg||"").match(/(\d+)d(\d+)/);let total=m.flatPer||0;if(dice)for(let i=0;i<+dice[1];i++)total+=rollDie(+dice[2]);
+    blog(b,`${c.name} uses ${m.name} (DC ${m.save.dc} ${m.save.ability}).`);
+    (targets.length?targets:[tgt]).forEach(t=>{const sv=rollSaveFor(t,m.save.ability,m.save.dc);const dmg=sv.ok?Math.floor(total/2):total;const note=adjustHP(b,t,-dmg,{type:m.dmgType});blog(b,`${t.name} ${sv.auto?"auto-fails":(sv.ok?"saves ("+sv.total+")":"fails ("+sv.total+")")} — takes ${dmg}${note||""}.`);});
+    advanceTurn(b,0);return;}
+  const adv=condAdvantage(c,tgt,melee);const r1=rollDie(20),r2=rollDie(20);const keep=adv.mode==="adv"?Math.max(r1,r2):adv.mode==="dis"?Math.min(r1,r2):r1;const bonus=parseInt(String(m.attack||"+0").replace(/[^-\d]/g,""),10)||0;
+  const hit=keep===20||(keep!==1&&keep+bonus>=tgt.ac);
+  if(!hit){blog(b,`${c.name} attacks ${tgt.name} with ${m.name} — misses (${keep+bonus} vs AC ${tgt.ac}).`);advanceTurn(b,0);return;}
+  const dice=(m.dmg||"").match(/(\d+)d(\d+)/);let total=m.flatPer||0;if(dice){const n=(+dice[1])*(keep===20?2:1);for(let i=0;i<n;i++)total+=rollDie(+dice[2]);}
+  const note=adjustHP(b,tgt,-Math.max(0,total),{type:m.dmgType});
+  blog(b,`${c.name} hits ${tgt.name} with ${m.name} for ${total}${m.dmgType?" "+m.dmgType:""}${keep===20?" (critical!)":""}${note||""}.`);
+  advanceTurn(b,0);
+}
+function aiFinishEncounter(camp,b,won){
+  if(b.aiDone)return;b.aiDone=true;
+  const summary=`[combat ${won?"won":"lost"}] ${b.name||"The fight"} ended after ${b.round} round${b.round===1?"":"s"}. ${b.combatants.filter(c=>c.side==="party").map(c=>`${c.name.split(" ")[0]} ${c.hp}/${c.maxHP} HP${isDown(c)?" (down)":""}`).join(", ")}. Enemies: ${b.combatants.filter(c=>c.side==="enemy").map(c=>c.name+(isDown(c)?" slain":" "+c.hp+" HP")).join(", ")}. Last log: ${(b.log||[]).slice(0,4).reverse().join(" ")}`;
+  endRoom(camp,b.id);STATE.ui.tab="story";render();
+  aiPost(camp,"player",summary,{system:true});
+  aiRespond(camp);
+}
+/* ---- the Story tab ---- */
+let AI_BUSY=false;
+function storyView(camp,isDM){
+  const ai=aiOf(camp)||{};const w=el("div","storywrap");
+  if(!ai.on){w.appendChild(el("div","stub",`<h3>No AI Dungeon Master here</h3><p>This campaign is run by a human. Create a new campaign and tick <b>AI Dungeon Master</b> to play with one.</p>`));return w;}
+  const thread=aiThread(camp);
+  const head=el("div","storyhead");
+  head.innerHTML=`<div><div class="eyebrow">AI Dungeon Master${ai.scene?" · "+esc(ai.scene):""}</div><div class="storymeta">${esc(calLabel(camp))} · <span class="ktag">${esc(ai.difficulty||"medium")}</span> <span class="ktag">${esc(ai.tone||"pg13")}</span>${ai.length?` <span class="ktag">${esc(ai.length)}</span>`:""}</div></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">${isDM?`<button class="btn sm ghost" data-aisettings="1">⚙</button><button class="btn sm ghost" data-aibible="1" title="Peek at the hidden campaign bible (spoilers)">📖</button>`:""}${!thread.length&&isDM?`<button class="btn sm primary" data-aibegin="1">Begin the campaign</button>`:""}</div>`;
+  w.appendChild(head);
+  const list=el("div","storylist");list.id="storyList";
+  if(!thread.length)list.innerHTML=`<div class="empty">${isDM?"Press <b>Begin the campaign</b> — the DM writes its secret bible from your premise, then opens the first scene.":"Waiting for the table owner to begin."}</div>`;
+  thread.slice(-80).forEach(j=>{const dm=j.meta&&j.meta.role==="dm";const sys=j.meta&&j.meta.system;
+    list.innerHTML+=`<div class="smsg ${dm?"dm":"pl"} ${sys?"sys":""}"><div class="sau">${dm?"DM":esc(j.author)}</div><div class="sbody">${sys?esc(j.text):dm?aiMarkdown(j.text):esc(j.text)}</div></div>`;});
+  if(AI_BUSY)list.innerHTML+=`<div class="smsg dm thinking"><div class="sau">DM</div><div class="sbody"><span class="dots"><i></i><i></i><i></i></span></div></div>`;
+  w.appendChild(list);
+  const pend=(ai.pendingRolls||[]);
+  if(pend.length){const pr=el("div","rollreqs");pr.innerHTML=pend.map(r=>{const ch=camp.party.map(id=>STATE.roster[id]).find(c=>c&&c.name.toLowerCase().startsWith(String(r.who||"").toLowerCase().split(" ")[0]));const mine=!STATE.cloud||!ch||(ch.owner_id||ME())===ME()||isDM;
+      return `<div class="rollreq"><span>🎲 <b>${esc(r.who)}</b>: ${esc(r.check)}${r.dc?" (DC "+r.dc+")":""}${r.why?` <small>— ${esc(r.why)}</small>`:""}</span>${mine?`<button class="btn sm gold" data-airoll="${r.id}">Roll</button>`:""}</div>`;}).join("");w.appendChild(pr);}
+  const comp=el("div","storycomposer");
+  const mine=camp.party.map(id=>STATE.roster[id]).filter(ch=>ch&&(!STATE.cloud||isDM||(ch.owner_id||ME())===ME()));
+  comp.innerHTML=`<div style="display:flex;gap:8px;align-items:flex-end"><div style="flex:1"><div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap">${mine.length>1?`<select class="sel" id="aiAs">${mine.map(ch=>`<option value="${ch.id}">${esc(ch.name)}</option>`).join("")}</select>`:""}<button class="chip" data-aiquick="I look around carefully.">Look around</button><button class="chip" data-aiquick="I talk to them.">Talk</button><button class="chip" data-aiquick="I attack!">Attack</button><button class="chip" data-aiquick="We take a short rest.">Rest</button><button class="chip" data-aiquick="What do I know about this?">Recall</button></div>
+    <textarea id="aiInput" rows="2" placeholder="What do you do? (Shift+Enter for a new line)"></textarea></div><button class="btn primary" data-aisend="1" ${AI_BUSY?"disabled":""}>Send</button></div>
+    <div class="authnote">The DM reads everyone's messages. Rolls you make in the Dice tab can be pasted here, or use the 🎲 prompts above.</div>`;
+  w.appendChild(comp);
+  setTimeout(()=>{const l=$("#storyList");if(l)l.scrollTop=l.scrollHeight;},30);
+  return w;
+}
+function aiMarkdown(t){return esc(t).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/\*(.+?)\*/g,"<i>$1</i>").replace(/\n{2,}/g,"</p><p>").replace(/\n/g,"<br>").replace(/^/,"<p>").replace(/$/,"</p>");}
+async function aiRespond(camp,extra){
+  if(AI_BUSY)return;AI_BUSY=true;render();
+  try{const text=await aiCall(camp,extra);const {narr,cmds}=aiParse(text);
+    if(narr)aiPost(camp,"dm",narr);
+    const notes=await aiExecute(camp,cmds);
+    if(notes.length)toast(notes.join(" · "));}
+  catch(e){toast(e.message||"The DM lost the thread — try again");aiPost(camp,"dm","*(The DM pauses — "+(e.message||"something went wrong")+". Try again.)*",{system:true});}
+  finally{AI_BUSY=false;render();}
+}
+function aiNewCampaignFields(){
+  return `<div class="field" style="margin-top:6px"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="ncAI"> <b>AI Dungeon Master</b> runs this campaign</label></div>
+    <div id="ncAIFields" hidden>
+      <div class="field"><label>Premise <small style="color:var(--faint)">a sentence or two; the DM builds the rest</small></label><textarea id="ncPremise" rows="2" placeholder="e.g. A frontier town's children are vanishing at the new moon; the party arrives the night before one."></textarea></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><div class="field" style="flex:1"><label>Difficulty</label><select id="ncDiff"><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option></select></div>
+        <div class="field" style="flex:1"><label>Tone</label><select id="ncTone"><option value="family">Family-friendly</option><option value="pg13" selected>PG-13</option><option value="gritty">Gritty</option></select></div>
+        <div class="field" style="flex:1"><label>Length</label><select id="ncLen"><option value="oneshot">One-shot</option><option value="short" selected>Short arc</option><option value="open">Open campaign</option></select></div></div>
+    </div>`;
+}
+function aiSettingsModal(camp){const ai=aiOf(camp)||{};
+  openModal(`<h2>AI DM settings</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><div class="field" style="flex:1"><label>Difficulty</label><select id="asDiff">${["easy","medium","hard"].map(d=>`<option value="${d}" ${ai.difficulty===d?"selected":""}>${d[0].toUpperCase()+d.slice(1)}</option>`).join("")}</select></div>
+      <div class="field" style="flex:1"><label>Tone</label><select id="asTone">${[["family","Family-friendly"],["pg13","PG-13"],["gritty","Gritty"]].map(([k,l])=>`<option value="${k}" ${ai.tone===k?"selected":""}>${l}</option>`).join("")}</select></div>
+      <div class="field" style="flex:1"><label>Length</label><select id="asLen">${[["oneshot","One-shot"],["short","Short arc"],["open","Open campaign"]].map(([k,l])=>`<option value="${k}" ${ai.length===k?"selected":""}>${l}</option>`).join("")}</select></div></div>
+    <div class="field"><label>Premise</label><textarea id="asPremise" rows="3">${esc(ai.premise||"")}</textarea></div>
+    <div class="field"><label>Steer the DM <small style="color:var(--faint)">one-off note it will read next reply, e.g. "wrap up tonight", "more combat", "my girlfriend is new — explain checks"</small></label><input id="asSteer" placeholder="optional"></div>
+    <div class="acts"><button class="btn ghost" data-close="1">Cancel</button><button class="btn primary" data-aisave="1">Save</button></div>`);}
+
 /* ============================ session journal ============================ */
 let JTAB="recap";
 function journalOf(camp){camp.journal=camp.journal||[];return camp.journal;}
@@ -4241,6 +4463,7 @@ function newCampaignModal(){
     <div class="banner">A fresh save slot. You can add characters and tune settings in the lobby.</div>
     <div class="field"><label>Campaign name</label><input id="ncName" placeholder="e.g. The Hollow Crown"></div>
     <div class="field"><label>Dungeon Master</label><input id="ncDM" value="Turtle"></div>
+    ${aiNewCampaignFields()}
     <div class="acts"><button class="btn ghost" data-close="1">Cancel</button><button class="btn primary" data-createcamp="1">Create slot</button></div>`);
   setTimeout(()=>{const n=$("#ncName");if(n)n.focus();},30);
 }
@@ -4267,7 +4490,9 @@ document.addEventListener("click",e=>{
     const name=($("#ncName").value||"").trim()||"Untitled Campaign";
     const dm=STATE.cloud?(STATE.user.name||"DM"):(($("#ncDM").value||"Turtle").trim());
     const id=uid("camp");
-    STATE.campaigns[id]={id,name,dm,dm_id:STATE.cloud?ME():null,invite_code:STATE.cloud?inviteCode():null,created:Date.now(),lastPlayed:Date.now(),party:[],ready:{},members:[],lore:[],session:{live:false},settings:{cooldowns:true}};
+    const settings={cooldowns:true};
+    if($("#ncAI")&&$("#ncAI").checked)settings.ai={on:true,premise:($("#ncPremise").value||"").trim(),difficulty:$("#ncDiff").value,tone:$("#ncTone").value,length:$("#ncLen").value,bible:null,pendingRolls:[]};
+    STATE.campaigns[id]={id,name,dm:settings.ai?"AI DM (hosted by "+dm+")":dm,dm_id:STATE.cloud?ME():null,invite_code:STATE.cloud?inviteCode():null,created:Date.now(),lastPlayed:Date.now(),party:[],ready:{},members:[],lore:[],session:{live:false},settings};
     STATE.ui.campId=id;closeModal();go("lobby");toast("Campaign created");return;}
   if(d.del){const c=STATE.campaigns[d.del];
     if(STATE.cloud){if(!amDM(c)){toast("Only the DM can delete this campaign");return;}Cloud.delCampaign(d.del);delete STATE.campaigns[d.del];render();toast("Campaign deleted");return;}
@@ -4292,7 +4517,7 @@ document.addEventListener("click",e=>{
       const nv=!camp.ready[d.ready];camp.ready[d.ready]=nv;if(m)m.ready=nv;Cloud.setReady(camp.id,nv);render();return;}
     camp.ready[d.ready]=!camp.ready[d.ready];render();return;}
   if(d.startsession){const camp=curCamp();if(STATE.cloud&&!amDM(camp)){toast("Only the host can start");return;}
-    camp.session.live=true;camp.lastPlayed=Date.now();STATE.ui.screen="play";STATE.ui.tab="sheet";
+    camp.session.live=true;camp.lastPlayed=Date.now();STATE.ui.screen="play";STATE.ui.tab=aiOn(camp)?"story":"sheet";
     if(STATE.ui.viewAs!=="dm"&&!camp.party.includes(STATE.ui.viewAs))STATE.ui.viewAs="dm";journalAdd(camp,"auto","Session started.");render();toast("Session started — the night begins");ddbSyncMine(false);return;}
   if(d.endsession){const camp=curCamp();if(STATE.cloud&&!amDM(camp)){toast("Only the host can end the session");return;}journalAdd(camp,"auto","Session ended.");camp.session.live=false;go("lobby");toast("Session ended");return;}
   if(d.enterplay){STATE.ui.screen="play";STATE.ui.tab="sheet";render();return;}
@@ -4610,7 +4835,7 @@ document.addEventListener("input",e=>{
 
 /* lore + journal events */
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-loref],[data-lorenew],[data-loreedit],[data-lorereveal],[data-loresave],[data-loreimgrm],[data-delnote],[data-lightbox],[data-jtab],[data-jadd],[data-jbuild],[data-jdel],[data-jedit],[data-jctxsave],[data-lbclose],[data-calday],[data-calset],[data-calsave],[data-dtadd],[data-npcnew],[data-npcedit],[data-npcsave],[data-npcportrait],[data-recapok]");
+  const t=e.target.closest("[data-loref],[data-lorenew],[data-loreedit],[data-lorereveal],[data-loresave],[data-loreimgrm],[data-delnote],[data-lightbox],[data-jtab],[data-jadd],[data-jbuild],[data-jdel],[data-jedit],[data-jctxsave],[data-lbclose],[data-aibegin],[data-aisend],[data-aiquick],[data-airoll],[data-aisettings],[data-aisave],[data-aibible],[data-calday],[data-calset],[data-calsave],[data-dtadd],[data-npcnew],[data-npcedit],[data-npcsave],[data-npcportrait],[data-recapok]");
   if(!t)return;const d=t.dataset;const camp=curCamp();if(!camp)return;
   const isDM=STATE.cloud?amDM(camp):(STATE.ui.viewAs==="dm");
   if(d.loref){LOREF=d.loref;render();return;}
@@ -4641,6 +4866,24 @@ document.addEventListener("click",e=>{
   if(d.lightbox){const n=(camp.lore||[]).find(x=>x.id===d.lightbox);const src=n&&(n.image||PHOTOS[n.id]);if(!src)return;
     openModal(`<div class="lightbox"><img src="${src}" alt=""><div class="acts"><button class="btn ghost" data-lbclose="1">Close</button></div></div>`);return;}
   if(d.lbclose){closeModal();return;}
+  if(d.aibegin){if(!aiOwner(camp))return;aiRespond(camp,"[system] The table is seated. First, write the full campaign bible with the bible command (premise, three-act spine, the threat and its clock, 2–3 factions, 6–10 named NPCs with wants and secrets, hidden truths, likely endings, drift 0). Then narrate the opening scene: establish place, mood, and a hook, introduce the party in situ, and end on a choice.");return;}
+  if(d.aiquick){const t=$("#aiInput");if(t){t.value=d.aiquick;t.focus();}return;}
+  if(d.aisend){const t=$("#aiInput");const txt=(t&&t.value||"").trim();if(!txt){toast("Say what you do");return;}if(AI_BUSY){toast("The DM is still writing");return;}
+    const who=$("#aiAs")?STATE.roster[$("#aiAs").value]:camp.party.map(id=>STATE.roster[id]).find(ch=>ch&&(!STATE.cloud||(ch.owner_id||ME())===ME()));
+    aiPost(camp,"player",txt,{charId:who?who.id:null},who?who.name:null);t.value="";render();aiRespond(camp);return;}
+  if(d.airoll){const ai=aiOf(camp);const r=(ai.pendingRolls||[]).find(x=>x.id===d.airoll);if(!r)return;
+    const ch=camp.party.map(id=>STATE.roster[id]).find(c=>c&&c.name.toLowerCase().startsWith(String(r.who||"").toLowerCase().split(" ")[0]));
+    let mod=0,how="";if(ch){const ck=String(r.check||"");const sk=ALL_SKILLS.find(s=>s.toLowerCase()===ck.toLowerCase());const ab=ABIL6.find(a=>ck.toLowerCase().startsWith(a));
+      if(sk){mod=modN(ch.scores[SKILL_ABILITY[sk]])+((ch.skills||[]).includes(sk)?ch.prof:0);how=sk;}
+      else if(/save|saving/i.test(ck)&&ab){mod=modN(ch.scores[ab])+((ch.saveProf||[]).includes(ab)?ch.prof:0);how=ab.toUpperCase()+" save";}
+      else if(ab){mod=modN(ch.scores[ab]);how=ab.toUpperCase()+" check";}else how=ck;}
+    const d20=rollDie(20);const total=d20+mod;const txt=`Rolled ${how||r.check}: ${total} (d20 ${d20}${mod?(mod>0?" +":" ")+mod:""})${r.dc?` vs DC ${r.dc} — ${total>=r.dc?"success":"failure"}`:""}${d20===20?" — natural 20!":d20===1?" — natural 1":""}`;
+    if(aiOwner(camp))ai.pendingRolls=ai.pendingRolls.filter(x=>x.id!==r.id);
+    aiPost(camp,"player",txt,{roll:true,charId:ch&&ch.id},ch?ch.name:null);render();aiRespond(camp);return;}
+  if(d.aisettings){if(!aiOwner(camp))return;aiSettingsModal(camp);return;}
+  if(d.aisave){const ai=aiOf(camp);if(!ai)return;ai.difficulty=$("#asDiff").value;ai.tone=$("#asTone").value;ai.length=$("#asLen").value;ai.premise=($("#asPremise").value||"").trim();const steer=($("#asSteer").value||"").trim();closeModal();render();
+    if(steer){aiPost(camp,"player","[table note to the DM] "+steer,{system:true});aiRespond(camp);}else toast("DM settings saved");return;}
+  if(d.aibible){const ai=aiOf(camp);openModal(`<h2>Campaign bible <small style="color:var(--crit);font-size:12px">spoilers</small></h2><div class="rmbody"><pre style="white-space:pre-wrap;font:12.5px var(--f-mono)">${esc(JSON.stringify(ai.bible||{note:"not written yet"},null,2))}</pre></div><div class="acts"><button class="btn ghost" data-close="1">Close</button></div>`);return;}
   if(d.jtab){JTAB=d.jtab;render();return;}
   if(d.calday){if(!isDM){toast("The DM keeps the calendar");return;}calAdvance(camp,+d.calday);journalAdd(camp,"auto",`The date is now ${calLabel(camp)}.`);render();return;}
   if(d.calset){if(!isDM)return;calSetModal(camp);return;}
@@ -4865,6 +5108,8 @@ document.addEventListener("input",e=>{
 $("#themeBtn").addEventListener("click",()=>{go("profile");});
 $("#searchBtn").addEventListener("click",searchModal);
 $("#dmScreenBtn").addEventListener("click",()=>dmScreen());
+document.addEventListener("change",e=>{if(e.target.id==="ncAI"){const f=$("#ncAIFields");if(f)f.hidden=!e.target.checked;}});
+document.addEventListener("keydown",e=>{if(e.target.id==="aiInput"&&e.key==="Enter"&&!e.shiftKey){e.preventDefault();const b=document.querySelector("[data-aisend]");if(b)b.click();}});
 document.addEventListener("input",e=>{if(e.target.id==="srchQ")renderSearch(e.target.value);if(e.target.id==="hrText"){const camp=curCamp();if(camp){camp.settings.houseRules=e.target.value;clearTimeout(e.target._t);e.target._t=setTimeout(()=>{save();if(STATE.cloud)Cloud.afterRender();},600);}}});
 document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-srchgo],[data-dmsec]");if(!t)return;
   if(t.dataset.dmsec){DMSEC=t.dataset.dmsec;dmScreen();return;}
