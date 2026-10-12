@@ -3240,7 +3240,7 @@ async function aiCall(camp,extraUser){
   let token="";try{if(SB){const {data}=await SB.auth.getSession();token=data&&data.session&&data.session.access_token||"";}}catch(e){}
   const base=/^https?:/.test(location.protocol)?"":"https://wontonvtt.app";
   const r=await fetch(base+"/api/wartable/dm",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify({system:aiSystem(camp),messages:merged,max_tokens:1400})});
-  const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||("AI DM error "+r.status));
+  const j=await r.json().catch(()=>({}));if(!r.ok||j.error)throw new Error(j.error||("AI DM error "+r.status));
   return j.text||"";
 }
 function aiParse(text){const m=text.match(/```wt\s*([\s\S]*?)```/);let cmds=[];if(m){try{const j=JSON.parse(m[1]);cmds=Array.isArray(j.commands)?j.commands:Array.isArray(j)?j:[j];}catch(e){}}
