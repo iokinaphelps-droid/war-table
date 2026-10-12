@@ -601,7 +601,18 @@ select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px
 .asirow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:13px} .asirow .al{font-family:var(--f-mono);font-size:11px;color:var(--faint);width:40px}
 .asirow select{width:auto;padding:6px 8px;font-size:13px}
 .spellsec{margin-top:12px} .splvl{margin-top:8px} .splvl>small{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);margin-bottom:4px}
-.mcrow{margin-top:8px} .featdesc{width:100%;font-size:12px;color:var(--muted);line-height:1.45;margin-top:4px} .wizstep.done{cursor:pointer} .gcat{color:var(--faint);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;align-self:center;margin-right:4px;min-width:92px}
+.mcrow{margin-top:8px}
+.invsec{margin:18px 0 6px}
+.coinrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0 10px}
+.coin{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--faint);font-family:var(--f-mono)} .coin input{width:56px;padding:5px 6px;font-size:13px;text-align:right}
+.cointot{margin-left:auto;font-family:var(--f-mono);font-size:12px;color:var(--gold)}
+.invlist{display:flex;flex-direction:column;gap:5px}
+.invitem{display:flex;align-items:center;gap:8px;padding:7px 9px;background:var(--bg2);border:1px solid var(--line);border-radius:10px;font-size:13.5px}
+.invitem.eq{border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
+.invitem .iv{flex:1;min-width:0} .invitem .iv small{display:block;color:var(--faint);font-size:11.5px}
+.invitem .qty{display:flex;align-items:center;gap:4px;font-family:var(--f-mono)} .invitem .qty button{width:22px;height:22px;border-radius:6px;border:1px solid var(--line2);background:var(--bg3);color:var(--fg);cursor:pointer}
+.invitem .wt{color:var(--faint);font-family:var(--f-mono);font-size:11px;min-width:40px;text-align:right}
+.eqbtn{background:none;border:1px solid var(--line2);border-radius:50%;width:22px;height:22px;color:var(--faint);cursor:pointer;font-size:10px} .eqbtn.on{color:var(--accent);border-color:var(--accent)} .featdesc{width:100%;font-size:12px;color:var(--muted);line-height:1.45;margin-top:4px} .wizstep.done{cursor:pointer} .gcat{color:var(--faint);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;align-self:center;margin-right:4px;min-width:92px}
 .chip small{opacity:.7;font-size:10.5px;margin-left:3px}
 .fbf{display:grid;grid-template-columns:70px 1fr;gap:8px;font-size:13.5px;padding:4px 0;border-top:1px solid var(--line)} .fbf .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);padding-top:3px} .fbf .v{white-space:pre-wrap}
 .prefrow{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted);margin-top:8px;background:var(--bg3);border:1px solid var(--line);border-radius:10px;padding:6px 8px}
@@ -1609,7 +1620,7 @@ function sheetView(ch){
   w.appendChild(el("div","sheethead",
     `${avatarHTML(ch,"lg")}
      <div class="who"><h1>${esc(ch.name)}${isNPC(ch)?' <span class="rolechip npc">NPC</span>':""}</h1><div class="cl">${esc(ch.cls)} · ${esc(ch.subtitle||"")}</div></div>
-     <div style="margin-left:auto;display:flex;gap:7px;flex-wrap:wrap">${ch.build?`<button class="btn sm gold" data-levelup="${ch.id}">▲ Level up</button>`:""}${ch.ddbId?`<button class="btn sm ghost" data-ddbsync="${ch.id}" title="${ch.ddbSynced?"Last checked "+new Date(ch.ddbSynced).toLocaleTimeString():"Not checked yet"}">⟳ D&amp;D Beyond</button>`:""}<button class="btn sm ghost" data-portrait="${ch.id}">🖼 Portrait</button><button class="btn sm ghost" data-buildedit="${ch.id}">Edit sheet</button></div>`));
+     <div style="margin-left:auto;display:flex;gap:7px;flex-wrap:wrap">${ch.build?`<button class="btn sm gold" data-levelup="${ch.id}">▲ Level up</button>`:""}<button class="btn sm ghost" data-printsheet="${ch.id}" title="Print / save as PDF">🖨</button>${ch.ddbId?`<button class="btn sm ghost" data-ddbsync="${ch.id}" title="${ch.ddbSynced?"Last checked "+new Date(ch.ddbSynced).toLocaleTimeString():"Not checked yet"}">⟳ D&amp;D Beyond</button>`:""}<button class="btn sm ghost" data-portrait="${ch.id}">🖼 Portrait</button><button class="btn sm ghost" data-buildedit="${ch.id}">Edit sheet</button></div>`));
   // vitals
   const dc=ch.spellDC?`${ch.spellDC}`:"—";
   const atk=ch.spellAtk?`+${ch.spellAtk}`:"—";
@@ -1650,9 +1661,82 @@ function sheetView(ch){
 
   // companions (pets / mounts / bound allies)
   w.appendChild(companionSection(ch));
+  w.appendChild(inventorySection(ch));
   // ability list w/ filters
   w.appendChild(abilitySection(ch));
   return w;
+}
+/* ---- inventory & currency ---- */
+const COINS=[["pp","Platinum"],["gp","Gold"],["ep","Electrum"],["sp","Silver"],["cp","Copper"]];
+function ensureInv(ch){if(!Array.isArray(ch.inventory))ch.inventory=[];if(!ch.coins)ch.coins={pp:0,gp:0,ep:0,sp:0,cp:0};return ch.inventory;}
+function invWeight(ch){return ensureInv(ch).reduce((t,i)=>t+(+i.weight||0)*(+i.qty||1),0);}
+function inventorySection(ch){
+  const sec=el("div","invsec");const items=ensureInv(ch);const c=ch.coins;
+  const wt=invWeight(ch);const cap=(ch.scores&&ch.scores.str||10)*15;
+  const goldish=(c.pp*10+c.gp+c.ep/2+c.sp/10+c.cp/100);
+  let h=`<div class="seclabel2" style="display:flex;align-items:center;gap:10px"><span>Inventory</span><small style="color:var(--faint);font-weight:400">${wt} lb${cap?` / ${cap} lb carry`:""}${wt>cap?' <b style="color:var(--crit)">— encumbered</b>':""}</small><span style="flex:1"></span><button class="btn sm" data-invadd="${ch.id}">+ Item</button></div>`;
+  h+=`<div class="coinrow">`+COINS.map(([k,l])=>`<label class="coin"><span>${k.toUpperCase()}</span><input inputmode="numeric" data-coin="${ch.id}|${k}" value="${c[k]||0}"></label>`).join("")+`<span class="cointot">≈ ${Math.round(goldish*100)/100} gp</span></div>`;
+  if(!items.length)h+=`<div class="empty" style="padding:8px">Nothing in the bag yet.</div>`;
+  else h+=`<div class="invlist">`+items.map(i=>`<div class="invitem ${i.equipped?"eq":""}">
+      <button class="eqbtn ${i.equipped?"on":""}" data-inveq="${ch.id}|${i.id}" title="Equipped">${i.equipped?"●":"○"}</button>
+      <div class="iv"><b>${esc(i.name)}</b>${i.attuned?' <span class="ktag handout">attuned</span>':""}${i.note?`<small>${esc(i.note)}</small>`:""}</div>
+      <span class="qty"><button data-invqty="${ch.id}|${i.id}|-1">−</button><b>${i.qty||1}</b><button data-invqty="${ch.id}|${i.id}|1">+</button></span>
+      <small class="wt">${i.weight?((+i.weight)*(+i.qty||1))+" lb":""}</small>
+      <button class="iconbtn" data-invatt="${ch.id}|${i.id}" title="Attune" style="width:26px;height:26px;font-size:11px;${i.attuned?"color:var(--gold)":""}">✦</button>
+      <button class="iconbtn" data-invrm="${ch.id}|${i.id}" title="Remove" style="width:26px;height:26px;font-size:11px">✕</button></div>`).join("")+`</div>`;
+  sec.innerHTML=h;return sec;
+}
+let INVQ="";
+function invAddModal(chId){
+  openModal(`<h2>Add an item</h2>
+    <div class="field"><label>Search the SRD <small style="color:var(--faint)">weapons, armor, gear, tools</small></label><input id="invQ" placeholder="rope, healing potion, thieves' tools…" autocomplete="off"></div>
+    <div id="invRes" class="monres"></div>
+    <div class="seclabel2" style="margin:8px 0 6px">Or your own</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><div class="field" style="flex:2;min-width:140px"><label>Name</label><input id="invName"></div><div class="field" style="flex:1;min-width:60px"><label>Qty</label><input id="invQty" inputmode="numeric" value="1"></div><div class="field" style="flex:1;min-width:60px"><label>Weight (lb)</label><input id="invWt" inputmode="numeric" value="0"></div></div>
+    <div class="field"><label>Note</label><input id="invNote" placeholder="e.g. +1, found in the crypt"></div>
+    <div class="acts"><button class="btn ghost" data-close="1">Cancel</button><button class="btn primary" data-invsave="${chId}">Add</button></div>`);
+  setTimeout(()=>{const n=$("#invQ");if(n)n.focus();},30);
+}
+let EQUIP_LIST=null;
+async function equipList(){if(EQUIP_LIST)return EQUIP_LIST;try{const j=await D5E.get("/api/equipment");EQUIP_LIST=(j.results||[]);}catch(e){EQUIP_LIST=[];}return EQUIP_LIST;}
+async function invSearch(q){const box=$("#invRes");if(!box)return;q=(q||"").trim().toLowerCase();INVQ=q;if(q.length<2){box.innerHTML="";return;}
+  const list=await equipList();if(INVQ!==q)return;const hits=list.filter(x=>x.name.toLowerCase().includes(q)).slice(0,10);
+  box.innerHTML=hits.map(x=>`<button class="monhit" data-invpick="${esc(x.index)}">${esc(x.name)}<small>SRD</small></button>`).join("")||`<div class="empty" style="padding:6px">No match — add it by hand below.</div>`;}
+async function invPick(idx){try{const it=await D5E.get("/api/equipment/"+idx);const n=$("#invName");if(n)n.value=it.name;const w=$("#invWt");if(w)w.value=it.weight||0;
+    const note=[it.equipment_category&&it.equipment_category.name,it.cost?it.cost.quantity+" "+it.cost.unit:"",it.damage?it.damage.damage_dice+" "+(it.damage.damage_type&&it.damage.damage_type.name||""):"",it.armor_class?"AC "+it.armor_class.base:""].filter(Boolean).join(" · ");
+    const nn=$("#invNote");if(nn)nn.value=note;const box=$("#invRes");if(box)box.innerHTML="";}catch(e){toast("Couldn't load that item");}}
+/* ---- printable sheet ---- */
+function printSheet(ch){
+  const sm=a=>Math.floor((ch.scores[a]-10)/2);const sg=n=>(n>=0?"+":"")+n;const {ac}=effAC(ch);
+  const skills=ALL_SKILLS.map(sk=>{const prof=(ch.skills||[]).includes(sk);return `<tr><td>${prof?"●":"○"}</td><td>${sk}</td><td>${sg(sm(SKILL_ABILITY[sk])+(prof?ch.prof:0))}</td></tr>`;}).join("");
+  const moves=(ch.abilities||[]).filter(a=>!a.passive);const pass=(ch.abilities||[]).filter(a=>a.passive);
+  const row=a=>`<tr><td><b>${esc(a.name)}</b><br><small>${esc(a.source||"")}${a.level?" · "+ordLevel(a.level):""}</small></td><td>${a.attack?esc(a.attack):a.save?esc(a.save.ability+" "+a.save.dc):"—"}</td><td>${a.dmg?((a.instances>1?a.instances+"×":"")+a.dmg+(a.flatPer?" + "+a.flatPer:"")+" "+(a.dmgType||"")):"—"}</td><td class="tx">${esc((a.text||"").slice(0,160))}</td></tr>`;
+  const inv=ensureInv(ch);const c=ch.coins;
+  const html=`<div id="printsheet"><style>
+    #printsheet{font:12px/1.35 Georgia,serif;color:#111;background:#fff;padding:18px;max-width:820px;margin:0 auto}
+    #printsheet h1{font-size:26px;margin:0}#printsheet h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid #999;margin:14px 0 6px;padding-bottom:2px}
+    #printsheet .top{display:flex;gap:16px;align-items:center}#printsheet .top img{width:72px;height:90px;object-fit:cover;border:1px solid #999}
+    #printsheet .vit{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-top:10px}#printsheet .vit div{border:1px solid #999;padding:6px;text-align:center}#printsheet .vit b{display:block;font-size:18px}
+    #printsheet .ab{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-top:8px}#printsheet .ab div{border:1px solid #999;padding:5px;text-align:center}#printsheet .ab b{display:block;font-size:17px}
+    #printsheet table{width:100%;border-collapse:collapse;font-size:11px}#printsheet td,#printsheet th{border-bottom:1px solid #ddd;padding:3px 4px;vertical-align:top;text-align:left}#printsheet .tx{color:#444}
+    #printsheet .two{display:grid;grid-template-columns:1fr 2fr;gap:14px}
+    @media print{body.printing>*:not(#printsheet){display:none !important}body.printing{background:#fff}}
+  </style>
+  <div class="top">${ch.portrait?`<img src="${ch.portrait}" alt="">`:""}<div><h1>${esc(ch.name)}</h1><div>${esc(ch.cls)} · ${esc(ch.subtitle||"")}${ch.player?" · played by "+esc(ch.player):""}</div></div></div>
+  <div class="vit"><div>AC<b>${ac}</b></div><div>HP<b>${ch.hp??ch.maxHP} / ${ch.maxHP}</b></div><div>Speed<b>${ch.speed}</b></div><div>Prof<b>+${ch.prof}</b></div><div>Spell DC<b>${ch.spellDC||"—"}</b></div><div>Spell Atk<b>${ch.spellAtk?"+"+ch.spellAtk:"—"}</b></div></div>
+  <div class="ab">${ABIL6.map(a=>`<div>${a.toUpperCase()}${ch.saveProf.includes(a)?" ●":""}<b>${sg(sm(a))}</b><small>${ch.scores[a]} · save ${sg(sm(a)+(ch.saveProf.includes(a)?ch.prof:0))}</small></div>`).join("")}</div>
+  <div class="two"><div><h2>Skills</h2><table>${skills}</table>
+    <h2>Passive</h2>${Object.entries(ch.passives||{}).map(([k,v])=>`${k} ${v}`).join(" · ")}
+    ${ch.slots?`<h2>Spell slots</h2>${Object.entries(ch.slots).map(([L,s])=>ordLevel(+L)+": "+"○".repeat(s.max)).join("<br>")}`:""}${ch.charges&&ch.charges.pact?`<br>Pact: ${"○".repeat(ch.charges.pact.max)}`:""}
+    <h2>Coins</h2>${COINS.map(([k])=>k.toUpperCase()+" "+(c[k]||0)).join(" · ")}
+    <h2>Inventory</h2>${inv.map(i=>`${i.equipped?"● ":""}${esc(i.name)}${(i.qty||1)>1?" ×"+i.qty:""}`).join("<br>")||"—"}</div>
+  <div><h2>Attacks &amp; spells</h2><table><tr><th>Move</th><th>To hit / DC</th><th>Damage</th><th></th></tr>${moves.map(row).join("")}</table>
+    <h2>Features &amp; traits</h2><table>${pass.map(a=>`<tr><td><b>${esc(a.name)}</b> <small>${esc(a.source||"")}</small><br><span class="tx">${esc((a.text||"").slice(0,220))}</span></td></tr>`).join("")}</table></div></div>
+  <div style="margin-top:12px;font-size:10px;color:#666">War Table · wontonvtt.app · printed ${new Date().toLocaleDateString()}</div></div>`;
+  const old=document.getElementById("printsheet");if(old)old.remove();
+  document.body.insertAdjacentHTML("beforeend",html);document.body.classList.add("printing");
+  const done=()=>{document.body.classList.remove("printing");const n=document.getElementById("printsheet");if(n)n.remove();window.removeEventListener("afterprint",done);};
+  window.addEventListener("afterprint",done);setTimeout(()=>{window.print();setTimeout(done,1500);},60);
 }
 /* ---- companions: pets, mounts, bound allies — separate from the character ---- */
 function companionSection(ch){
@@ -3422,12 +3506,15 @@ function wizToChar(wiz,detail){
       text:[w.cat+" "+w.range+" weapon",w.props.join(", ")].filter(Boolean).join(" · ")+(extra>1?` · Extra Attack ×${extra}`:"")}));});
   (d.spells||[]).forEach(sp=>abilities.push(ab(Object.assign({gen:true},sp))));
   const {slots,pact}=wizSlots(wiz);const charges={};if(pact)charges.pact={label:"Pact Slots",max:pact.max,cur:pact.max,recharge:"short"};
+  const inventory=[];if(GEAR){if(wiz.armor){const a=GEAR.armor.find(x=>x.index===wiz.armor);if(a)inventory.push({id:uid("it"),name:a.name,qty:1,weight:a.weight||0,note:"Armor · AC "+a.base,equipped:true,attuned:false,gen:true});}
+    if(wiz.shield)inventory.push({id:uid("it"),name:"Shield",qty:1,weight:6,note:"+2 AC",equipped:true,attuned:false,gen:true});
+    (wiz.weapons||[]).forEach(i=>{const w=GEAR.weapons.find(x=>x.index===i);if(w)inventory.push({id:uid("it"),name:w.name,qty:1,weight:w.weight||0,note:w.dmg+" "+w.dtype,equipped:true,attuned:false,gen:true});});}
   const clsLabel=classes.map(c=>c.cls+" "+c.level).join(" / ");
   const subNames=(d.subclassNames||{});const subtitle=[wiz.race].concat(classes.map(c=>c.subclass&&subNames[c.subclass]).filter(Boolean)).concat([wiz.bg]).filter(Boolean).join(" · ");
   return {id:uid("ch"),name:wiz.name||"New Hero",player:wiz.player||"",cls:clsLabel,subtitle,level:total,color:wiz.color||"#7a4fd0",
     token:((wiz.name||"?")[0]||"?").toUpperCase(),scores,saveProf,prof,baseAC:ac,maxHP,hp:maxHP,speed,
     spellAbility:spellAb?spellAb.toUpperCase():"—",spellDC,spellAtk,passives,charges,slots:Object.keys(slots).length?slots:null,abilities,modifiers:[],role:wiz.role||"",
-    appearance:wiz.appearance,portrait:wiz.portrait,portraitSeed:wiz.portraitSeed,_acNote:acNote,skills,npc:!!wiz.npc,build:wizBuildOf(wiz)};
+    appearance:wiz.appearance,portrait:wiz.portrait,portraitSeed:wiz.portraitSeed,_acNote:acNote,skills,npc:!!wiz.npc,build:wizBuildOf(wiz),inventory,coins:{pp:0,gp:0,ep:0,sp:0,cp:0}};
 }
 /* ---- pull feature + spell text from the SRD, then build ---- */
 async function wizFinalize(wiz){
@@ -3476,6 +3563,7 @@ function wizMergeInto(old,fresh){
   out.abilities=fresh.abilities.concat(custom.filter(a=>!names.has((a.name||"").toLowerCase())));
   // HP: keep current wounds, grow the max
   const gained=fresh.maxHP-(old.maxHP||fresh.maxHP);out.maxHP=fresh.maxHP;out.hp=Math.max(1,Math.min(out.maxHP,(old.hp??old.maxHP)+Math.max(0,gained)));
+  const have=new Set((old.inventory||[]).map(i=>(i.name||"").toLowerCase()));out.inventory=(old.inventory||[]).concat((fresh.inventory||[]).filter(i=>!have.has((i.name||"").toLowerCase())));
   if(old.baseAC&&!fresh.build.armor&&!old.build)out.baseAC=old.baseAC;
   return out;
 }
@@ -4092,6 +4180,9 @@ document.addEventListener("input",e=>{
     const b=activeBattle();const c=b&&curCombatant(b);const m=c&&(c.moves||[]).find(x=>x.id===BACT.moveId);if(!m)return;
     const sum=BACT.rolls.reduce((x,y)=>x+y,0);BACT.total=sum+(m.flatPer||0)+(BACT.hit&&BACT.hit.nat20?(BACT.critExtra||0):0);const n=document.querySelector(".actionpanel .etot");if(n)n.textContent=BACT.total;return;}
   if(e.target.id==="monQ"){clearTimeout(MONSEARCH_T);const q=e.target.value;MONSEARCH_T=setTimeout(()=>monSearch(q),160);return;}
+  if(e.target.id==="invQ"){clearTimeout(invSearch._t);const q=e.target.value;invSearch._t=setTimeout(()=>invSearch(q),160);return;}
+  if(e.target.dataset&&e.target.dataset.coin){const [cid,k]=e.target.dataset.coin.split("|");const ch=STATE.roster[cid];if(!ch)return;ensureInv(ch);ch.coins[k]=Math.max(0,parseInt(e.target.value,10)||0);
+    const tot=document.querySelector(".cointot");if(tot){const c=ch.coins;tot.textContent="≈ "+(Math.round((c.pp*10+c.gp+c.ep/2+c.sp/10+c.cp/100)*100)/100)+" gp";}clearTimeout(e.target._t);e.target._t=setTimeout(()=>{save();if(STATE.cloud)Cloud.afterRender();},600);return;}
 });
 
 /* lore + journal events */
@@ -4138,8 +4229,22 @@ function pinModal(){openModal(`<h2>Drop a pin</h2>
   setTimeout(()=>{const n=$("#pinLabel");if(n)n.focus();},30);}
 const _diceBtn=$("#diceBtn");if(_diceBtn)_diceBtn.addEventListener("click",diceDrawer);
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-dieface],[data-adv],[data-roll],[data-copysave],[data-importsave],[data-maptool],[data-mapcell],[data-maptok],[data-mapreveal],[data-saveprof],[data-addcharge],[data-rmcharge],[data-chargesave],[data-addab],[data-editab],[data-rmab],[data-absave],[data-addmod],[data-rmmod],[data-modsave],[data-buildsave],[data-buildcancel],[data-buildnew],[data-buildedit],[data-deathsave],[data-restore],[data-purge],[data-pinsave],[data-export],[data-compadd],[data-compedit],[data-comprm],[data-compaddatk],[data-comprmatk],[data-compsave],[data-genportrait],[data-clearportrait],[data-pstyle],[data-pgen],[data-psave],[data-premove],[data-prefrm],[data-portrait]");
+  const t=e.target.closest("[data-dieface],[data-adv],[data-roll],[data-copysave],[data-importsave],[data-maptool],[data-mapcell],[data-maptok],[data-mapreveal],[data-saveprof],[data-addcharge],[data-rmcharge],[data-chargesave],[data-addab],[data-editab],[data-rmab],[data-absave],[data-addmod],[data-rmmod],[data-modsave],[data-buildsave],[data-buildcancel],[data-buildnew],[data-buildedit],[data-deathsave],[data-restore],[data-purge],[data-pinsave],[data-export],[data-compadd],[data-compedit],[data-comprm],[data-compaddatk],[data-comprmatk],[data-compsave],[data-genportrait],[data-clearportrait],[data-pstyle],[data-pgen],[data-psave],[data-premove],[data-prefrm],[data-portrait],[data-invadd],[data-invsave],[data-invpick],[data-inveq],[data-invqty],[data-invatt],[data-invrm],[data-printsheet]");
   if(!t)return;const d=t.dataset;
+  // inventory
+  const ownsChar=id=>{const ch=STATE.roster[id];return ch&&(!STATE.cloud||(ch.owner_id||ME())===ME()||Cloud.dmOwnsChar(id));};
+  if(d.printsheet){const ch=STATE.roster[d.printsheet];if(ch)printSheet(ch);return;}
+  if(d.invadd){if(!ownsChar(d.invadd)){toast("Only this hero's player can edit their bag");return;}invAddModal(d.invadd);return;}
+  if(d.invpick){invPick(d.invpick);return;}
+  if(d.invsave){const ch=STATE.roster[d.invsave];if(!ch)return;const name=($("#invName").value||"").trim();if(!name){toast("Give it a name");return;}
+    ensureInv(ch).push({id:uid("it"),name,qty:Math.max(1,parseInt($("#invQty").value,10)||1),weight:parseFloat($("#invWt").value)||0,note:($("#invNote").value||"").trim(),equipped:false,attuned:false});
+    closeModal();render();toast(name+" added");return;}
+  if(d.inveq||d.invqty||d.invatt||d.invrm){const [cid,iid,delta]=(d.inveq||d.invqty||d.invatt||d.invrm).split("|");const ch=STATE.roster[cid];if(!ch||!ownsChar(cid))return;const it=ensureInv(ch).find(x=>x.id===iid);if(!it)return;
+    if(d.inveq)it.equipped=!it.equipped;
+    else if(d.invqty){it.qty=Math.max(0,(+it.qty||1)+(+delta));if(it.qty===0)ch.inventory=ch.inventory.filter(x=>x!==it);}
+    else if(d.invatt){if(!it.attuned&&ch.inventory.filter(x=>x.attuned).length>=3){toast("Three attuned items is the limit");return;}it.attuned=!it.attuned;}
+    else if(d.invrm)ch.inventory=ch.inventory.filter(x=>x!==it);
+    render();return;}
   // companions
   if(d.compadd){openCompanion(d.compadd,null);return;}
   if(d.compedit){const [cid,pid]=d.compedit.split("|");openCompanion(cid,pid);return;}
