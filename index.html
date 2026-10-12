@@ -222,6 +222,22 @@ select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px
 .token.sm{width:30px;height:30px;font-size:13px;border-radius:9px}
 .token.lg{width:54px;height:54px;font-size:23px;border-radius:14px}
 .token.hasimg{background-size:cover;background-position:center top;color:transparent}
+/* portrait studio */
+.pstudio{display:grid;grid-template-columns:minmax(0,220px) minmax(0,1fr);gap:16px;align-items:start}
+@media(max-width:560px){.pstudio{grid-template-columns:1fr}}
+.pstage{aspect-ratio:4/5;border-radius:14px;border:1px solid var(--line2);background:var(--bg3);overflow:hidden;display:grid;place-items:center;position:relative}
+.pstage img{width:100%;height:100%;object-fit:cover;display:block}
+.pstage .pmsg{padding:14px;font-size:12.5px;color:var(--muted);text-align:center;line-height:1.45}
+.pstage.err{border-color:color-mix(in srgb,var(--crit) 50%,var(--line2))}
+.pstage.err .pmsg{color:var(--crit)}
+.pstage.loading .pmsg{color:var(--accent)}
+.pspin{width:34px;height:34px;border-radius:50%;border:3px solid color-mix(in srgb,var(--accent) 25%,transparent);border-top-color:var(--accent);animation:pspin .9s linear infinite;position:absolute;top:calc(50% - 38px)}
+@keyframes pspin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.pspin{animation:none}}
+.pctrl textarea{width:100%;resize:vertical;font-family:inherit;font-size:13.5px;padding:9px 10px;border-radius:10px;border:1px solid var(--line2);background:var(--bg2);color:var(--fg)}
+.pstyles{display:flex;gap:6px;flex-wrap:wrap}
+.pacts{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.phint{color:var(--faint);font-size:11.5px;margin-top:10px;line-height:1.45}
 .portraitbox{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
 .portraitbox .pv{width:120px;height:120px;border-radius:16px;border:1px solid var(--line2);background:var(--bg3) center/cover no-repeat;flex:none;display:grid;place-items:center;color:var(--faint);font-size:11px;text-align:center;overflow:hidden}
 .portraitbox .pc{flex:1;min-width:180px}
@@ -1232,6 +1248,7 @@ function screenCharacters(){
         <div class="cc">${esc(ch.cls)}${ch.subtitle?" · "+esc(ch.subtitle):""}</div>
         <div class="cstats"><span>AC ${effAC(ch).ac}</span><span>HP ${ch.hp??ch.maxHP}/${ch.maxHP}</span><span>Spd ${ch.speed}</span></div></div>
       <div class="crow"><button class="btn sm primary" data-joinwith="${ch.id}">Join a campaign →</button>
+        <button class="btn sm ghost" data-portrait="${ch.id}">🖼</button>
         <button class="btn sm ghost" data-buildedit="${ch.id}">Edit</button></div>`;
     grid.appendChild(s);
   });
@@ -1497,7 +1514,7 @@ function sheetView(ch){
   w.appendChild(el("div","sheethead",
     `${avatarHTML(ch,"lg")}
      <div class="who"><h1>${esc(ch.name)}</h1><div class="cl">${esc(ch.cls)} · ${esc(ch.subtitle||"")}</div></div>
-     <button class="btn sm ghost" style="margin-left:auto" data-buildedit="${ch.id}">Edit sheet</button>`));
+     <div style="margin-left:auto;display:flex;gap:7px;flex-wrap:wrap"><button class="btn sm ghost" data-portrait="${ch.id}">🖼 Portrait</button><button class="btn sm ghost" data-buildedit="${ch.id}">Edit sheet</button></div>`));
   // vitals
   const dc=ch.spellDC?`${ch.spellDC}`:"—";
   const atk=ch.spellAtk?`+${ch.spellAtk}`:"—";
@@ -2510,14 +2527,64 @@ function openBuilder(charId,ret){
   STATE.ui.builderNew=!charId;STATE.ui.builderReturn=ret||"lobby";STATE.ui.screen="builder";render();
 }
 /* ============================ portrait generator ============================ */
-function portraitPrompt(ch){
-  const bits=["fantasy character portrait","head and shoulders",ch.subtitle||"",ch.cls||"",
-    ch.appearance||"",(charRole(ch)?charRole(ch)+" role":""),"dungeons and dragons","digital painting, dramatic lighting, highly detailed"];
+const PORTRAIT_STYLES={
+  dark:{label:"Dark fantasy",prompt:"dark fantasy oil painting, Elden Ring art style, dramatic chiaroscuro lighting, muted gold and deep shadow palette, painterly, highly detailed"},
+  classic:{label:"Classic D&D",prompt:"classic Dungeons and Dragons character illustration, painted, warm dramatic lighting, highly detailed"},
+  ink:{label:"Ink & wash",prompt:"grim ink and wash illustration, high contrast, engraved linework, fantasy"},
+};
+function portraitPrompt(ch,style){
+  const st=PORTRAIT_STYLES[style||"dark"]||PORTRAIT_STYLES.dark;
+  const bits=["portrait of a single fantasy character","head and shoulders, centered, facing the viewer",
+    ch.appearance||"",ch.subtitle||"",ch.cls||"",st.prompt,"no text, no watermark, no frame"];
   return bits.filter(Boolean).join(", ");
 }
-function buildPortraitURL(ch,seed){
-  const p=encodeURIComponent(portraitPrompt(ch));
-  return `https://image.pollinations.ai/prompt/${p}?width=512&height=512&nologo=true&model=flux&seed=${seed||1}`;
+function buildPortraitURL(ch,seed,style){
+  const p=encodeURIComponent(portraitPrompt(ch,style));
+  return `https://image.pollinations.ai/prompt/${p}?width=512&height=640&nologo=true&model=flux&seed=${seed||1}`;
+}
+/* Portrait studio: preloads the image before it's saved, so a slow/failed generation never leaves a blank avatar */
+let PORTRAIT=null; // {subject,onSave,desc,style,seed,url,status:'idle'|'loading'|'ready'|'error',timer,img}
+function openPortraitStudio(subject,onSave){
+  PORTRAIT={subject,onSave,desc:subject.appearance||"",style:subject.portraitStyle||"dark",seed:subject.portraitSeed||null,
+    url:subject.portrait||null,status:subject.portrait?"ready":"idle",timer:null,img:null};
+  renderPortraitStudio();
+}
+function portraitSubject(){const P=PORTRAIT;return Object.assign({},P.subject,{appearance:P.desc});}
+function generatePortrait(){
+  const P=PORTRAIT;if(!P)return;
+  if(P.img){P.img.onload=P.img.onerror=null;}clearTimeout(P.timer);
+  P.seed=Math.floor(Math.random()*1e6);
+  const url=buildPortraitURL(portraitSubject(),P.seed,P.style);
+  P.status="loading";P.url=null;renderPortraitStudio();
+  const img=new Image();P.img=img;
+  img.onload=()=>{if(PORTRAIT!==P)return;clearTimeout(P.timer);P.url=url;P.status="ready";renderPortraitStudio();};
+  img.onerror=()=>{if(PORTRAIT!==P)return;clearTimeout(P.timer);P.status="error";renderPortraitStudio();};
+  P.timer=setTimeout(()=>{if(PORTRAIT!==P||P.status!=="loading")return;P.status="slow";renderPortraitStudio();},25000);
+  img.src=url;
+}
+function renderPortraitStudio(){
+  const P=PORTRAIT;if(!P)return;const s=P.subject;
+  const styleBtns=Object.entries(PORTRAIT_STYLES).map(([k,v])=>`<button class="chip ${P.style===k?"on":""}" data-pstyle="${k}">${v.label}</button>`).join("");
+  let preview;
+  if(P.status==="loading"||P.status==="slow")preview=`<div class="pstage loading"><div class="pspin"></div><div class="pmsg">${P.status==="slow"?"Still painting… the art service is slow right now. Keep waiting, or try another.":"Painting your portrait…"}</div></div>`;
+  else if(P.status==="error")preview=`<div class="pstage err"><div class="pmsg">The art service didn't return an image. Try again — a new seed usually works.</div></div>`;
+  else if(P.status==="ready"&&P.url)preview=`<div class="pstage"><img src="${P.url}" alt="portrait preview"></div>`;
+  else preview=`<div class="pstage empty"><div class="pmsg">Describe your hero and hit Generate. The portrait becomes their icon everywhere — sheet, lobby, battle board, player card.</div></div>`;
+  openModal(`<h2>Portrait — ${esc(s.name||"your hero")}</h2>
+    <div class="pstudio">
+      ${preview}
+      <div class="pctrl">
+        <div class="field"><label>Looks like…</label><textarea id="pDesc" rows="3" placeholder="e.g. scarred half-orc with a braided grey beard, cracked obsidian plate, one glowing eye">${esc(P.desc)}</textarea></div>
+        <div class="field"><label>Style</label><div class="pstyles">${styleBtns}</div></div>
+        <div class="pacts">
+          <button class="btn primary" data-pgen="1" ${P.status==="loading"?"disabled":""}>${P.url||P.status==="error"||P.status==="slow"?"↻ Try another":"✨ Generate"}</button>
+          ${P.status==="ready"&&P.url?`<button class="btn gold" data-psave="1">Use this portrait</button>`:""}
+          ${s.portrait?`<button class="btn ghost sm" data-premove="1">Remove current</button>`:""}
+          <button class="btn ghost sm" data-close="1">Close</button>
+        </div>
+        <div class="phint">Free art service — each generation takes ~5–20 s. Nothing is saved until you press <b>Use this portrait</b>.</div>
+      </div>
+    </div>`);
 }
 function avatarHTML(ch,cls){ // cls: "lg"|"sm"|"" — uses portrait image if present
   if(ch&&ch.portrait)return `<div class="token ${cls||""} hasimg" style="background-image:url('${ch.portrait}')"></div>`;
@@ -3214,7 +3281,7 @@ function pinModal(){openModal(`<h2>Drop a pin</h2>
   setTimeout(()=>{const n=$("#pinLabel");if(n)n.focus();},30);}
 const _diceBtn=$("#diceBtn");if(_diceBtn)_diceBtn.addEventListener("click",diceDrawer);
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-dieface],[data-adv],[data-roll],[data-copysave],[data-importsave],[data-maptool],[data-mapcell],[data-maptok],[data-mapreveal],[data-saveprof],[data-addcharge],[data-rmcharge],[data-chargesave],[data-addab],[data-editab],[data-rmab],[data-absave],[data-addmod],[data-rmmod],[data-modsave],[data-buildsave],[data-buildcancel],[data-buildnew],[data-buildedit],[data-deathsave],[data-restore],[data-purge],[data-pinsave],[data-export],[data-compadd],[data-compedit],[data-comprm],[data-compaddatk],[data-comprmatk],[data-compsave]");
+  const t=e.target.closest("[data-dieface],[data-adv],[data-roll],[data-copysave],[data-importsave],[data-maptool],[data-mapcell],[data-maptok],[data-mapreveal],[data-saveprof],[data-addcharge],[data-rmcharge],[data-chargesave],[data-addab],[data-editab],[data-rmab],[data-absave],[data-addmod],[data-rmmod],[data-modsave],[data-buildsave],[data-buildcancel],[data-buildnew],[data-buildedit],[data-deathsave],[data-restore],[data-purge],[data-pinsave],[data-export],[data-compadd],[data-compedit],[data-comprm],[data-compaddatk],[data-comprmatk],[data-compsave],[data-genportrait],[data-clearportrait],[data-pstyle],[data-pgen],[data-psave],[data-premove],[data-portrait]");
   if(!t)return;const d=t.dataset;
   // companions
   if(d.compadd){openCompanion(d.compadd,null);return;}
@@ -3268,9 +3335,18 @@ document.addEventListener("click",e=>{
   if(d.rmmod){STATE.ui.draft.modifiers.splice(+d.rmmod,1);render();return;}
   if(d.modsave){const dr=STATE.ui.draft;const o={id:uid("mod"),label:($("#mLabel").value||"Modifier").trim(),source:$("#mSource").value,kind:$("#mKind").value,value:parseInt($("#mValue").value,10)||0,active:true};
     if(d.modsave==="new")dr.modifiers.push(o);else{o.id=dr.modifiers[+d.modsave].id;dr.modifiers[+d.modsave]=o;}closeModal();render();return;}
-  if(d.genportrait){const dr=STATE.ui.draft;const seed=(d.genportrait==="re"||dr.portrait)?Math.floor(Math.random()*1e6):Math.floor(Math.random()*1e6);
-    dr.portrait=buildPortraitURL(dr,seed);dr.portraitSeed=seed;render();toast("Generating portrait…");return;}
+  if(d.genportrait){const dr=STATE.ui.draft;if(!dr)return;
+    openPortraitStudio(dr,(url,seed,style,desc)=>{dr.portrait=url;dr.portraitSeed=seed;dr.portraitStyle=style;if(desc!=null)dr.appearance=desc;render();});return;}
   if(d.clearportrait){STATE.ui.draft.portrait=null;render();return;}
+  // portrait studio controls
+  if(d.pstyle){if(PORTRAIT){const ta=$("#pDesc");if(ta)PORTRAIT.desc=ta.value;PORTRAIT.style=d.pstyle;renderPortraitStudio();}return;}
+  if(d.pgen){if(PORTRAIT){const ta=$("#pDesc");if(ta)PORTRAIT.desc=ta.value;generatePortrait();}return;}
+  if(d.psave){if(PORTRAIT&&PORTRAIT.url){const P=PORTRAIT;const ta=$("#pDesc");if(ta)P.desc=ta.value;
+    P.onSave(P.url,P.seed,P.style,P.desc);PORTRAIT=null;closeModal();toast("Portrait set");}return;}
+  if(d.premove){if(PORTRAIT){const P=PORTRAIT;P.onSave(null,null,P.style,null);PORTRAIT=null;closeModal();toast("Portrait removed");}return;}
+  if(d.portrait){const ch=STATE.roster[d.portrait];if(!ch)return;
+    if(STATE.cloud&&(ch.owner_id||ME())!==ME()&&!Cloud.dmOwnsChar(ch.id)){toast("Only this hero's player can change their portrait");return;}
+    openPortraitStudio(ch,(url,seed,style,desc)=>{ch.portrait=url;ch.portraitSeed=seed;ch.portraitStyle=style;if(desc!=null)ch.appearance=desc;render();});return;}
   if(d.buildsave){const dr=STATE.ui.draft;if(dr.token)dr.token=String(dr.token).slice(0,2);
     if(STATE.cloud&&!dr.owner_id)dr.owner_id=ME();
     STATE.roster[dr.id]=dr;const ret=STATE.ui.builderReturn||"lobby";STATE.ui.draft=null;STATE.ui.screen=ret;render();toast("Character saved");return;}
@@ -3324,7 +3400,8 @@ document.addEventListener("click",e=>{
   if(d.wizpb!=null){const [a,delta]=d.wizpb.split("|");const nv=wiz.pb[a]+(+delta);if(nv<8||nv>15)return;
     const spent=ABIL6.reduce((s,x)=>s+(POINT_COST[x===a?nv:wiz.pb[x]]||0),0);if((+delta)>0&&spent>27){toast("Not enough points");return;}wiz.pb[a]=nv;render();return;}
   if(d.wizportrait!=null){const tmp={name:wiz.name,subtitle:[wiz.race,wiz.bg].filter(Boolean).join(" · "),cls:wiz.cls,appearance:wiz.appearance,role:wiz.role};
-    const seed=Math.floor(Math.random()*1e6);wiz.portrait=buildPortraitURL(tmp,seed);wiz.portraitSeed=seed;render();toast("Generating portrait…");return;}
+    tmp.portrait=wiz.portrait;tmp.portraitSeed=wiz.portraitSeed;tmp.portraitStyle=wiz.portraitStyle;
+    openPortraitStudio(tmp,(url,seed,style,desc)=>{wiz.portrait=url;wiz.portraitSeed=seed;wiz.portraitStyle=style;if(desc!=null)wiz.appearance=desc;render();});return;}
   if(d.wizback!=null){wiz.step=Math.max(0,wiz.step-1);render();return;}
   if(d.wiznext!=null){if(wizCanAdvance(wiz,wiz.step))wiz.step=Math.min(WIZ_STEPS.length-1,wiz.step+1);render();return;}
   if(d.wizcancel!=null){STATE.ui.wiz=null;STATE.ui.screen=STATE.ui.wizReturn||"characters";render();return;}
