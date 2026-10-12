@@ -382,7 +382,18 @@ select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px
 
 /* ---- dm console ---- */
 .dmgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:13px}
-.pcard{background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:14px}
+.pcard{background:linear-gradient(var(--bg2),var(--bg3));border:1px solid var(--line2);border-radius:14px;padding:16px 14px 14px;
+  position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;box-shadow:var(--shadow)}
+.pcard::before{content:"";position:absolute;inset:5px;border:1px solid color-mix(in srgb,var(--accent) 28%,transparent);border-radius:10px;pointer-events:none}
+.pcard .pcportrait .token{width:74px;height:74px;font-size:26px;border:2px solid var(--accent);box-shadow:0 0 0 3px var(--bg2),0 5px 16px rgba(0,0,0,.4)}
+.pcard .pcname{font-family:var(--f-display);font-weight:700;font-size:17px;margin-top:11px;display:flex;align-items:center;gap:7px;justify-content:center;flex-wrap:wrap;line-height:1.1}
+.pcard .pccls{font-size:12px;color:var(--muted);margin-top:3px}
+.pcard .pcvitals{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin:11px 0 9px;font-family:var(--f-mono);font-size:11.5px;color:var(--muted)}
+.pcard .pcvitals b{color:var(--accent);font-weight:600}
+.pcard .hpbar{width:100%}
+.pcard .pcacts{margin-top:12px;display:flex;gap:7px;flex-wrap:wrap;justify-content:center}
+.pcard .hpn{width:100%;text-align:center}
+.pcard .chgs{justify-content:center}
 .pcard .ph{display:flex;align-items:center;gap:10px;margin-bottom:11px}
 .pcard .ph .nm{font-weight:700;font-size:15px}
 .pcard .ph .cl{font-size:11.5px;color:var(--muted)}
@@ -495,6 +506,7 @@ select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px
 .movebtn .mtype{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mt)}
 .movebtn .mname{font-family:var(--f-display);font-weight:600;font-size:15px;line-height:1.12}
 .movebtn .mmeta{font-size:11px;color:var(--muted);font-family:var(--f-mono)}
+.movebtn .msrc{font-size:9.5px;letter-spacing:.04em;color:var(--faint);font-family:var(--f-mono);text-transform:none}
 .logpanel{background:var(--bg3);border:1px solid var(--line);border-radius:13px;padding:12px 14px;margin-top:18px;font-family:var(--f-mono);font-size:12px}
 .logpanel .lph{font-family:var(--f-ui);font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);margin-bottom:7px}
 .logpanel .le{color:var(--muted);padding:2px 0}
@@ -1071,6 +1083,7 @@ const esc=s=>String(s).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",
 function mod(score){const m=Math.floor((score-10)/2);return (m>=0?"+":"")+m;}
 function modN(score){return Math.floor((score-10)/2);}
 function uid(p){return p+"_"+Math.random().toString(36).slice(2,8);}
+function ordLevel(n){return n===1?"1st":n===2?"2nd":n===3?"3rd":n+"th";} // D&D spell-level wording
 function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show");
   clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove("show"),1900);}
 function curCamp(){return STATE.campaigns[STATE.ui.campId];}
@@ -1124,7 +1137,7 @@ function render(){
   else if(ui.screen==="profile")scr.appendChild(screenProfile());
   $("#foot").innerHTML=footNote();
   save();
-  if(STATE.cloud)Cloud.afterRender();
+  if(STATE.cloud){Cloud.syncRooms();Cloud.afterRender();}
 }
 function footNote(){
   if(STATE.cloud){
@@ -1787,12 +1800,15 @@ function dmConsole(){
     const {ac}=effAC(ch);const role=charRole(ch);
     const chgs=Object.values(ch.charges||{}).map(c=>`<span class="chgtag">${esc(c.label)} ${c.cur}/${c.max}</span>`).join("");
     const pc=el("div","pcard");
-    pc.innerHTML=`<div class="ph"><div class="token sm" style="${tokenStyle(ch)}">${ch.token}</div>
-        <div><div class="nm">${esc(ch.name)} ${mineHero?`<span class="rolechip" style="color:var(--gold);border-color:color-mix(in srgb,var(--gold) 45%,var(--line2))">your hero</span>`:role?`<span class="rolechip">${esc(role)}</span>`:""}</div><div class="cl">${esc(ch.cls)} · AC ${ac}</div></div></div>
+    const vit=`<span>AC <b>${ac}</b></span><span>Spd <b>${ch.speed}</b></span>`+(ch.spellDC?`<span>DC <b>${ch.spellDC}</b></span>`:"")+`<span>Prof <b>+${ch.prof}</b></span>`;
+    pc.innerHTML=`<div class="pcportrait">${avatarHTML(ch,"lg")}</div>
+      <div class="pcname">${esc(ch.name)} ${mineHero?`<span class="rolechip" style="color:var(--gold);border-color:color-mix(in srgb,var(--gold) 45%,var(--line2))">your hero</span>`:role?`<span class="rolechip">${esc(role)}</span>`:""}</div>
+      <div class="pccls">${esc(ch.cls)}${ch.subtitle?" · "+esc(ch.subtitle):""}</div>
+      <div class="pcvitals">${vit}</div>
       <div class="hpbar"><i class="${cls}" style="width:${pct}%"></i></div>
       <div class="hpn">${cur} / ${ch.maxHP} HP${ch.tempHP?` (+${ch.tempHP})`:""}</div>
       <div class="chgs">${chgs||'<span class="chgtag">no tracked charges</span>'}${(ch.inspiration||0)>0?`<span class="chgtag" style="color:var(--gold);border-color:color-mix(in srgb,var(--gold) 45%,var(--line2))">✦ Inspiration ×${ch.inspiration}</span>`:""}</div>
-      <div style="margin-top:11px;display:flex;gap:7px;flex-wrap:wrap"><button class="btn sm ghost" data-dmview="${id}">${mineHero?"▶ Play":"Open sheet"}</button><button class="btn sm gold" data-awardinsp="${id}">✦ Award Inspiration</button></div>`;
+      <div class="pcacts"><button class="btn sm ghost" data-dmview="${id}">${mineHero?"▶ Play":"Open sheet"}</button><button class="btn sm gold" data-awardinsp="${id}">✦ Award Inspiration</button></div>`;
     grid.appendChild(pc);
   });
   w.appendChild(grid);
@@ -2146,11 +2162,14 @@ function partyActionForm(b,c){
     present.map(t=>`<button class="chip ${filt===t?"on":""}" data-bmovefilter="${t}" style="--_c:var(--c-${t})">${t[0].toUpperCase()+t.slice(1)}</button>`).join("")+`</div>
     <div class="movegrid">`+
     shown.map(x=>{const sel=x.id===a.id;
-      const pp=(x.charge&&ch.charges&&ch.charges[x.charge])?`${ch.charges[x.charge].cur}/${ch.charges[x.charge].max}`:"∞";
-      const dice=x.dmg?((x.instances>1?x.instances+"×":"")+x.dmg+(x.flatPer?"+"+x.flatPer:"")):"no roll";
+      const slot=(x.charge&&ch.charges&&ch.charges[x.charge]);
+      const uses=slot?`${slot.cur}/${slot.max} ${slot.label}`:"At will";      // D&D terms, not "PP"
+      const kind=x.source||(x.level===0?"Cantrip":x.level>0?ordLevel(x.level)+" spell":"Feature");
+      const dice=x.dmg?((x.instances>1?x.instances+" × ":"")+x.dmg+(x.flatPer?" + "+x.flatPer:"")+(x.dmgType?" "+x.dmgType:"")):"no attack roll";
       return `<button class="movebtn ${sel?"on":""}" data-bmove="${x.id}" style="--mt:var(--c-${x.type})">
         <span class="mtype">${esc(x.type)}</span><span class="mname">${esc(x.name)}</span>
-        <span class="mmeta">${esc(dice)} · PP ${pp}</span></button>`;}).join("")+`</div>`;
+        <span class="mmeta">${esc(dice)}</span>
+        <span class="msrc">${esc(kind)} · ${esc(uses)}</span></button>`;}).join("")+`</div>`;
   // a move with no damage roll: just declare it
   if(!a.dmg){
     html+=`<div class="useblk">${a.text?`<p class="usetext">${esc(a.text)}</p>`:'<p class="usetext">No dice to roll — declare it and the DM resolves the effect.</p>'}
@@ -3351,13 +3370,16 @@ const Cloud={
     for(const id in STATE.campaigns){const c=STATE.campaigns[id];if((c.dm_id||me)!==me)continue;
       const row=Cloud.campRow(c);const h=hashStr(JSON.stringify(row));
       if(Cloud._campHash[id]!==h){Cloud._campHash[id]=h;try{await SB.from("campaigns").upsert(row);}catch(e){}}}
-    // shared battle rooms — any member at the table may push an encounter forward
+  },400),
+  // battle rooms sync on a fast path so combat feels live (any member may push a room forward)
+  syncRooms:debounce(async function(){
+    if(!STATE.cloud||!SB)return;const me=ME();
     for(const id in STATE.campaigns){const c=STATE.campaigns[id];const rooms=c.rooms||{};
       if(!(amDM(c)||(c.members||[]).some(m=>m.user_id===me)))continue;
       for(const rid in rooms){const h=hashStr(JSON.stringify(rooms[rid]));
         if(Cloud._battleHash[rid]!==h){Cloud._battleHash[rid]=h;
           try{await SB.from("battles").upsert({id:rid,campaign_id:id,state:rooms[rid],updated_by:me,updated_at:new Date().toISOString()});}catch(e){}}}}
-  },500),
+  },90),
   async join(campId,charId){const c=STATE.campaigns[campId];const role=amDM(c)?"dm":"player";
     try{await SB.from("campaign_members").upsert({campaign_id:campId,user_id:ME(),character_id:charId,role,ready:false});}catch(e){toast("Join failed");}},
   async leaveCamp(campId,userId){try{await SB.from("campaign_members").delete().eq("campaign_id",campId).eq("user_id",userId);}catch(e){}},
@@ -3382,15 +3404,22 @@ const Cloud={
         else{const r=p.new;const h=hashStr(JSON.stringify(Cloud.campRow(r)));
           if(Cloud._campHash[r.id]===h&&STATE.campaigns[r.id])return;Cloud._campHash[r.id]=h;
           const existing=STATE.campaigns[r.id];const fresh=Cloud.mkCamp(r);
+          const wasLive=existing&&existing.session&&existing.session.live;
           if(existing){fresh.party=existing.party;fresh.ready=existing.ready;fresh.members=existing.members;fresh.lore=existing.lore;fresh.rooms=existing.rooms;}
           else{await Cloud.reloadMembers(r.id);}
-          STATE.campaigns[r.id]=fresh;}
+          STATE.campaigns[r.id]=fresh;
+          // DM ended the session → pull every player back to the lobby
+          if(wasLive&&!fresh.session.live&&!amDM(fresh)&&STATE.ui.campId===r.id&&STATE.ui.screen==="play"){
+            STATE.ui.screen="lobby";toast("The DM ended the session.");}}
         render();})
       .on("postgres_changes",{event:"*",schema:"public",table:"campaign_members"},async p=>{
         const cid=(p.new&&p.new.campaign_id)||(p.old&&p.old.campaign_id);if(cid&&STATE.campaigns[cid]){await Cloud.reloadMembers(cid);render();}})
       .on("postgres_changes",{event:"*",schema:"public",table:"battles"},p=>{
         if(p.eventType==="DELETE"){const o=p.old;if(!o||!o.id)return;
-          for(const cid in STATE.campaigns){const cc=STATE.campaigns[cid];if(cc.rooms&&cc.rooms[o.id]){delete cc.rooms[o.id];if(STATE.ui.roomId===o.id)STATE.ui.roomId=null;}}
+          for(const cid in STATE.campaigns){const cc=STATE.campaigns[cid];if(cc.rooms&&cc.rooms[o.id]){
+            const wasViewing=!amDM(cc)&&myRoomId(cc)===o.id; // I was fighting in this room
+            delete cc.rooms[o.id];if(STATE.ui.roomId===o.id)STATE.ui.roomId=null;
+            if(wasViewing&&STATE.ui.campId===cid&&STATE.ui.tab==="battle"){STATE.ui.tab="sheet";toast("The DM ended the encounter.");}}}
           delete Cloud._battleHash[o.id];render();return;}
         const r=p.new;const c=STATE.campaigns[r.campaign_id];if(!c||!r.state)return;
         const h=hashStr(JSON.stringify(r.state));
