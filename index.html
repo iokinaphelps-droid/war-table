@@ -2035,6 +2035,7 @@ function battleSetup(b,isDM,w){
   w.appendChild(list);
   if(isDM){const unrolled=b.combatants.filter(c=>c.initRoll==null).length;
     w.appendChild(el("div","startbox",`<div class="note">${unrolled?`${unrolled} still need a roll — or roll for them.`:"Everyone's in."}</div>
+      <button class="btn sm" data-addplayer="1">+ Add player</button>
       <button class="btn sm" data-addenemy="1">+ Add opponent</button>
       <button class="btn ghost sm" data-rollallinit="1">🎲 Roll remaining</button>
       <button class="btn primary" data-begincombat="1">Begin combat →</button>`));
@@ -2044,6 +2045,7 @@ function battleActive(b,isDM,w){
   const cur=curCombatant(b);
   const bar=el("div","btlbar");
   bar.innerHTML=(isDM?`<button class="btn sm gold" data-nextturn="1">Advance turn →</button>
+      <button class="btn sm" data-addplayer="1">+ Player</button>
       <button class="btn sm" data-addenemy="1">+ Enemy</button>
       <button class="btn sm ghost" data-reroll="1">Re-roll init</button>
       <button class="btn sm ghost" data-endbtl="1">End</button>`:``)+
@@ -2219,6 +2221,36 @@ function roomModal(){
     <div class="roommems">${rows||'<div class="empty">No party members yet — have the party join from the lobby.</div>'}</div>
     <div class="acts" style="margin-top:14px"><button class="btn ghost" data-close="1">Cancel</button><button class="btn primary" data-newroomsave="1">Start encounter</button></div>`);
   setTimeout(()=>{const n=$("#roomName");if(n)n.focus();},30);
+}
+function addPlayerModal(){
+  const camp=curCamp();const cr=curRoom(camp,true);if(!cr){toast("Open an encounter first");return;}
+  const b=cr.b;const already=new Set((b.combatants||[]).filter(c=>c.charId).map(c=>c.charId));
+  const inOther={};Object.entries(ensureRooms(camp)).forEach(([rid,bb])=>{if(rid===cr.id)return;(bb.combatants||[]).forEach(c=>{if(c.charId)inOther[c.charId]=bb.name||"another encounter";});});
+  const avail=camp.party.filter(id=>STATE.roster[id]&&!already.has(id));
+  const rows=avail.map(id=>{const ch=STATE.roster[id];const busy=inOther[id];
+    return `<label class="roommem ${busy?"busy":""}">
+      <input type="checkbox" data-roommember="${id}" ${busy?"":"checked"}>
+      <span class="token sm" style="${tokenStyle(ch)}">${esc(ch.token)}</span>
+      <span class="rmwho"><b>${esc(ch.name)}</b><small>${esc(ch.cls)}${busy?` · in ${esc(busy)}`:""}</small></span></label>`;}).join("");
+  openModal(`<h2>Add players to "${esc(b.name||"Encounter")}"</h2>
+    <div class="banner">${b.phase==="active"?"Combat is live — whoever you add rolls initiative and slots into the order, jumping straight into the fight.":"They'll join this encounter and roll for initiative."}</div>
+    <div class="roommems">${rows||'<div class="empty">Everyone in the party is already in this encounter.</div>'}</div>
+    <div class="acts" style="margin-top:14px"><button class="btn ghost" data-close="1">Cancel</button>
+      <button class="btn primary" data-addplayersave="1" ${avail.length?"":"disabled"}>Add to encounter</button></div>`);
+}
+function addPartyToBattle(b,charIds){
+  const taken=new Set((b.combatants||[]).map(c=>c.charId).filter(Boolean));
+  let added=0;
+  (charIds||[]).forEach(cid=>{const ch=STATE.roster[cid];if(!ch||taken.has(cid))return;
+    const {ac}=effAC(ch);const freeY=()=>{for(let yy=1;yy<=b.rows;yy++)if(!b.combatants.find(c=>c.x===1&&c.y===yy))return yy;return 1;};
+    const mk=(extra)=>Object.assign({id:uid("c"),side:"party",initRoll:(b.phase==="active"?rollDie(20):null),dmgTaken:0,revealHP:true,revealAC:true,conditions:[],dots:[]},extra);
+    const hero=mk({charId:cid,name:ch.name,token:ch.token,color:ch.color,ac,maxHP:ch.maxHP,hp:ch.hp??ch.maxHP,dexMod:modN(ch.scores.dex),x:1,y:freeY()});
+    b.combatants.push(hero);if(b.phase==="active")b.order.push(hero.id);
+    (ch.companions||[]).forEach(comp=>{const chp=comp.maxHP||1;
+      const cc=mk({charId:cid,companionId:comp.id,isCompanion:true,name:comp.name,token:comp.token||comp.name[0].toUpperCase(),color:comp.color||ch.color,ac:comp.ac||10,maxHP:chp,hp:chp,dexMod:comp.dexMod||0,x:2,y:freeY()});
+      b.combatants.push(cc);if(b.phase==="active")b.order.push(cc.id);});
+    blog(b,`${ch.name} joins the fight.`);added++;});
+  return added;
 }
 function enemyModal(){
   openModal(`<h2>Add enemy</h2>
@@ -2989,7 +3021,7 @@ function liveCalc(ch,a,st){
 /* battle + lore events */
 let PENDING_PHOTO=null;
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-newroom],[data-newroomsave],[data-roomsel],[data-roomend],[data-endbtl],[data-addenemy],[data-addenemysave],[data-nextturn],[data-cell],[data-selbtl],[data-dmgc],[data-revhp],[data-revac],[data-rmc],[data-addnote],[data-delnote],[data-brollinit],[data-rollallinit],[data-begincombat],[data-reroll],[data-reup],[data-redn],[data-passturn],[data-bmove],[data-bmovefilter],[data-buse],[data-ballroll],[data-bclear],[data-bmod],[data-bperinst],[data-bbonus],[data-bapply],[data-eapply],[data-cond],[data-adddot],[data-dotsave],[data-rmdot]");
+  const t=e.target.closest("[data-newroom],[data-newroomsave],[data-roomsel],[data-roomend],[data-addplayer],[data-addplayersave],[data-endbtl],[data-addenemy],[data-addenemysave],[data-nextturn],[data-cell],[data-selbtl],[data-dmgc],[data-revhp],[data-revac],[data-rmc],[data-addnote],[data-delnote],[data-brollinit],[data-rollallinit],[data-begincombat],[data-reroll],[data-reup],[data-redn],[data-passturn],[data-bmove],[data-bmovefilter],[data-buse],[data-ballroll],[data-bclear],[data-bmod],[data-bperinst],[data-bbonus],[data-bapply],[data-eapply],[data-cond],[data-adddot],[data-dotsave],[data-rmdot]");
   if(!t)return;const d=t.dataset;const camp=curCamp();
   const isDM=STATE.cloud?amDM(camp):(STATE.ui.viewAs==="dm"); // host authority (DM keeps it even while viewing a PC)
   // room management (DM) — resolved before we need a battle
@@ -3004,7 +3036,7 @@ document.addEventListener("click",e=>{
   const b=activeBattle();if(!b&&!isLore)return; // lore works without an encounter
   const mayAct=b?canAct(b,isDM):false;
   if(STATE.cloud&&!isDM&&b){
-    const HOST_ONLY={endbtl:1,roomend:1,reroll:1,rollallinit:1,begincombat:1,reup:1,redn:1,nextturn:1,addenemy:1,addenemysave:1,revhp:1,revac:1,rmc:1,cond:1,adddot:1,dotsave:1,rmdot:1};
+    const HOST_ONLY={endbtl:1,roomend:1,addplayer:1,addplayersave:1,reroll:1,rollallinit:1,begincombat:1,reup:1,redn:1,nextturn:1,addenemy:1,addenemysave:1,revhp:1,revac:1,rmc:1,cond:1,adddot:1,dotsave:1,rmdot:1};
     const TURN={bmove:1,bmovefilter:1,buse:1,ballroll:1,bclear:1,bmod:1,bperinst:1,bbonus:1,bapply:1,eapply:1,passturn:1};
     for(const k in d){if(HOST_ONLY[k]){toast("The DM runs the encounter");return;}}
     let needsTurn=false;for(const k in d){if(TURN[k])needsTurn=true;}
@@ -3021,6 +3053,10 @@ document.addEventListener("click",e=>{
   if(d.reup){reorder(b,d.reup,-1);render();return;}
   if(d.redn){reorder(b,d.redn,1);render();return;}
   if(d.nextturn||d.passturn){const c=curCombatant(b);if(c)blog(b,`${c.name} ${d.passturn?"passes":"ends turn"}.`);advanceTurn(b,0);render();return;}
+  if(d.addplayer){addPlayerModal();return;}
+  if(d.addplayersave){const picked=[...document.querySelectorAll("[data-roommember]:checked")].map(x=>x.getAttribute("data-roommember"));
+    if(picked.length===0){toast("Pick at least one player");return;}
+    const n=addPartyToBattle(b,picked);closeModal();render();toast(n?`${n} added to the encounter`:"No one to add");return;}
   if(d.addenemy){enemyModal();return;}
   if(d.addenemysave){const nm=($("#enName").value||"Enemy").trim()||"Enemy";
     const hp=parseInt($("#enHP").value,10)||10;const ac=parseInt($("#enAC").value,10)||12;
@@ -3364,9 +3400,10 @@ const Cloud={
         // keep my own heroes' sheet HP in step with the board
         (r.state.combatants||[]).forEach(cb=>{const ch=cb.charId&&STATE.roster[cb.charId];
           if(ch&&(ch.owner_id===ME()))ch.hp=cb.hp;});
-        // forced roll: the DM just pulled me into a new encounter → jump to it
+        // forced roll: the DM just pulled me into an encounter (new or mid-fight) → jump to it
         if(!amDM(c)){const nowMine=myRoomId(c);
-          if(nowMine===r.id&&wasMine!==r.id&&r.state.phase==="setup"){STATE.ui.tab="battle";STATE.ui.screen="play";toast("The DM pulled you into a fight — roll for initiative!");}}
+          if(nowMine===r.id&&wasMine!==r.id){STATE.ui.tab="battle";STATE.ui.screen="play";
+            toast(r.state.phase==="active"?"The DM pulled you into the fight — you're in the order!":"The DM pulled you into a fight — roll for initiative!");}}
         render();})
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"lore_notes"},p=>{
         const n=p.new;const c=STATE.campaigns[n.campaign_id];if(c){if(!c.lore.find(x=>x.id===n.id)){c.lore.push({id:n.id,author:n.author_name,ts:new Date(n.created_at).getTime(),text:n.body,hadPhoto:false});render();}}})
