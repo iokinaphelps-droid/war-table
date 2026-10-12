@@ -596,6 +596,8 @@ select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px
 .jl .t{font-family:var(--f-mono);font-size:11px;color:var(--faint);flex:none} .jl .x{flex:1} .jl .r{font-size:10.5px;color:var(--faint);font-family:var(--f-mono)}
 .recapnote{border-color:color-mix(in srgb,var(--gold) 40%,var(--line))} .ctxnote{border-style:dashed}
 .fbbox{display:flex;flex-direction:column;gap:10px;margin-bottom:24px}
+.member.dmseat{border-color:color-mix(in srgb,var(--gold) 40%,var(--line))}
+.rolechip.npc{color:var(--c-control);border-color:color-mix(in srgb,var(--c-control) 45%,var(--line2))}
 .asirow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:13px} .asirow .al{font-family:var(--f-mono);font-size:11px;color:var(--faint);width:40px}
 .asirow select{width:auto;padding:6px 8px;font-size:13px}
 .spellsec{margin-top:12px} .gcat{color:var(--faint);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;align-self:center;margin-right:4px;min-width:92px}
@@ -1332,7 +1334,7 @@ function screenCharacters(){
   mine.forEach(ch=>{
     const s=el("div","charcard");const role=charRole(ch);
     s.innerHTML=`${avatarHTML(ch,"lg")}
-      <div class="ci"><div class="cn">${esc(ch.name)} ${role?`<span class="rolechip">${esc(role)}</span>`:""}</div>
+      <div class="ci"><div class="cn">${esc(ch.name)} ${isNPC(ch)?'<span class="rolechip npc">NPC</span>':role?`<span class="rolechip">${esc(role)}</span>`:""}</div>
         <div class="cc">${esc(ch.cls)}${ch.subtitle?" · "+esc(ch.subtitle):""}</div>
         <div class="cstats"><span>AC ${effAC(ch).ac}</span><span>HP ${ch.hp??ch.maxHP}/${ch.maxHP}</span><span>Spd ${ch.speed}</span></div></div>
       <div class="crow"><button class="btn sm primary" data-joinwith="${ch.id}">Join a campaign →</button>
@@ -1470,15 +1472,19 @@ function screenLobby(){
   // party panel
   const party=el("div","panel");
   let pm="";
-  if(camp.party.length===0)pm=`<div class="empty">No one has joined yet. Add characters from the roster →</div>`;
-  else pm=`<div class="memberlist">`+camp.party.map(id=>{
-    const ch=STATE.roster[id];if(!ch)return "";const rdy=camp.ready[id];const role=charRole(ch);
+  const dmCard=`<div class="member rdy dmseat">
+      <div class="token" style="background:linear-gradient(135deg,var(--gold),#7a5c10)">DM</div>
+      <div class="who"><div class="nm">${esc(camp.dm)} <span class="rolechip" style="color:var(--gold);border-color:color-mix(in srgb,var(--gold) 45%,var(--line2))">Dungeon Master</span></div><div class="cl">Runs the table · no character needed</div></div>
+      <span class="st on" style="cursor:default">Hosting</span></div>`;
+  const dmIds=new Set(STATE.cloud?dmParty(camp):[]);
+  pm=`<div class="memberlist">`+dmCard+camp.party.map(id=>{
+    const ch=STATE.roster[id];if(!ch)return "";const rdy=camp.ready[id];const role=charRole(ch);const mineDM=dmIds.has(id);
     return `<div class="member ${rdy?"rdy":""}">
       <div class="token" style="${tokenStyle(ch)}">${ch.token}</div>
-      <div class="who"><div class="nm">${esc(ch.name)} ${role?`<span class="rolechip">${esc(role)}</span>`:""}</div><div class="cl">${esc(ch.cls)} · ${esc(ch.player)}</div></div>
-      <button class="st ${rdy?"on":""}" data-ready="${id}">${rdy?"Ready":"Not ready"}</button>
-      <button class="iconbtn" style="width:30px;height:30px;font-size:13px" data-leave="${id}" title="Leave">✕</button>
-    </div>`;}).join("")+`</div>`;
+      <div class="who"><div class="nm">${esc(ch.name)} ${isNPC(ch)?`<span class="rolechip npc">NPC</span>`:mineDM?`<span class="rolechip" style="color:var(--gold);border-color:color-mix(in srgb,var(--gold) 45%,var(--line2))">DM's hero</span>`:role?`<span class="rolechip">${esc(role)}</span>`:""}</div><div class="cl">${esc(ch.cls)} · ${esc(ch.player)}</div></div>
+      ${mineDM?`<span class="st on" style="cursor:default">${isNPC(ch)?"Ready":"Ready"}</span>`:`<button class="st ${rdy?"on":""}" data-ready="${id}">${rdy?"Ready":"Not ready"}</button>`}
+      <button class="iconbtn" style="width:30px;height:30px;font-size:13px" data-leave="${id}" title="Remove">✕</button>
+    </div>`;}).join("")+(camp.party.length?"":`<div class="empty">No players yet — share the invite below. Add your own PCs or NPCs from the roster →</div>`)+`</div>`;
   party.innerHTML=`<h2>Party</h2><div class="sub">Saved to this campaign as they join</div>${pm}`;
 
   const isHost=!STATE.cloud||amDM(camp); // host = DM
@@ -1502,7 +1508,7 @@ function screenLobby(){
       ${isHost?`<button class="btn ghost" data-endsession="1">End session</button>`:""}`;
   }else if(isHost){
     start.innerHTML=`<div class="note">${readyCount}/${camp.party.length} ready. You're the host — press start when the table's set.</div>
-      <button class="btn primary" data-startsession="1" ${camp.party.length===0?"disabled":""}>Start session</button>`;
+      <button class="btn primary" data-startsession="1">Start session</button>`;
   }else{
     const meReady=myMember(camp)&&myMember(camp).ready;
     start.innerHTML=`<div class="note">${readyCount}/${camp.party.length} ready. ${meReady?"Waiting on the host to start.":"Ready up when you're set."}</div>
@@ -1519,11 +1525,11 @@ function screenLobby(){
   else jl=`<div class="joinable">`+available.map(ch=>`
     <div class="member">
       <div class="token" style="${tokenStyle(ch)}">${ch.token}</div>
-      <div class="who"><div class="nm">${esc(ch.name)}</div><div class="cl">${esc(ch.cls)} · ${esc(ch.player)}</div></div>
+      <div class="who"><div class="nm">${esc(ch.name)}${isNPC(ch)?' <span class="rolechip npc">NPC</span>':""}</div><div class="cl">${esc(ch.cls)} · ${esc(ch.player)}</div></div>
       <button class="iconbtn" style="width:30px;height:30px;font-size:12px" data-buildedit="${ch.id}" title="Edit">✎</button>
-      <button class="btn sm primary" data-join="${ch.id}">Join</button>
+      <button class="btn sm primary" data-join="${ch.id}">${isHost?"Add to table":"Join"}</button>
     </div>`).join("")+`</div>`;
-  join.innerHTML=`<h2>Roster</h2><div class="sub">Characters who can join this campaign</div>${jl}
+  join.innerHTML=`<h2>Roster</h2><div class="sub">${isHost?"Your characters — add as many PCs or NPCs to the table as you like. You run the table either way.":"Characters who can join this campaign"}</div>${jl}
     <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" data-wiznew="1">✦ Build (guided)</button><button class="btn ghost sm" data-buildnew="1">Quick build</button><button class="btn ghost sm" data-ddbimport="1">⬇ Import from D&amp;D Beyond</button></div>`;
   grid.appendChild(join);
 
@@ -1601,7 +1607,7 @@ function sheetView(ch){
   // header
   w.appendChild(el("div","sheethead",
     `${avatarHTML(ch,"lg")}
-     <div class="who"><h1>${esc(ch.name)}</h1><div class="cl">${esc(ch.cls)} · ${esc(ch.subtitle||"")}</div></div>
+     <div class="who"><h1>${esc(ch.name)}${isNPC(ch)?' <span class="rolechip npc">NPC</span>':""}</h1><div class="cl">${esc(ch.cls)} · ${esc(ch.subtitle||"")}</div></div>
      <div style="margin-left:auto;display:flex;gap:7px;flex-wrap:wrap">${ch.ddbId?`<button class="btn sm ghost" data-ddbsync="${ch.id}" title="${ch.ddbSynced?"Last checked "+new Date(ch.ddbSynced).toLocaleTimeString():"Not checked yet"}">⟳ D&amp;D Beyond</button>`:""}<button class="btn sm ghost" data-portrait="${ch.id}">🖼 Portrait</button><button class="btn sm ghost" data-buildedit="${ch.id}">Edit sheet</button></div>`));
   // vitals
   const dc=ch.spellDC?`${ch.spellDC}`:"—";
@@ -3342,7 +3348,7 @@ function wizToChar(wiz,detail){
     subtitle:[wiz.race,subName,wiz.bg].filter(Boolean).join(" · "),level:wiz.level,color:wiz.color||"#7a4fd0",
     token:((wiz.name||"?")[0]||"?").toUpperCase(),scores,saveProf,prof,baseAC:ac,maxHP,hp:maxHP,speed,
     spellAbility:spellAb,spellDC,spellAtk,passives,charges,slots,abilities,modifiers:[],role:wiz.role||"",
-    appearance:wiz.appearance,portrait:wiz.portrait,portraitSeed:wiz.portraitSeed,_acNote:acNote,skills};
+    appearance:wiz.appearance,portrait:wiz.portrait,portraitSeed:wiz.portraitSeed,_acNote:acNote,skills,npc:!!wiz.npc};
 }
 /* ---- the slow part: pull feature + spell text from the SRD, then build ---- */
 async function wizFinalize(wiz){
@@ -3523,7 +3529,8 @@ function wizStep(wiz,name){
       <div class="bfield"><label>Name</label><input data-wizf="name" value="${esc(wiz.name)}" placeholder="Character name"></div>
       <div class="bfield"><label>Player</label><input data-wizf="player" value="${esc(wiz.player)}"></div>
       <div class="bfield"><label>Party role</label><select data-wizf="role"><option value="">—</option>${ROLES.map(x=>`<option ${wiz.role===x?"selected":""}>${x}</option>`).join("")}</select></div>
-      <div class="bfield"><label>Color</label><input type="color" data-wizf="color" value="${wiz.color}"></div></div>
+      <div class="bfield"><label>Color</label><input type="color" data-wizf="color" value="${wiz.color}"></div>
+      <div class="bfield"><label>Kind</label><select data-wizf="npc"><option value="" ${!wiz.npc?"selected":""}>Player character</option><option value="1" ${wiz.npc?"selected":""}>NPC (run by the DM)</option></select></div></div>
       <div class="bsec" style="margin-top:14px"><h2>Portrait</h2>
       <div class="portraitbox"><div class="pv" style="${wiz.portrait?`background-image:url('${wiz.portrait}')`:""}">${wiz.portrait?"":"optional"}</div>
       <div class="pc"><div class="bfield"><label>Appearance</label><input data-wizf="appearance" value="${esc(wiz.appearance)}" placeholder="e.g. tall tiefling, crimson skin, golden eyes"></div>
@@ -3562,7 +3569,8 @@ function screenBuilder(){
   form.innerHTML+=`<div class="bsec"><h2>Identity</h2><div class="bgrid">
     ${inp("Name","name")}${inp("Player","player")}${inp("Class & level (text)","cls")}${inp("Subtitle (race/subclass)","subtitle")}
     ${inp("Level","level","num")}${inp("Token letter","token")}${inp("Color","color","color")}
-    <div class="bfield"><label>Party role</label><select data-bf="role"><option value="">—</option>${ROLES.map(x=>`<option ${d.role===x?"selected":""}>${x}</option>`).join("")}</select></div></div></div>`;
+    <div class="bfield"><label>Party role</label><select data-bf="role"><option value="">—</option>${ROLES.map(x=>`<option ${d.role===x?"selected":""}>${x}</option>`).join("")}</select></div>
+    <div class="bfield"><label>Kind</label><select data-bf="npc"><option value="" ${!d.npc?"selected":""}>Player character</option><option value="1" ${d.npc?"selected":""}>NPC (run by the DM)</option></select></div></div></div>`;
   // portrait
   form.innerHTML+=`<div class="bsec"><h2>Portrait</h2><div class="sub">Describe your hero's look, then generate an AI portrait. It becomes their avatar.</div>
     <div class="portraitbox">
@@ -3718,17 +3726,22 @@ document.addEventListener("click",e=>{
   if(d.del){const c=STATE.campaigns[d.del];
     if(STATE.cloud){if(!amDM(c)){toast("Only the DM can delete this campaign");return;}Cloud.delCampaign(d.del);delete STATE.campaigns[d.del];render();toast("Campaign deleted");return;}
     if(!STATE.trash)STATE.trash=[];STATE.trash.unshift({camp:c,at:Date.now()});delete STATE.campaigns[d.del];render();toast("Moved to Recently Deleted — restore anytime");return;}
-  if(d.join){const camp=curCamp();
-    if(STATE.cloud){const ch=STATE.roster[d.join];if(!ch||(ch.owner_id&&ch.owner_id!==ME())){toast("You can only join with your own character");return;}
-      if(myMember(camp)){toast("You're already in with a character");return;}
-      camp.members.push({campaign_id:camp.id,user_id:ME(),character_id:d.join,role:amDM(camp)?"dm":"player",ready:false});}
+  if(d.join){const camp=curCamp();const ch=STATE.roster[d.join];if(!ch)return;
+    if(STATE.cloud&&(ch.owner_id&&ch.owner_id!==ME())){toast("You can only join with your own character");return;}
+    if(STATE.cloud&&amDM(camp)){ // the DM runs the table and may add any number of their own PCs / NPCs
+      const dp=dmParty(camp);if(!dp.includes(d.join))dp.push(d.join);syncDmParty(camp);render();toast(`${ch.name} added to the table${isNPC(ch)?" as an NPC":""}`);return;}
+    if(STATE.cloud){if(myMember(camp)){toast("You're already in with a character");return;}
+      camp.members.push({campaign_id:camp.id,user_id:ME(),character_id:d.join,role:"player",ready:false});}
     if(!camp.party.includes(d.join)){camp.party.push(d.join);camp.ready[d.join]=false;}
     if(STATE.cloud)Cloud.join(camp.id,d.join);
-    render();toast(STATE.roster[d.join].name+" joined");return;}
+    render();toast(ch.name+" joined");return;}
   if(d.leave){const camp=curCamp();
+    if(STATE.cloud&&dmParty(camp).includes(d.leave)){if(!amDM(camp)){toast("Only the DM can remove their own characters");return;}
+      camp.settings.dmParty=dmParty(camp).filter(x=>x!==d.leave);camp.party=camp.party.filter(x=>x!==d.leave);delete camp.ready[d.leave];render();return;}
     if(STATE.cloud){const m=(camp.members||[]).find(x=>x.character_id===d.leave);if(m&&m.user_id!==ME()&&!amDM(camp)){toast("Only that player or the DM can remove them");return;}if(m){Cloud.leaveCamp(camp.id,m.user_id);camp.members=camp.members.filter(x=>x!==m);}}
     camp.party=camp.party.filter(x=>x!==d.leave);delete camp.ready[d.leave];render();return;}
   if(d.ready){const camp=curCamp();
+    if(STATE.cloud&&dmParty(camp).includes(d.ready)){camp.ready[d.ready]=true;render();return;}
     if(STATE.cloud){const m=(camp.members||[]).find(x=>x.character_id===d.ready);if(!m||(m.user_id!==ME()&&!amDM(camp))){toast("You can only ready your own character");return;}
       const nv=!camp.ready[d.ready];camp.ready[d.ready]=nv;if(m)m.ready=nv;Cloud.setReady(camp.id,nv);render();return;}
     camp.ready[d.ready]=!camp.ready[d.ready];render();return;}
@@ -4121,7 +4134,7 @@ document.addEventListener("click",e=>{
   if(d.portrait){const ch=STATE.roster[d.portrait];if(!ch)return;
     if(STATE.cloud&&(ch.owner_id||ME())!==ME()&&!Cloud.dmOwnsChar(ch.id)){toast("Only this hero's player can change their portrait");return;}
     openPortraitStudio(ch,(url,seed,style,desc)=>{ch.portrait=url;ch.portraitSeed=seed;ch.portraitStyle=style;if(desc!=null)ch.appearance=desc;render();});return;}
-  if(d.buildsave){const dr=STATE.ui.draft;if(dr.token)dr.token=String(dr.token).slice(0,2);
+  if(d.buildsave){const dr=STATE.ui.draft;if(dr.token)dr.token=String(dr.token).slice(0,2);dr.npc=!!dr.npc;
     if(STATE.cloud&&!dr.owner_id)dr.owner_id=ME();
     STATE.roster[dr.id]=dr;const ret=STATE.ui.builderReturn||"lobby";STATE.ui.draft=null;STATE.ui.screen=ret;render();toast("Character saved");return;}
   if(d.buildcancel){const ret=STATE.ui.builderReturn||"lobby";STATE.ui.draft=null;STATE.ui.screen=ret;render();return;}
@@ -4223,6 +4236,10 @@ function ME(){return STATE.user&&STATE.user.id;}
 function myMember(camp){return (camp.members||[]).find(m=>m.user_id===ME());}
 function myCharId(camp){const m=myMember(camp);return m?m.character_id:null;}
 function amDM(camp){return camp&&camp.dm_id===ME();}
+/* the DM's own characters (PCs they play, NPCs they run) ride on the campaign row, not on membership — so the DM never needs a seat */
+function dmParty(camp){if(!camp.settings)camp.settings={};if(!Array.isArray(camp.settings.dmParty))camp.settings.dmParty=[];return camp.settings.dmParty;}
+function syncDmParty(camp){dmParty(camp).forEach(id=>{if(STATE.roster[id]&&!camp.party.includes(id)){camp.party.push(id);camp.ready[id]=true;}});}
+function isNPC(ch){return !!(ch&&ch.npc);}
 
 const PROF={};
 const Cloud={
@@ -4268,6 +4285,7 @@ const Cloud={
       STATE.campaigns={};
       (camps.data||[]).forEach(r=>{STATE.campaigns[r.id]=Cloud.mkCamp(r);Cloud._campHash[r.id]=hashStr(JSON.stringify(Cloud.campRow(STATE.campaigns[r.id])));});
       (mems.data||[]).forEach(m=>{const c=STATE.campaigns[m.campaign_id];if(c){c.members.push(m);if(m.character_id){c.party.push(m.character_id);c.ready[m.character_id]=m.ready;}}});
+      Object.values(STATE.campaigns).forEach(syncDmParty);
       (lore.data||[]).forEach(n=>{const c=STATE.campaigns[n.campaign_id];if(c)c.lore.push(Cloud.lrow(n));});
       (battles&&battles.data||[]).forEach(r=>{const c=STATE.campaigns[r.campaign_id];if(c&&r.state){c.rooms=c.rooms||{};c.rooms[r.id]=r.state;Cloud._battleHash[r.id]=hashStr(JSON.stringify(r.state));}});
       await Cloud.detectFeatures(camps.data||[],lore.data||[]);
@@ -4336,6 +4354,7 @@ const Cloud={
   async reloadMembers(campId){const c=STATE.campaigns[campId];if(!c)return;
     try{const {data}=await SB.from("campaign_members").select("*").eq("campaign_id",campId);
       c.members=data||[];c.party=[];c.ready={};(data||[]).forEach(m=>{if(m.character_id){c.party.push(m.character_id);c.ready[m.character_id]=m.ready;}});
+      syncDmParty(c);
     }catch(e){}},
   subscribe(){
     if(!SB)return;
@@ -4354,6 +4373,8 @@ const Cloud={
           if(existing){fresh.party=existing.party;fresh.ready=existing.ready;fresh.members=existing.members;fresh.lore=existing.lore;fresh.rooms=existing.rooms;fresh.journal=existing.journal;}
           else{await Cloud.reloadMembers(r.id);}
           STATE.campaigns[r.id]=fresh;
+          fresh.party=fresh.party.filter(id=>!(existing&&dmParty(existing).includes(id))||dmParty(fresh).includes(id)); // DM removed one of theirs
+          syncDmParty(fresh);
           // DM ended the session → pull every player back to the lobby
           if(wasLive&&!fresh.session.live&&!amDM(fresh)&&STATE.ui.campId===r.id&&STATE.ui.screen==="play"){
             STATE.ui.screen="lobby";toast("The DM ended the session.");}}
