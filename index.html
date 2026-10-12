@@ -595,6 +595,8 @@ select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px
 .jl{display:flex;gap:10px;align-items:baseline;padding:5px 8px;border-radius:8px;background:var(--bg2);border:1px solid var(--line)}
 .jl .t{font-family:var(--f-mono);font-size:11px;color:var(--faint);flex:none} .jl .x{flex:1} .jl .r{font-size:10.5px;color:var(--faint);font-family:var(--f-mono)}
 .recapnote{border-color:color-mix(in srgb,var(--gold) 40%,var(--line))} .ctxnote{border-style:dashed}
+.prefrow{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted);margin-top:8px;background:var(--bg3);border:1px solid var(--line);border-radius:10px;padding:6px 8px}
+.prefrow img{width:40px;height:40px;object-fit:cover;border-radius:7px}
 .movepick{display:flex;flex-direction:column;gap:8px;margin-bottom:10px} .movepick .movebtn{cursor:default}
 /* ---- phones first: the party plays from their pockets ---- */
 @media (max-width:700px){
@@ -2925,39 +2927,55 @@ const PORTRAIT_STYLES={
 function portraitPrompt(ch,style){
   const st=PORTRAIT_STYLES[style||"vox"]||PORTRAIT_STYLES.vox;
   const bits=["portrait of a single fantasy character","head and shoulders, centered, facing the viewer",
-    ch.appearance||"",ch.subtitle||"",ch.cls||"",st.prompt,"no text, no watermark, no frame"];
+    ch.appearance||"",ch.subtitle||"",ch.cls||"",st.prompt,(PORTRAIT&&PORTRAIT.ref)?"faithful to the reference photo's face, hair and features":"","no text, no watermark, no frame"];
   return bits.filter(Boolean).join(", ");
 }
-function buildPortraitURL(ch,seed,style){
+const PORTRAIT_MODELS=["flux","turbo"]; // tried in order when the art service hiccups (kontext/photo-to-art needs a paid key)
+function buildPortraitURL(ch,seed,style,model,refUrl){
   const p=encodeURIComponent(portraitPrompt(ch,style));
-  return `https://image.pollinations.ai/prompt/${p}?width=512&height=640&nologo=true&model=flux&seed=${seed||1}`;
+  let u=`https://image.pollinations.ai/prompt/${p}?width=512&height=640&nologo=true&model=${model||"flux"}&seed=${seed||1}`;
+  if(refUrl)u+=`&image=${encodeURIComponent(refUrl)}`;
+  return u;
 }
-/* Portrait studio: preloads the image before it's saved, so a slow/failed generation never leaves a blank avatar */
-let PORTRAIT=null; // {subject,onSave,desc,style,seed,url,status:'idle'|'loading'|'ready'|'error',timer,img}
+/* Portrait studio: generates via fetch (so we can retry across models and keep a stable copy), never leaves a blank avatar */
+let PORTRAIT=null; // {subject,onSave,desc,style,seed,url,status:'idle'|'loading'|'ready'|'error'|'slow',ref:{dataUrl,publicUrl,name}|null,gen}
 function openPortraitStudio(subject,onSave){
   PORTRAIT={subject,onSave,desc:subject.appearance||"",style:subject.portraitStyle||"vox",seed:subject.portraitSeed||null,
-    url:subject.portrait||null,status:subject.portrait?"ready":"idle",timer:null,img:null};
+    url:subject.portrait||null,status:subject.portrait?"ready":"idle",timer:null,ref:null,gen:0,lastErr:""};
   renderPortraitStudio();
 }
 function portraitSubject(){const P=PORTRAIT;return Object.assign({},P.subject,{appearance:P.desc});}
-function generatePortrait(){
-  const P=PORTRAIT;if(!P)return;
-  if(P.img){P.img.onload=P.img.onerror=null;}clearTimeout(P.timer);
-  P.seed=Math.floor(Math.random()*1e6);
-  const url=buildPortraitURL(portraitSubject(),P.seed,P.style);
-  P.status="loading";P.url=null;renderPortraitStudio();
-  const img=new Image();P.img=img;
-  img.onload=()=>{if(PORTRAIT!==P)return;clearTimeout(P.timer);P.url=url;P.status="ready";renderPortraitStudio();};
-  img.onerror=()=>{if(PORTRAIT!==P)return;clearTimeout(P.timer);P.status="error";renderPortraitStudio();};
-  P.timer=setTimeout(()=>{if(PORTRAIT!==P||P.status!=="loading")return;P.status="slow";renderPortraitStudio();},25000);
-  img.src=url;
+async function fetchImageAsDataURL(url,ms){
+  const ctl=new AbortController();const t=setTimeout(()=>ctl.abort(),ms||40000);
+  try{const r=await fetch(url,{signal:ctl.signal});
+    if(!r.ok)throw new Error("HTTP "+r.status);
+    const ct=r.headers.get("content-type")||"";if(!/image/.test(ct))throw new Error("not an image ("+ct.split(";")[0]+")");
+    const blob=await r.blob();if(blob.size<2000)throw new Error("empty image");
+    return await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=()=>rej(new Error("read failed"));fr.readAsDataURL(blob);});
+  }finally{clearTimeout(t);}
+}
+async function generatePortrait(){
+  const P=PORTRAIT;if(!P)return;const gen=++P.gen;
+  clearTimeout(P.timer);P.seed=Math.floor(Math.random()*1e6);P.status="loading";P.url=null;P.lastErr="";renderPortraitStudio();
+  P.timer=setTimeout(()=>{if(PORTRAIT!==P||P.gen!==gen||P.status!=="loading")return;P.status="slow";renderPortraitStudio();},20000);
+  // a reference photo rides along as image-to-image when we can host it; otherwise it still shapes the prompt
+  const refUrl=null;
+  const models=PORTRAIT_MODELS; // photo-to-art (kontext) is key-gated on Pollinations; the reference steers the prompt instead
+  for(let i=0;i<models.length;i++){
+    if(PORTRAIT!==P||P.gen!==gen)return;
+    const url=buildPortraitURL(portraitSubject(),P.seed+i,P.style,models[i],models[i]==="kontext"?refUrl:null);
+    try{const data=await fetchImageAsDataURL(url,45000);
+      if(PORTRAIT!==P||P.gen!==gen)return;clearTimeout(P.timer);P.url=data;P.status="ready";P.model=models[i];renderPortraitStudio();return;}
+    catch(e){P.lastErr=(e&&e.message)||"failed";}
+  }
+  if(PORTRAIT!==P||P.gen!==gen)return;clearTimeout(P.timer);P.status="error";renderPortraitStudio();
 }
 function renderPortraitStudio(){
   const P=PORTRAIT;if(!P)return;const s=P.subject;
   const styleBtns=Object.entries(PORTRAIT_STYLES).map(([k,v])=>`<button class="chip ${P.style===k?"on":""}" data-pstyle="${k}">${v.label}</button>`).join("");
   let preview;
-  if(P.status==="loading"||P.status==="slow")preview=`<div class="pstage loading"><div class="pspin"></div><div class="pmsg">${P.status==="slow"?"Still painting… the art service is slow right now. Keep waiting, or try another.":"Painting your portrait…"}</div></div>`;
-  else if(P.status==="error")preview=`<div class="pstage err"><div class="pmsg">The art service didn't return an image. Try again — a new seed usually works.</div></div>`;
+  if(P.status==="loading"||P.status==="slow")preview=`<div class="pstage loading"><div class="pspin"></div><div class="pmsg">${P.status==="slow"?"Still painting… the art service is slow right now — we'll fall back to another model if it stalls.":(P.ref?"Painting from your reference photo…":"Painting your portrait…")}</div></div>`;
+  else if(P.status==="error")preview=`<div class="pstage err"><div class="pmsg">The art service didn't return an image after three tries${P.lastErr?` (${esc(P.lastErr)})`:""}. It's a free service and has busy spells — try again in a moment.</div></div>`;
   else if(P.status==="ready"&&P.url)preview=`<div class="pstage"><img src="${P.url}" alt="portrait preview"></div>`;
   else preview=`<div class="pstage empty"><div class="pmsg">Describe your hero and hit Generate. The portrait becomes their icon everywhere — sheet, lobby, battle board, player card.</div></div>`;
   openModal(`<h2>Portrait — ${esc(s.name||"your hero")}</h2>
@@ -2970,10 +2988,12 @@ function renderPortraitStudio(){
           <button class="btn primary" data-pgen="1" ${P.status==="loading"?"disabled":""}>${P.url||P.status==="error"||P.status==="slow"?"↻ Try another":"✨ Generate"}</button>
           ${P.status==="ready"&&P.url?`<button class="btn gold" data-psave="1">Use this portrait</button>`:""}
           <label class="btn ghost sm filebtn">📎 Use my own image<input type="file" accept="image/*" id="pUpload"></label>
+          <label class="btn ghost sm filebtn">🖼 Reference photo<input type="file" accept="image/*" id="pRef"></label>
           ${s.portrait?`<button class="btn ghost sm" data-premove="1">Remove current</button>`:""}
           <button class="btn ghost sm" data-close="1">Close</button>
         </div>
-        <div class="phint">Free art service — each generation takes ~5–20 s. Nothing is saved until you press <b>Use this portrait</b>.</div>
+        ${P.ref?`<div class="prefrow"><img src="${P.ref.dataUrl}" alt="reference"><span>Reference: <b>${esc(P.ref.name)}</b> — describe what to keep from it in "Looks like…" (hair, skin, eyes, scars); the free art service can't read photos directly yet.</span><button class="iconbtn" data-prefrm="1" style="width:26px;height:26px;font-size:11px">✕</button></div>`:""}
+        <div class="phint">Free art service — each generation takes ~5–20 s and retries across models. Nothing is saved until you press <b>Use this portrait</b>.</div>
       </div>
     </div>`);
 }
@@ -3748,6 +3768,9 @@ document.addEventListener("change",e=>{
         const s=Math.max(W/img.width,H/img.height),w=img.width*s,h=img.height*s;x.drawImage(img,(W-w)/2,(H-h)/2,w,h);
         if(!PORTRAIT)return;PORTRAIT.url=c.toDataURL("image/jpeg",.86);PORTRAIT.status="ready";PORTRAIT.seed=null;renderPortraitStudio();};
       img.src=r.result;};r.readAsDataURL(f);return;}
+  if(e.target.id==="pRef"){const f=e.target.files&&e.target.files[0];if(!f||!PORTRAIT)return;
+    const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=()=>{const MAX=768;const sc=Math.min(1,MAX/Math.max(img.width,img.height));const c=document.createElement("canvas");c.width=Math.round(img.width*sc);c.height=Math.round(img.height*sc);c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+        c.toBlob(blob=>{if(!PORTRAIT)return;PORTRAIT.ref={dataUrl:c.toDataURL("image/jpeg",.85),blob,publicUrl:null,name:f.name};renderPortraitStudio();},"image/jpeg",.85);};img.src=r.result;};r.readAsDataURL(f);return;}
   if(e.target.id==="btlMap"){const f=e.target.files&&e.target.files[0];if(!f)return;const b=activeBattle();if(!b)return;
     const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=()=>{ // downscale so the shared room state stays light
         const MAX=1400;const s=Math.min(1,MAX/Math.max(img.width,img.height));const c=document.createElement("canvas");c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);
@@ -3826,7 +3849,7 @@ function pinModal(){openModal(`<h2>Drop a pin</h2>
   setTimeout(()=>{const n=$("#pinLabel");if(n)n.focus();},30);}
 const _diceBtn=$("#diceBtn");if(_diceBtn)_diceBtn.addEventListener("click",diceDrawer);
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-dieface],[data-adv],[data-roll],[data-copysave],[data-importsave],[data-maptool],[data-mapcell],[data-maptok],[data-mapreveal],[data-saveprof],[data-addcharge],[data-rmcharge],[data-chargesave],[data-addab],[data-editab],[data-rmab],[data-absave],[data-addmod],[data-rmmod],[data-modsave],[data-buildsave],[data-buildcancel],[data-buildnew],[data-buildedit],[data-deathsave],[data-restore],[data-purge],[data-pinsave],[data-export],[data-compadd],[data-compedit],[data-comprm],[data-compaddatk],[data-comprmatk],[data-compsave],[data-genportrait],[data-clearportrait],[data-pstyle],[data-pgen],[data-psave],[data-premove],[data-portrait]");
+  const t=e.target.closest("[data-dieface],[data-adv],[data-roll],[data-copysave],[data-importsave],[data-maptool],[data-mapcell],[data-maptok],[data-mapreveal],[data-saveprof],[data-addcharge],[data-rmcharge],[data-chargesave],[data-addab],[data-editab],[data-rmab],[data-absave],[data-addmod],[data-rmmod],[data-modsave],[data-buildsave],[data-buildcancel],[data-buildnew],[data-buildedit],[data-deathsave],[data-restore],[data-purge],[data-pinsave],[data-export],[data-compadd],[data-compedit],[data-comprm],[data-compaddatk],[data-comprmatk],[data-compsave],[data-genportrait],[data-clearportrait],[data-pstyle],[data-pgen],[data-psave],[data-premove],[data-prefrm],[data-portrait]");
   if(!t)return;const d=t.dataset;
   // companions
   if(d.compadd){openCompanion(d.compadd,null);return;}
@@ -3888,6 +3911,7 @@ document.addEventListener("click",e=>{
   if(d.pgen){if(PORTRAIT){const ta=$("#pDesc");if(ta)PORTRAIT.desc=ta.value;generatePortrait();}return;}
   if(d.psave){if(PORTRAIT&&PORTRAIT.url){const P=PORTRAIT;const ta=$("#pDesc");if(ta)P.desc=ta.value;
     P.onSave(P.url,P.seed,P.style,P.desc);PORTRAIT=null;closeModal();toast("Portrait set");}return;}
+  if(d.prefrm){if(PORTRAIT){PORTRAIT.ref=null;renderPortraitStudio();}return;}
   if(d.premove){if(PORTRAIT){const P=PORTRAIT;P.onSave(null,null,P.style,null);PORTRAIT=null;closeModal();toast("Portrait removed");}return;}
   if(d.portrait){const ch=STATE.roster[d.portrait];if(!ch)return;
     if(STATE.cloud&&(ch.owner_id||ME())!==ME()&&!Cloud.dmOwnsChar(ch.id)){toast("Only this hero's player can change their portrait");return;}
