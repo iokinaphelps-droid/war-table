@@ -645,6 +645,14 @@ select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px
 .atkrow{display:grid;grid-template-columns:1.4fr 1fr .7fr .6fr 1fr auto;gap:6px;align-items:center}
 @media(max-width:560px){.atkrow{grid-template-columns:1fr 1fr;}.atkrow .ai{min-width:0}}
 .atkrow .ai{width:100%;padding:7px 8px;background:var(--bg2);border:1px solid var(--line2);border-radius:8px;font-size:13px;min-width:0}
+/* dedupe notice */
+.dupewarn{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:4px 0 14px;
+  padding:10px 14px;background:color-mix(in srgb,var(--warn) 12%,var(--bg2));border:1px solid color-mix(in srgb,var(--warn) 45%,var(--line2));border-radius:10px;font-size:13px}
+/* DM's own playable heroes */
+.dmhero{margin:14px 0 4px;padding:13px 15px;background:var(--bg2);border:1px solid var(--line);border-radius:12px}
+.dmhlbl{font-family:var(--f-display);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-bottom:9px}
+.dmhrow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.dmhhint{color:var(--muted);font-size:12.5px;line-height:1.45;max-width:64ch}
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0"></script>
@@ -708,7 +716,7 @@ const ASTER={
     ab({name:"Swift Step",type:"movement",source:"Signature",level:0,action:"Special",text:"Dragon Staff: short 20-ft teleport. Cheap kiting between blasts. (20 ft)"}),
     ab({name:"Shadow Step",type:"movement",source:"Signature",level:0,action:"Bonus",text:"Shadow's Armor (1 charge): move 40 ft through connected shadow. Needs an unbroken shadow path. (40 ft)"}),
     ab({name:"Confusion Ray",type:"control",source:"Signature",level:0,action:"Action",text:"Dragon Staff: fire a ray that confuses an enemy (acts randomly). Soft control to peel a dangerous attacker. (Ray)"}),
-    ab({name:"Eldritch Blast",type:"damage",source:"Cantrip",level:0,action:"Action",attack:"+7",dmg:"2d10",instances:1,flatPer:6,dmgType:"force",text:"Two beams, each 1d10 + 3 CHA (Agonizing Blast). Roll each beam separately vs AC. Reliable force damage that ignores most resistances. (120 ft)"}),
+    ab({name:"Eldritch Blast",type:"damage",source:"Cantrip",level:0,action:"Action",attack:"+7",dmg:"1d10",instances:2,flatPer:3,dmgType:"force",text:"Two beams, each 1d10 + 3 CHA (Agonizing Blast). Roll each beam separately vs AC. Reliable force damage that ignores most resistances. (120 ft)"}),
     ab({name:"Ray of Frost",type:"damage",source:"Cantrip",level:0,action:"Action",attack:"+7",dmg:"2d8",instances:1,dmgType:"cold",text:"Target's speed drops 10 ft on hit. Energy Mastery (Cold): ignore cold resistance and treat 1s as 2s. (60 ft)"}),
     ab({name:"Shillelagh",type:"damage",source:"Cantrip",level:0,action:"Bonus",attack:"+7",dmg:"1d8",instances:1,flatPer:3,dmgType:"bludgeoning",text:"Staff attack using CHA; topples. A non-pact melee option. (Self / staff · 1 min)"}),
     ab({name:"Thaumaturgy",type:"utility",source:"Cantrip",level:0,action:"Action",text:"Minor wonders: boom your voice 3× as loud, flicker flames, cause tremors, slam a door, change your eyes. On-flavor for intimidation. (30 ft · Up to 1 min)"}),
@@ -720,7 +728,7 @@ const ASTER={
     ab({name:"Detect Magic",type:"utility",source:"1st-level",level:1,action:"Action",text:"Sense magical auras within 30 ft and learn each one's school. Free as a ritual out of combat. (Self / 30 ft · Conc 10 min · concentration · ritual)"}),
     ab({name:"Identify",type:"utility",source:"1st-level",level:1,action:"1 min",text:"Learn a magic item's properties, or what spell is affecting a creature. For sorting out DM-granted loot. (Touch · ritual)"}),
     ab({name:"Hellish Rebuke",type:"damage",source:"2nd-level",level:2,action:"Reaction",save:{ability:"DEX",dc:15},dmg:"3d10",instances:1,dmgType:"fire",text:"When something damages you, blast it back (half on DEX save). Free 1/long rest via Infernal Legacy, or from any slot. (60 ft)"}),
-    ab({name:"Scorching Ray",type:"damage",source:"2nd-level",level:2,action:"Action",attack:"+7",dmg:"6d6",instances:1,dmgType:"fire",text:"Three rays, 2d6 each — separate attack rolls. A 5th-level slot adds rays (ask DM). (120 ft)"}),
+    ab({name:"Scorching Ray",type:"damage",source:"2nd-level",level:2,action:"Action",attack:"+7",dmg:"2d6",instances:3,dmgType:"fire",text:"Three rays, 2d6 each — separate attack rolls. A 5th-level slot adds rays (ask DM). (120 ft)"}),
     ab({name:"Suggestion",type:"control",source:"2nd-level",level:2,action:"Action",save:{ability:"WIS",dc:15},text:"Bend one creature to a reasonable course of action. Best de-escalation / social tool. (30 ft · Conc 8 hr · concentration)"}),
     ab({name:"Darkness",type:"utility",source:"2nd-level",level:2,action:"Action",text:"Arms your whole shadow kit: invisibility, Shadow Strike +2d6, shadow-teleport. Note: it blinds allies without special sight too. (60 ft · Conc 10 min · concentration)"}),
     ab({name:"Invisibility",type:"utility",source:"2nd-level",level:2,action:"Bonus / Action",text:"One With Shadows: free invisibility in dim light or darkness. Or cast the spell for a mobile version. Advantage engine. (Self / Touch · 1 min+)"}),
@@ -950,6 +958,27 @@ function load(){
   STATE=freshState();
 }
 function save(){try{localStorage.setItem(KEY,JSON.stringify(STATE));}catch(e){}}
+/* ---- dedupe safeguards ---- */
+function dedupeAbilities(ch){
+  if(!ch||!Array.isArray(ch.abilities))return;
+  const idx={},out=[];
+  ch.abilities.forEach(a=>{const k=(a.name||"").trim().toLowerCase();
+    if(!k){out.push(a);return;}
+    if(idx[k]!=null){const prev=out[idx[k]];
+      // keep the richer entry (has damage, or more fields)
+      if((a.dmg&&!prev.dmg)||Object.keys(a).length>Object.keys(prev).length)out[idx[k]]=a;
+    } else {idx[k]=out.length;out.push(a);}
+  });
+  ch.abilities=out;
+}
+function dedupeRoster(){Object.values((STATE&&STATE.roster)||{}).forEach(dedupeAbilities);}
+// characters I own that share a name (candidates for cleanup)
+function dupeCharGroups(){
+  const groups={};
+  Object.values(STATE.roster||{}).filter(c=>!STATE.cloud||(c.owner_id||ME())===ME())
+    .forEach(c=>{const k=(c.name||"").trim().toLowerCase();(groups[k]=groups[k]||[]).push(c);});
+  return Object.values(groups).filter(g=>g.length>1);
+}
 function reseed(){STATE=freshState();save();render();toast("Reset to the demo campaign");}
 
 /* ============================ helpers ============================ */
@@ -1046,6 +1075,14 @@ function screenCharacters(){
     <button class="btn sm" data-buildnew="1">Quick build</button>
     <button class="btn sm ghost" data-ddbimport="1">⬇ Import from D&amp;D Beyond</button>`;
   wrap.appendChild(tools);
+  const dupeGroups=dupeCharGroups();
+  if(dupeGroups.length){
+    const names=dupeGroups.map(g=>g[0].name).join(", ");
+    const warn=el("div","dupewarn");
+    warn.innerHTML=`<span>⚠ Duplicate characters in your roster: <b>${esc(names)}</b>. Merge keeps the fullest copy of each.</span>
+      <button class="btn sm" data-dedupechars="1">Merge duplicates</button>`;
+    wrap.appendChild(warn);
+  }
   const grid=el("div","slots");
   if(mine.length===0)grid.appendChild(el("div","empty","No characters yet. Build one or import from D&D Beyond to get started."));
   mine.forEach(ch=>{
@@ -1648,20 +1685,31 @@ function dmConsole(){
   tg.innerHTML=`<div class="tx"><b>Cooldowns & charges</b><small>When off, abilities never run out — pure freeform play.</small></div>
     <button class="sw ${camp.settings.cooldowns?"on":""}" data-cooldowns="1" aria-label="toggle cooldowns"></button>`;
   w.appendChild(tg);
+  // DM's own playable heroes — the DM runs the table AND plays these like a player
+  const myHeroes=camp.party.filter(id=>STATE.roster[id]&&(!STATE.cloud||STATE.roster[id].owner_id===ME()));
+  const dmhero=el("div","dmhero");
+  if(myHeroes.length){
+    dmhero.innerHTML=`<div class="dmhlbl">Your heroes</div><div class="dmhrow">`+
+      myHeroes.map(id=>`<button class="btn sm gold" data-dmview="${id}">▶ Play as ${esc(STATE.roster[id].name.split(" ")[0])}</button>`).join("")+
+      `</div><div class="dmhhint">You keep the board and enemies; on your hero's turn you act like a player. Switch back any time from “Viewing as”.</div>`;
+  }else{
+    dmhero.innerHTML=`<div class="dmhlbl">Your heroes</div><div class="dmhhint">Want to play a character too? Add one of your own heroes to the party from the lobby before you start — you'll run the table and play it on its own turn.</div>`;
+  }
+  w.appendChild(dmhero);
   // party cards
   const grid=el("div","dmgrid");
   camp.party.forEach(id=>{
-    const ch=STATE.roster[id];if(!ch)return;const cur=ch.hp??ch.maxHP;const pct=Math.max(0,Math.min(100,cur/ch.maxHP*100));
+    const ch=STATE.roster[id];if(!ch)return;const mineHero=!STATE.cloud?false:(ch.owner_id===ME());const cur=ch.hp??ch.maxHP;const pct=Math.max(0,Math.min(100,cur/ch.maxHP*100));
     const cls=pct<=25?"crit":pct<=50?"low":"";
     const {ac}=effAC(ch);const role=charRole(ch);
     const chgs=Object.values(ch.charges||{}).map(c=>`<span class="chgtag">${esc(c.label)} ${c.cur}/${c.max}</span>`).join("");
     const pc=el("div","pcard");
     pc.innerHTML=`<div class="ph"><div class="token sm" style="${tokenStyle(ch)}">${ch.token}</div>
-        <div><div class="nm">${esc(ch.name)} ${role?`<span class="rolechip">${esc(role)}</span>`:""}</div><div class="cl">${esc(ch.cls)} · AC ${ac}</div></div></div>
+        <div><div class="nm">${esc(ch.name)} ${mineHero?`<span class="rolechip" style="color:var(--gold);border-color:color-mix(in srgb,var(--gold) 45%,var(--line2))">your hero</span>`:role?`<span class="rolechip">${esc(role)}</span>`:""}</div><div class="cl">${esc(ch.cls)} · AC ${ac}</div></div></div>
       <div class="hpbar"><i class="${cls}" style="width:${pct}%"></i></div>
       <div class="hpn">${cur} / ${ch.maxHP} HP${ch.tempHP?` (+${ch.tempHP})`:""}</div>
       <div class="chgs">${chgs||'<span class="chgtag">no tracked charges</span>'}${(ch.inspiration||0)>0?`<span class="chgtag" style="color:var(--gold);border-color:color-mix(in srgb,var(--gold) 45%,var(--line2))">✦ Inspiration ×${ch.inspiration}</span>`:""}</div>
-      <div style="margin-top:11px;display:flex;gap:7px;flex-wrap:wrap"><button class="btn sm ghost" data-dmview="${id}">Open sheet</button><button class="btn sm gold" data-awardinsp="${id}">✦ Award Inspiration</button></div>`;
+      <div style="margin-top:11px;display:flex;gap:7px;flex-wrap:wrap"><button class="btn sm ghost" data-dmview="${id}">${mineHero?"▶ Play":"Open sheet"}</button><button class="btn sm gold" data-awardinsp="${id}">✦ Award Inspiration</button></div>`;
     grid.appendChild(pc);
   });
   w.appendChild(grid);
@@ -2981,13 +3029,19 @@ document.addEventListener("change",e=>{
 
 /* wizard + characters events */
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-wiznew],[data-wizrace],[data-wizclass],[data-wizbg],[data-wizheasi],[data-wizraceskill],[data-wizclassskill],[data-wizmethod],[data-wizpb],[data-wizportrait],[data-wiznext],[data-wizback],[data-wizcancel],[data-wizcreate],[data-joinwith],[data-addseed]");
+  const t=e.target.closest("[data-wiznew],[data-wizrace],[data-wizclass],[data-wizbg],[data-wizheasi],[data-wizraceskill],[data-wizclassskill],[data-wizmethod],[data-wizpb],[data-wizportrait],[data-wiznext],[data-wizback],[data-wizcancel],[data-wizcreate],[data-joinwith],[data-addseed],[data-dedupechars]");
   if(!t)return;const d=t.dataset;const wiz=STATE.ui.wiz;
   if(d.wiznew!=null){openWizard();return;}
   if(d.addseed){const src=SEED_ROSTER[d.addseed];if(!src){toast("Couldn't find that character");return;}
-    const copy=JSON.parse(JSON.stringify(src));copy.id=uid("ch");copy.hp=copy.maxHP;
+    const dup=Object.values(STATE.roster).some(c=>c.name===src.name&&(!STATE.cloud||(c.owner_id||ME())===ME()));
+    if(dup){toast(src.name+" is already in your roster");return;}
+    const copy=JSON.parse(JSON.stringify(src));copy.id=uid("ch");copy.hp=copy.maxHP;delete copy._filter;
     if(STATE.cloud)copy.owner_id=ME();
     STATE.roster[copy.id]=copy;render();toast(src.name+" added — "+((copy.abilities||[]).length)+" moves");return;}
+  if(d.dedupechars){const groups=dupeCharGroups();let removed=0;
+    groups.forEach(g=>{g.sort((a,b)=>(b.abilities||[]).length-(a.abilities||[]).length); // keep richest
+      g.slice(1).forEach(c=>{if(STATE.cloud)Cloud.delCharacter(c.id);delete STATE.roster[c.id];removed++;});});
+    render();toast(removed?`Merged — removed ${removed} duplicate${removed===1?"":"s"}`:"No duplicates found");return;}
   if(d.joinwith!=null){const ch=STATE.roster[d.joinwith];if(!ch)return;
     if(!STATE.cloud){toast("Sign in (☁) to join online campaigns");return;}
     joinModal("",d.joinwith);return;}
@@ -3054,6 +3108,7 @@ const Cloud={
     STATE.user={id:user.id,email:user.email,name};
     STATE=Object.assign(Cloud.cloudShell(),{user:STATE.user});
     await Cloud.loadAll();          // may set STATE.ui.skin from the saved profile
+    dedupeRoster();
     applySkin(STATE.ui.skin);
     Cloud.subscribe();
     render();
@@ -3287,6 +3342,7 @@ async function afterEnterExtras(){
 }
 async function boot(){
   load();
+  dedupeRoster();
   if(STATE.ui&&!STATE.ui.skin)STATE.ui.skin=(STATE.ui.theme==="light")?"scroll":"erdtree"; // migrate old theme choice
   applySkin(STATE.ui&&STATE.ui.skin?STATE.ui.skin:"erdtree");
   // parse invite + recovery from URL
