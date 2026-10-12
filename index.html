@@ -3365,16 +3365,21 @@ async function wizFinalize(wiz){
     ds.forEach(sp=>{if(!sp)return;
       const L=sp.level||0;const o={name:sp.name,level:L,source:L===0?"Cantrip":ordLevel(L)+"-level",action:(sp.casting_time||"1 action").replace("1 action","Action").replace("1 bonus action","Bonus").replace("1 reaction","Reaction")};
       let dice=null;
-      if(sp.damage){const at=sp.damage.damage_at_slot_level||sp.damage.damage_at_character_level||{};
-        const key=sp.damage.damage_at_slot_level?String(L||1):String([1,5,11,17].filter(x=>x<=wiz.level).pop()||1);
-        dice=at[key]||Object.values(at)[0]||null;const dt=sp.damage.damage_type&&sp.damage.damage_type.name;if(dt)o.dmgType=dt.toLowerCase();}
-      if(dice){const mm=String(dice).match(/(\d+)d(\d+)(?:\s*\+\s*(\d+))?/);if(mm){o.dmg=mm[1]+"d"+mm[2];if(mm[3])o.flatPer=+mm[3];}}
+      const dmgs=Array.isArray(sp.damage)?sp.damage:(sp.damage?[sp.damage]:[]);
+      const dm=dmgs.find(x=>x.damage_at_slot_level||x.damage_at_character_level);
+      if(dm){const at=dm.damage_at_slot_level||dm.damage_at_character_level||{};
+        const key=dm.damage_at_slot_level?String(L||1):String([1,5,11,17].filter(x=>x<=wiz.level).pop()||1);
+        dice=at[key]||Object.values(at)[0]||null;const dt=dm.damage_type&&dm.damage_type.name;if(dt)o.dmgType=dt.toLowerCase();}
+      if(dice){const mm=String(dice).match(/(\d+)d(\d+)(?:\s*\+\s*(\d+))?/);if(mm){
+          if(/missile/i.test(sp.name)&&+mm[1]>1){o.dmg="1d"+mm[2];o.instances=+mm[1];o.flatPer=1;} // Magic Missile: one dart per die
+          else{o.dmg=mm[1]+"d"+mm[2];if(mm[3])o.flatPer=+mm[3];}}}
+      const heal=sp.heal_at_slot_level;if(heal&&!dice){const hv=heal[String(L||1)]||Object.values(heal)[0];if(hv)o.text="Heals "+hv.replace("MOD","+ spellcasting mod")+". ";}
       if(sp.dc&&sp.dc.dc_type)o.save={ability:(sp.dc.dc_type.name||"").toUpperCase().slice(0,3),dc:spellDC};
       if(sp.attack_type)o.attack=(spellAtk>=0?"+":"")+spellAtk;
-      const heal=sp.heal_at_slot_level;const nm=sp.name;
+      const nm=sp.name;
       o.type=o.dmg?"damage":heal?"support":DEF_RE_W.test(nm)?"defense":MOVE_RE_W.test(nm)?"movement":/(hold|sleep|web|entangle|command|charm|fear|slow|banish|hypnotic|grease|blind|suggestion)/i.test(nm)?"control":"utility";
       const meta=[sp.range,sp.concentration?"concentration":"",sp.ritual?"ritual":"",sp.duration&&sp.duration!=="Instantaneous"?sp.duration:""].filter(Boolean).join(" · ");
-      o.text=((sp.desc||[])[0]||"").replace(/\s+/g," ").slice(0,260)+(meta?" ("+meta+")":"");
+      o.text=(o.text||"")+((sp.desc||[])[0]||"").replace(/\s+/g," ").slice(0,260)+(meta?" ("+meta+")":"");
       detail.spells.push(o);});}
   return wizToChar(wiz,detail);
 }
