@@ -1,0 +1,7 @@
+# DigitalOcean Functions project (used by App Platform's functions component)
+packages:
+  - name: wartable
+    functions:
+      - name: ddb
+        runtime: nodejs:18
+        web: true

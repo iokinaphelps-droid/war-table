@@ -2643,7 +2643,9 @@ function ddbToChar(d){
     spellAbility,spellDC,spellAtk,passives,charges:{},abilities,modifiers:[],ddbId:d.id,_acNote:acNote};
 }
 async function fetchDDB(idOrUrl){
-  const r=await fetch("/.netlify/functions/ddb?id="+encodeURIComponent(idOrUrl));
+  // proxy lives at /api/wartable/ddb on DigitalOcean, /.netlify/functions/ddb on Netlify — try both
+  let r=await fetch("/api/wartable/ddb?id="+encodeURIComponent(idOrUrl)).catch(()=>null);
+  if(!r||r.status===404)r=await fetch("/.netlify/functions/ddb?id="+encodeURIComponent(idOrUrl));
   const j=await r.json();
   if(!r.ok)throw new Error(j.error||("Import failed ("+r.status+")"));
   return j;

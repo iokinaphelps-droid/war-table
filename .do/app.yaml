@@ -1,0 +1,29 @@
+# DigitalOcean App Platform spec for War Table (wontonvtt.app)
+# Static site from the repo root + the D&D Beyond proxy as a Function at /api/ddb.
+name: war-table
+region: nyc
+domains:
+  - domain: wontonvtt.app
+    type: PRIMARY
+  - domain: www.wontonvtt.app
+    type: ALIAS
+static_sites:
+  - name: site
+    github:
+      repo: iokinaphelps-droid/war-table
+      branch: main
+      deploy_on_push: true
+    source_dir: /
+    output_dir: /
+    catchall_document: index.html
+    routes:
+      - path: /
+functions:
+  - name: api
+    github:
+      repo: iokinaphelps-droid/war-table
+      branch: main
+      deploy_on_push: true
+    source_dir: /
+    routes:
+      - path: /api
