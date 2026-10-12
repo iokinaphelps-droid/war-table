@@ -535,6 +535,48 @@ select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px
 .logpanel .lph{font-family:var(--f-ui);font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);margin-bottom:7px}
 .logpanel .le{color:var(--muted);padding:2px 0}
 .logpanel .le:first-of-type{color:var(--fg)}
+/* ---- battle board v2: feet-scaled tiles, map image, free/grid movement ---- */
+.boardtools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:12.5px;color:var(--muted)}
+.boardtools .bt-ft{font-family:var(--f-mono);font-size:12px}
+.boardtools .bt-move{margin-left:auto;color:var(--gold);font-family:var(--f-mono);font-size:12px}
+.boardwrap.hasimg{padding:0;background:#000}
+.board2{position:relative;width:100%;min-width:320px;background-color:var(--bg3);background-size:100% 100%;background-position:center;border-radius:10px;overflow:hidden;
+  display:grid;grid-template-columns:repeat(var(--cols),1fr);grid-template-rows:repeat(var(--rows),1fr)}
+.board2 .tile{border:1px solid rgba(255,255,255,.07);cursor:pointer;position:relative}
+.board2 .tile:hover{background:rgba(255,255,255,.05)}
+.board2 .tile.inreach{background:color-mix(in srgb,var(--accent) 16%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 35%,transparent)}
+.board2 .tile.tgt{cursor:crosshair}
+.board2 .tok{position:absolute;width:calc(100% / var(--cols) * .82);aspect-ratio:1;max-width:56px;transform:translate(-50%,-50%);border-radius:9px;display:grid;place-items:center;
+  font-family:var(--f-display);font-weight:900;font-size:clamp(10px,1.6vw,15px);color:#fff;cursor:pointer;border:1.5px solid rgba(255,255,255,.65);box-shadow:0 2px 8px rgba(0,0,0,.5);z-index:3;transition:left .25s,top .25s}
+.board2 .tok.enemy{border-radius:50%}
+.board2 .tok.sel{outline:2px solid var(--fg);outline-offset:2px;z-index:5}
+.board2 .tok.moved{box-shadow:0 0 0 2px var(--gold),0 2px 8px rgba(0,0,0,.5)}
+.board2 .tok.down{opacity:.45;filter:grayscale(.6)}
+.board2 .tok.mine{border-color:var(--accent)}
+.board2 .tok .cn{position:absolute;top:-5px;right:-5px;background:var(--c-control);color:#fff;font-size:9px;border-radius:50%;width:15px;height:15px;display:grid;place-items:center;font-family:var(--f-ui)}
+.board2 .tok .dist{position:absolute;bottom:-14px;left:50%;transform:translateX(-50%);font:600 9.5px var(--f-mono);color:var(--gold);background:rgba(0,0,0,.65);padding:0 4px;border-radius:4px;white-space:nowrap;font-style:normal;pointer-events:none}
+.boardhint{font-size:12px;color:var(--faint);margin-top:10px;line-height:1.5}
+.tgtlist{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.tgtrow{display:flex;align-items:center;gap:9px;padding:7px 9px;border:1px solid var(--line);border-radius:10px;background:var(--bg3);cursor:pointer;font-size:13.5px}
+.tgtrow.on{border-color:color-mix(in srgb,var(--accent) 55%,var(--line2))}
+.tgtrow small{display:block;font-size:11px;color:var(--faint)}
+.hitblk{background:var(--bg3);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:12px}
+.hitblk .lab{font-size:12px;color:var(--muted);margin-bottom:6px}
+.advtag{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:2px 7px;border-radius:6px}
+.advtag.adv{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
+.advtag.dis{background:color-mix(in srgb,var(--crit) 18%,transparent);color:var(--crit)}
+.advwhy{font-size:11.5px;color:var(--faint);line-height:1.5;margin-bottom:8px}
+.hitres{display:flex;align-items:center;gap:10px;font-size:13px}
+.hitres .n{font-family:var(--f-display);font-weight:700;font-size:22px}
+.hitres .ok,.pendrow .ok,.pendpanel .ok{color:var(--ok)} .hitres .bad,.pendrow .bad{color:var(--crit)}
+.pendpanel{border-color:color-mix(in srgb,var(--gold) 50%,var(--line2))}
+.pendlist{display:flex;flex-direction:column;gap:8px}
+.pendrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg3);font-size:13px}
+.pendrow.done{opacity:.6}
+.pendrow .pn{flex:1;min-width:120px} .pendrow .pn small{display:block;font-size:11px;color:var(--faint)}
+.pendrow .pb{display:flex;gap:6px;flex-wrap:wrap}
+.condchip button,.dotchip button{background:none;border:none;color:inherit;cursor:pointer;font-size:10px;padding:0 0 0 3px}
+.condsel{font-size:12px;padding:4px 8px}
 /* ---- builder ---- */
 .bform{display:flex;flex-direction:column;gap:18px}
 .bsec{background:var(--bg2);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow)}
@@ -691,6 +733,8 @@ select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px
 .dmhhint{color:var(--muted);font-size:12.5px;line-height:1.45;max-width:64ch}
 /* battle rooms */
 .roombar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.slotinvite{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 2px;font-size:11.5px;color:var(--faint)}
+.slotinvite .code{font-family:var(--f-mono);font-weight:700;letter-spacing:.12em;color:var(--gold);font-size:14px}
 .roompill{display:flex;flex-direction:column;align-items:flex-start;gap:1px;line-height:1.1;
   padding:8px 13px;background:var(--bg3);border:1px solid var(--line2);border-radius:10px;font-family:var(--f-display);font-size:14px;color:var(--muted);cursor:pointer;transition:.14s}
 .roompill small{font-family:var(--f-mono);font-size:10px;letter-spacing:.04em;color:var(--faint);text-transform:none}
@@ -1348,6 +1392,7 @@ function screenCampaigns(){
         <div class="m"><span class="k">Status</span><span class="v" style="font-size:13px;color:${c.session.live?"var(--ok)":"var(--muted)"}">${c.session.live?"Live":"Idle"}</span></div>
         <div class="m"><span class="k">Cooldowns</span><span class="v" style="font-size:13px">${c.settings.cooldowns?"On":"Off"}</span></div>
       </div>
+      ${(STATE.cloud&&amDM(c)&&c.invite_code)?`<div class="slotinvite"><span class="k">Invite code</span><span class="code">${esc(c.invite_code)}</span><button class="btn sm ghost" data-copycode="${esc(c.invite_code)}">Copy</button><button class="btn sm ghost" data-copyinvite="${esc(location.origin+location.pathname+"#join="+c.invite_code)}">Link</button></div>`:""}
       <div class="row">
         <button class="btn primary sm" data-open="${c.id}">Enter lobby →</button>
         <button class="btn ghost sm" data-del="${c.id}">Delete</button>
@@ -1842,6 +1887,14 @@ function dmConsole(){
   tg.innerHTML=`<div class="tx"><b>Cooldowns & charges</b><small>When off, abilities never run out — pure freeform play.</small></div>
     <button class="sw ${camp.settings.cooldowns?"on":""}" data-cooldowns="1" aria-label="toggle cooldowns"></button>`;
   w.appendChild(tg);
+  const tg2=el("div","toggle-line");
+  tg2.innerHTML=`<div class="tx"><b>Auto conditions</b><small>Prone, Blinded, Restrained… apply advantage/disadvantage to attack rolls on their own. Off = conditions are just tags you read.</small></div>
+    <button class="sw ${autoConds()?"on":""}" data-autoconds="1" aria-label="toggle auto conditions"></button>`;
+  w.appendChild(tg2);
+  const tg3=el("div","toggle-line");
+  tg3.innerHTML=`<div class="tx"><b>Auto saving throws</b><small>When a spell forces a save, roll every target's save and apply full/half damage automatically. Off = you roll and apply (default).</small></div>
+    <button class="sw ${autoSaves()?"on":""}" data-autosaves="1" aria-label="toggle auto saves"></button>`;
+  w.appendChild(tg3);
   // DM's own playable heroes — the DM runs the table AND plays these like a player
   const myHeroes=camp.party.filter(id=>STATE.roster[id]&&(!STATE.cloud||STATE.roster[id].owner_id===ME()));
   const dmhero=el("div","dmhero");
@@ -1911,7 +1964,30 @@ function stubView(kind){
 /* ============================ battle ============================ */
 const PHOTOS={}; // session-only photo previews, keyed by note id
 /* ---- battle rooms: multiple simultaneous encounters per campaign (split party) ---- */
-function newBattleObj(id,name){return {id,name:name||"Encounter",active:true,phase:"setup",round:1,turnIdx:0,turn:0,order:[],cols:10,rows:7,combatants:[],movedId:null,selId:null,log:[]};}
+function newBattleObj(id,name){return {id,name:name||"Encounter",active:true,phase:"setup",round:1,turnIdx:0,turn:0,order:[],cols:12,rows:8,feet:5,mode:"grid",bg:null,combatants:[],movedId:null,selId:null,log:[],pending:null};}
+/* ---- battle map geometry: tiles ↔ feet ---- */
+function tileFeet(b){return b.feet||5;}
+function tileDist(b,a,c){ // distance in feet between two combatants (5e: diagonals count as 1 tile)
+  if(!a||!c)return 0;
+  const dx=Math.abs((a.x+(a.fx||0))-(c.x+(c.fx||0))),dy=Math.abs((a.y+(a.fy||0))-(c.y+(c.fy||0)));
+  return (b.mode==="free"?Math.hypot(dx,dy):Math.max(dx,dy))*tileFeet(b);
+}
+function sameTile(a,c){return a&&c&&a.x===c.x&&a.y===c.y;}
+function isDown(c){return c&&c.hp<=0;}
+function speedOf(c){const ch=actorOf(c);if(ch&&ch.speed)return ch.speed;return 30;}
+/* a fallen hero can only be revived when a standing ally shares their tile */
+function reviveBlocked(b,c){
+  if(!b||!c||c.side!=="party"||!isDown(c))return false;
+  return !b.combatants.some(o=>o.id!==c.id&&o.side==="party"&&!isDown(o)&&sameTile(o,c));
+}
+function moveCombatant(b,c,x,y,fx,fy){
+  const from={x:c.x,y:c.y,fx:c.fx||0,fy:c.fy||0};
+  c.x=x;c.y=y;if(b.mode==="free"){c.fx=fx||0;c.fy=fy||0;}else{c.fx=0;c.fy=0;}
+  const ft=tileDist(b,from,c);
+  if(b.phase==="active"){c.movedFt=(c.movedFt||0)+ft;}
+  b.movedId=c.id;b.selId=null;
+  return ft;
+}
 function ensureRooms(camp){
   if(!camp.rooms)camp.rooms={};
   if(camp.battle){ // migrate a legacy single battle into a room
@@ -1957,65 +2033,102 @@ function endRoom(camp,rid){const rooms=ensureRooms(camp);delete rooms[rid];
   if(STATE.cloud&&SB){try{SB.from("battles").delete().eq("id",rid);}catch(e){}}
   delete Cloud._battleHash[rid];
   if(STATE.ui.roomId===rid)STATE.ui.roomId=Object.keys(rooms)[0]||null;}
-function battleView(isDM){
-  const camp=curCamp();const b=ensureBattle(camp);const w=el("div");
-  if(!b.active){
-    w.appendChild(el("div","stub",
-      `<svg class="big" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M6 3l15 15-3 3L3 6z"/><path d="M14 11l4-4M4 20l4-4"/></svg>
-       <h3>No encounter running</h3><p>${isDM?"Start an encounter to drop the party onto the board, then add enemies.":"Waiting for the DM to start the encounter."}</p>
-       ${isDM?`<div style="margin-top:16px"><button class="btn primary sm" data-startbtl="1">Start encounter</button></div>`:""}`));
-    return w;
-  }
-  const me=isDM?null:b.combatants.find(c=>c.charId===STATE.ui.viewAs);
-  const bar=el("div","btlbar");
-  bar.innerHTML=(isDM?`<button class="btn sm" data-addenemy="1">+ Add enemy</button>
-      <button class="btn sm gold" data-nextturn="1">Next turn →</button>
-      <button class="btn sm ghost" data-endbtl="1">End encounter</button>`:``)+
-    `<span class="rc">Round ${b.round} · ${b.combatants.length} on the field</span>`;
-  w.appendChild(bar);
-  const turnId=b.combatants.length?b.combatants[b.turn%b.combatants.length].id:null;
-  const wrap2=el("div","boardwrap");const board=el("div","board");
-  board.style.gridTemplateColumns=`repeat(${b.cols},minmax(30px,1fr))`;
+/* ---- the battle board: tiles = feet, optional map image, grid or free placement ---- */
+function tokenBG(c){return c.side==="enemy"?"background:linear-gradient(135deg,#b4453f,#6d1f1b)":tokenStyle({color:c.color});}
+function boardHTML(b,isDM,me){
+  const w=el("div");
+  const mover=b.selId?b.combatants.find(c=>c.id===b.selId):null;
+  const free=b.mode==="free";
+  const ft=tileFeet(b);
+  // toolbar
+  const tb=el("div","boardtools");
+  let th=`<span class="bt-ft">1 tile = <b>${ft} ft</b></span>`;
+  if(isDM)th+=`<button class="btn sm ghost" data-bfeet="${ft}">⚙ Tiles</button>
+    <button class="btn sm ghost" data-bmode="${free?"grid":"free"}">${free?"▦ Snap to grid":"✥ Free move"}</button>
+    <label class="btn sm ghost filebtn">🗺 Map<input type="file" accept="image/*" id="btlMap"></label>${b.bg?`<button class="btn sm ghost" data-bclearmap="1">✕ Map</button>`:""}`;
+  if(mover){const sp=speedOf(mover);const used=mover.movedFt||0;
+    th+=`<span class="bt-move">Moving <b>${esc(mover.name.split(" ")[0])}</b> · ${Math.max(0,sp-used)} of ${sp} ft left this turn</span>`;}
+  tb.innerHTML=th;w.appendChild(tb);
+  // board
+  const wrap=el("div","boardwrap"+(b.bg?" hasimg":""));
+  const board=el("div","board2");
+  board.style.setProperty("--cols",b.cols);board.style.setProperty("--rows",b.rows);
+  board.style.aspectRatio=`${b.cols} / ${b.rows}`;
+  if(b.bg)board.style.backgroundImage=`url(${b.bg})`;
+  board.dataset.boardsurface="1";
+  // tiles (grid mode: tap targets + reach highlight)
+  let cells="";
+  const reach=(mover&&!free&&b.phase==="active")?Math.floor(Math.max(0,speedOf(mover)-(mover.movedFt||0))/ft):null;
   for(let y=1;y<=b.rows;y++)for(let x=1;x<=b.cols;x++){
-    const occ=b.combatants.find(c=>c.x===x&&c.y===y);
-    const cell=el("div","cell"+(b.selId&&!occ?" tgt":"")+(occ&&occ.id===b.selId?" sel":"")+(occ&&occ.id===b.movedId?" moved":""));
-    cell.dataset.cell=x+","+y;
-    if(occ){const en=occ.side==="enemy";
-      cell.innerHTML=`<div class="tk ${en?"enemy":""}" style="${en?"background:linear-gradient(135deg,#b4453f,#6d1f1b)":tokenStyle({color:occ.color})}" data-selbtl="${occ.id}">${esc(occ.token)}</div>`;}
-    board.appendChild(cell);
+    const occ=b.combatants.filter(c=>c.x===x&&c.y===y);
+    let cl="tile";
+    if(mover){const d=Math.max(Math.abs(mover.x-x),Math.abs(mover.y-y));
+      if(reach!=null&&d<=reach&&d>0)cl+=" inreach";
+      if(occ.length===0||occ.every(o=>isDown(o)&&o.side==="party"&&o.id!==mover.id))cl+=" tgt";}
+    cells+=`<div class="${cl}" data-cell="${x},${y}"></div>`;
   }
-  wrap2.appendChild(board);w.appendChild(wrap2);
-  if(b.movedId){const mv=b.combatants.find(c=>c.id===b.movedId);
-    if(mv)w.appendChild(el("div",null,`<div style="font-size:12px;color:var(--gold);margin:2px 0 0;font-family:var(--f-mono)">Last moved: ${esc(mv.name)}</div>`));}
-  const cb=el("div","cbts");
-  b.combatants.forEach(c=>{
-    const en=c.side==="enemy";const mine=me&&c.id===me.id;
-    const card=el("div","cbt"+(c.id===turnId?" turn":""));
-    card.style.setProperty("--sidec",en?"var(--c-damage)":c.color);
-    const seeHP=isDM||!en||c.revealHP;const seeAC=isDM||!en||c.revealAC;
-    let inner=`<div class="cth"><div class="token sm" style="${en?"background:linear-gradient(135deg,#b4453f,#6d1f1b)":tokenStyle({color:c.color})}">${esc(c.token)}</div>
-        <div class="nm">${esc(c.name)}${mine?' <span class="soon" style="color:var(--accent);border-color:var(--accent)">you</span>':""}</div></div>`;
-    if(seeHP){const pct=Math.max(0,Math.min(100,c.hp/c.maxHP*100));const clp=pct<=25?"crit":pct<=50?"low":"";
-      inner+=`<div class="hpbar"><i class="${clp}" style="width:${pct}%"></i></div><div class="hpn">${c.hp} / ${c.maxHP} HP</div>`;}
-    else inner+=`<div class="masked">HP hidden by the DM</div>`;
-    if(seeAC)inner+=`<div class="acl">AC ${c.ac}</div>`;
-    if(en)inner+=`<div class="dealt">Damage dealt: ${c.dmgTaken}</div>`;
-    let btns="";
-    if(isDM){btns+=`<button class="btn sm" data-dmgc="${c.id}">Damage</button>`;
-      if(en)btns+=`<button class="btn sm ghost" data-revhp="${c.id}">${c.revealHP?"Hide HP":"Reveal HP"}</button>
-        <button class="btn sm ghost" data-revac="${c.id}">${c.revealAC?"Hide AC":"Reveal AC"}</button>
-        <button class="btn sm ghost" data-rmc="${c.id}">Remove</button>`;}
-    else if(mine)btns+=`<button class="btn sm" data-dmgc="${c.id}">Take damage</button>`;
-    if(btns)inner+=`<div class="btns">${btns}</div>`;
-    card.innerHTML=inner;cb.appendChild(card);
-  });
-  w.appendChild(cb);
-  w.appendChild(el("div",null,`<div style="font-size:12px;color:var(--faint);margin-top:14px">${isDM?"Tap a token, then tap a cell to move it. Players see only their own stats and whatever you reveal of each enemy.":me?"Tap your token, then a cell to move. Enemy HP and AC show only when the DM reveals them.":"You're spectating this encounter."}</div>`));
+  board.innerHTML=cells;
+  // tokens, absolutely positioned (stacking offsets when sharing a tile)
+  const stacks={};
+  b.combatants.forEach(c=>{const k=c.x+","+c.y;stacks[k]=(stacks[k]||0);const i=stacks[k]++;
+    const cx=((c.x-1)+(free?(c.fx||0):0.5)+(free?0:i*0.18))/b.cols*100,cy=((c.y-1)+(free?(c.fy||0):0.5)+(free?0:i*0.18))/b.rows*100;
+    const en=c.side==="enemy";const sel=c.id===b.selId;const mine=me&&(c.id===me.id||(c.companionId&&c.charId===me.charId));
+    const conds=(c.conditions||[]).length;
+    let dist="";if(mover&&mover.id!==c.id){dist=`<i class="dist">${Math.round(tileDist(b,mover,c))}′</i>`;}
+    board.innerHTML+=`<div class="tok ${en?"enemy":""} ${sel?"sel":""} ${c.id===b.movedId?"moved":""} ${isDown(c)?"down":""} ${mine?"mine":""}" style="left:${cx}%;top:${cy}%;${tokenBG(c)}" data-selbtl="${c.id}" title="${esc(c.name)}">${esc(c.token)}${conds?`<b class="cn">${conds}</b>`:""}${dist}</div>`;});
+  wrap.appendChild(board);w.appendChild(wrap);
+  const hints=[];
+  if(isDM)hints.push("Tap a token, then a tile to move it. Tiles = feet; the glow shows how far it can still go this turn.");
+  else if(me)hints.push("Tap your token, then a tile to move. The glow is your remaining movement.");
+  else hints.push("You're spectating this encounter.");
+  hints.push("A downed ally can only be revived when a standing ally is on their tile — walk onto it.");
+  w.appendChild(el("div","boardhint",hints.join(" ")));
   return w;
 }
 /* ---- battle engine: initiative / turns / DOTs / conditions ---- */
-const SKIP_CONDS=["Frozen","Stunned","Paralyzed","Unconscious"];
-const CARD_CONDS=["Frozen","Stunned","Paralyzed","Prone","Poisoned","Restrained"];
+/* 5e conditions (PHB appendix A). Effects on attack rolls are applied automatically when the DM's "Auto conditions" is on. */
+const CONDS={
+  Blinded:{atk:"dis",vs:"adv",text:"Can't see. Attacks against it have advantage; its attacks have disadvantage."},
+  Charmed:{text:"Can't attack the charmer. Charmer has advantage on social checks."},
+  Deafened:{text:"Can't hear. Auto-fails hearing checks."},
+  Frightened:{atk:"dis",text:"Disadvantage on attacks & checks while the source is in sight. Can't move closer."},
+  Grappled:{text:"Speed 0. Ends if the grappler is incapacitated or moved away."},
+  Incapacitated:{skip:true,text:"Can't take actions or reactions."},
+  Invisible:{atk:"adv",vs:"dis",text:"Attacks against it have disadvantage; its attacks have advantage."},
+  Paralyzed:{skip:true,vs:"adv",crit5:true,text:"Incapacitated, can't move or speak. Auto-fails STR/DEX saves. Attacks have advantage; hits within 5 ft are crits."},
+  Petrified:{skip:true,vs:"adv",text:"Turned to stone. Resistance to all damage. Attacks have advantage. Auto-fails STR/DEX saves."},
+  Poisoned:{atk:"dis",text:"Disadvantage on attack rolls and ability checks."},
+  Prone:{atk:"dis",vsMelee:"adv",vsRanged:"dis",text:"Disadvantage on attacks. Melee attacks against it have advantage; ranged have disadvantage. Half speed to stand."},
+  Restrained:{atk:"dis",vs:"adv",text:"Speed 0. Attacks against it have advantage; its attacks and DEX saves have disadvantage."},
+  Stunned:{skip:true,vs:"adv",text:"Incapacitated, can't move. Auto-fails STR/DEX saves. Attacks have advantage."},
+  Unconscious:{skip:true,vs:"adv",crit5:true,text:"Incapacitated, prone, drops what it's holding. Auto-fails STR/DEX saves. Attacks have advantage; hits within 5 ft are crits."},
+  Exhausted:{text:"Exhaustion — disadvantage on checks (lvl 1), half speed (2), disadvantage on attacks & saves (3)…"},
+  Concentrating:{text:"Holding a concentration spell — CON save when damaged (DC 10 or half the damage)."},
+};
+const COND_LIST=Object.keys(CONDS);
+const SKIP_CONDS=["Frozen"].concat(COND_LIST.filter(k=>CONDS[k].skip));
+const CARD_CONDS=COND_LIST;
+function autoConds(){const c=curCamp();return !(c&&c.settings&&c.settings.autoConds===false);} // default on
+function autoSaves(){const c=curCamp();return !!(c&&c.settings&&c.settings.autoSaves);}         // default off (DM applies)
+/* advantage state for an attack from `att` against `tgt`, from their conditions. Returns {mode:'adv'|'dis'|'none', why:[]} */
+function condAdvantage(att,tgt,melee){
+  let adv=0,dis=0;const why=[];
+  if(!autoConds())return {mode:"none",why};
+  (att&&att.conditions||[]).forEach(k=>{const c=CONDS[k];if(!c)return;
+    if(c.atk==="adv"){adv++;why.push(`you're ${k}: advantage`);}
+    if(c.atk==="dis"){dis++;why.push(`you're ${k}: disadvantage`);}});
+  (tgt&&tgt.conditions||[]).forEach(k=>{const c=CONDS[k];if(!c)return;
+    let v=c.vs;if(k==="Prone")v=melee?c.vsMelee:c.vsRanged;
+    if(v==="adv"){adv++;why.push(`${tgt.name} is ${k}: advantage`);}
+    if(v==="dis"){dis++;why.push(`${tgt.name} is ${k}: disadvantage`);}
+    if(c.crit5&&melee)why.push(`${tgt.name} is ${k}: a hit within 5 ft is a critical`);});
+  const mode=(adv&&dis)?"none":adv?"adv":dis?"dis":"none";
+  if(adv&&dis)why.push("advantage and disadvantage cancel out");
+  return {mode,why};
+}
+function isMeleeMove(a){const s=((a&&a.text)||"")+" "+((a&&a.source)||"")+" "+((a&&a.name)||"");
+  if(/\b(ranged|\d{2,3} ft|\d{2,3}-foot|bow|crossbow|sling|dart|javelin)\b/i.test(s))return false;
+  return /\b(melee|5 ft|touch|reach|sword|axe|mace|dagger|blade|claw|bite|slam|fist|hammer|spear|staff|whip|scimitar|rapier|glaive|halberd|maul|flail)\b/i.test(s);}
 let BACT=null; // transient active-turn action state
 let BFILTER="all"; // battle move-grid type filter
 function migrateBattle(b){
@@ -2046,7 +2159,7 @@ function beginCombat(b){
   enterTurn(b,true,0);
 }
 function enterTurn(b,applyStart,guard){
-  BACT=null;const c=curCombatant(b);if(!c)return;
+  BACT=null;const c=curCombatant(b);if(!c)return;c.movedFt=0;
   if(applyStart!==false)applyDots(b,c);
   if(hasSkip(c)){
     blog(b,`${c.name} is ${skipReason(c)} — turn skipped.`);
@@ -2127,6 +2240,8 @@ function battleSetup(b,isDM,w){
       <button class="btn ghost sm" data-rollallinit="1">🎲 Roll remaining</button>
       <button class="btn primary" data-begincombat="1">Begin combat →</button>`));
   }else w.appendChild(el("div","empty","Enter your roll — the DM adds the opponents and starts combat when the table's set."));
+  const me=isDM?null:b.combatants.find(c=>c.charId===STATE.ui.viewAs);
+  w.appendChild(boardHTML(b,isDM,me));
 }
 function battleActive(b,isDM,w){
   const cur=curCombatant(b);
@@ -2147,19 +2262,10 @@ function battleActive(b,isDM,w){
       <span class="in">${esc(c.name.split(" ")[0])}<small>${initTotal(c)}</small></span>
       ${isDM?`<span class="mv"><button data-reup="${id}">▲</button><button data-redn="${id}">▼</button></span>`:""}</div>`;});
   w.appendChild(strip);
+  if(b.pending){const pp=pendingPanel(b,isDM);if(pp)w.appendChild(pp);}
   w.appendChild(turnActionPanel(b,isDM));
-  const wrap2=el("div","boardwrap");const board=el("div","board");
-  board.style.gridTemplateColumns=`repeat(${b.cols},minmax(28px,1fr))`;
-  for(let y=1;y<=b.rows;y++)for(let x=1;x<=b.cols;x++){
-    const occ=b.combatants.find(c=>c.x===x&&c.y===y);
-    const cell=el("div","cell"+(b.selId&&!occ?" tgt":"")+(occ&&occ.id===b.selId?" sel":"")+(occ&&occ.id===b.movedId?" moved":""));
-    cell.dataset.cell=x+","+y;
-    if(occ){const en=occ.side==="enemy";
-      cell.innerHTML=`<div class="tk ${en?"enemy":""}" style="${en?"background:linear-gradient(135deg,#b4453f,#6d1f1b)":tokenStyle({color:occ.color})};${occ.hp<=0?"opacity:.4":""}" data-selbtl="${occ.id}">${esc(occ.token)}</div>`;}
-    board.appendChild(cell);
-  }
-  wrap2.appendChild(board);w.appendChild(wrap2);
   const me=isDM?null:b.combatants.find(c=>c.charId===STATE.ui.viewAs);
+  w.appendChild(boardHTML(b,isDM,me));
   const cb=el("div","cbts");
   b.combatants.forEach(c=>cb.appendChild(combatantCard(b,c,isDM,me,cur)));
   w.appendChild(cb);
@@ -2183,17 +2289,17 @@ function combatantCard(b,c,isDM,me,cur){
   else h+=`<div class="masked">HP hidden by the DM</div>`;
   if(seeAC)h+=`<div class="acl">AC ${c.ac}</div>`;
   if(en)h+=`<div class="dealt">Damage dealt: ${c.dmgTaken}</div>`;
-  if((isDM||mine)&&((c.conditions&&c.conditions.length)||(c.dots&&c.dots.length)))
+  if((c.conditions&&c.conditions.length)||((isDM||mine)&&c.dots&&c.dots.length))
     h+=`<div class="condrow">`+
-      (c.conditions||[]).map(cd=>`<span class="condchip ${SKIP_CONDS.includes(cd)?"skip":""}">${esc(cd)}</span>`).join("")+
-      (c.dots||[]).map(dt=>`<span class="dotchip">${esc(dt.label)} ${dt.amount}/turn${isDM?` <button data-rmdot="${c.id}|${dt.id}">✕</button>`:""}</span>`).join("")+`</div>`;
+      (c.conditions||[]).map(cd=>`<span class="condchip ${SKIP_CONDS.includes(cd)?"skip":""}" title="${esc((CONDS[cd]||{}).text||"")}">${esc(cd)}${isDM?` <button data-cond="${c.id}|${cd}" title="Remove">✕</button>`:""}</span>`).join("")+
+      ((isDM||mine)?(c.dots||[]).map(dt=>`<span class="dotchip">${esc(dt.label)} ${dt.amount}/turn${isDM?` <button data-rmdot="${c.id}|${dt.id}">✕</button>`:""}</span>`).join(""):"")+`</div>`;
   if(c.side==="party"&&c.hp<=0&&(isDM||mine)){const ds=c.death||{s:0,f:0,dead:false,stable:false};
     if(ds.dead)h+=`<div class="deathrow"><span class="lbl" style="color:var(--crit)">Fallen</span></div>`;
     else if(ds.stable)h+=`<div class="deathrow"><span class="lbl" style="color:var(--ok)">Stable</span></div>`;
     else{let pips="";for(let i=0;i<3;i++)pips+=`<span class="dpip s ${i<ds.s?"on":""}"></span>`;for(let i=0;i<3;i++)pips+=`<span class="dpip f ${i<ds.f?"on":""}"></span>`;
       h+=`<div class="deathrow"><span class="lbl">Death saves</span><span class="deathpips">${pips}</span><button class="btn sm" data-deathsave="${c.id}">Roll d20</button></div>`;}}
   if(isDM){
-    h+=`<div class="condtoggle">`+CARD_CONDS.map(cd=>`<button class="ct ${(c.conditions||[]).includes(cd)?"on":""}" data-cond="${c.id}|${cd}">${cd}</button>`).join("")+`</div>`;
+    h+=`<div class="condtoggle"><select class="sel condsel" data-condsel="${c.id}"><option value="">+ Condition…</option>`+COND_LIST.filter(cd=>!(c.conditions||[]).includes(cd)).map(cd=>`<option value="${cd}">${cd}</option>`).join("")+`</select></div>`;
     h+=`<div class="btns"><button class="btn sm" data-dmgc="${c.id}">HP ±</button><button class="btn sm ghost" data-adddot="${c.id}">+ DOT</button>`;
     if(en)h+=`<button class="btn sm ghost" data-revhp="${c.id}">${c.revealHP?"Hide HP":"Show HP"}</button><button class="btn sm ghost" data-revac="${c.id}">${c.revealAC?"Hide AC":"Show AC"}</button><button class="btn sm ghost" data-rmc="${c.id}">Remove</button>`;
     h+=`</div>`;
@@ -2205,7 +2311,7 @@ function turnActionPanel(b,isDM){
   if(!c){wrap.innerHTML=`<div class="awaiting">No combatants in the fight.</div>`;return wrap;}
   if(!canAct(b,isDM)){wrap.innerHTML=`<div class="awaiting">⏳ It's <b>${esc(c.name)}</b>'s turn. Hang tight — the controls appear on your turn.</div>`;return wrap;}
   let h=`<div class="aph"><span class="apt">${esc(c.name)}'s turn</span><button class="btn sm ghost" data-passturn="1">Skip / Pass →</button></div>`;
-  h+=(c.side==="enemy")?enemyActionForm(b,c):partyActionForm(b,c);
+  h+=(c.side==="enemy")?enemyActionForm(b,c):partyActionForm(b,c,isDM);
   wrap.innerHTML=h;return wrap;
 }
 function ensureBACT(c,a){
@@ -2215,7 +2321,7 @@ function ensureBACT(c,a){
       perInstance:false,bonusOn:false,modOff:{},_bonusRoll:null,targetId:(BACT&&BACT.combatantId===c.id)?BACT.targetId:null};
   return BACT;
 }
-function partyActionForm(b,c){
+function partyActionForm(b,c,isDM){
   const ch=actorOf(c);
   if(!ch)return `<div class="awaiting">This combatant has no sheet to act from — resolve it at the table and press Skip.</div>`;
   const moves=(ch.abilities||[]).filter(a=>!a.passive);
@@ -2258,13 +2364,58 @@ function partyActionForm(b,c){
     html+=`<div class="modrow"><div class="lab">+10 per beam/ray<small>DM ruling</small></div><span class="val">${st.perInstance?"×"+a.instances:"×1"}</span><button class="sw ${st.perInstance?"on":""}" data-bperinst="1"></button></div>`;
   if(a.bonus)html+=`<div class="modrow"><div class="lab">${esc(a.bonus.toggle)}<small>${esc(a.bonus.why)}</small></div><span class="val">+${a.bonus.dice}</span><button class="sw ${st.bonusOn?"on":""}" data-bbonus="1"></button></div>`;
   const targets=b.combatants.filter(x=>x.id!==c.id);
-  if(!st.targetId&&targets.length){const t=targets.find(x=>x.side==="enemy")||targets[0];st.targetId=t.id;}
-  html+=`<div class="field" style="margin-top:12px"><label>Target</label><select id="bTargetSel">`+
-    targets.map(x=>`<option value="${x.id}" ${x.id===st.targetId?"selected":""}>${esc(x.name)}${x.side==="enemy"?" — enemy":" — ally"}</option>`).join("")+`</select></div>`;
   const res=computeTotal(ch,a,st);
+  if(a.save&&a.save.ability){ // ---- save-based: pick several targets ----
+    if(!st.targetIds)st.targetIds=targets.filter(x=>x.side==="enemy").map(x=>x.id);
+    html+=`<div class="field" style="margin-top:12px"><label>Targets · ${esc(a.save.ability)} save, DC ${a.save.dc}</label><div class="tgtlist">`+
+      targets.map(x=>`<label class="tgtrow ${st.targetIds.includes(x.id)?"on":""}"><input type="checkbox" data-btgt="${x.id}" ${st.targetIds.includes(x.id)?"checked":""}><span class="token sm" style="${tokenBG(x)}">${esc(x.token)}</span><span>${esc(x.name)}<small>${x.side==="enemy"?"enemy":"ally"} · ${Math.round(tileDist(b,c,x))} ft</small></span></label>`).join("")+`</div></div>`;
+    html+=`<div class="total" style="margin-top:4px"><div class="grand"><span class="cap">${esc(a.dmgType||"damage")} on a failed save</span><span class="n btot">${res.total}</span></div></div>`;
+    html+=`<div class="authnote" style="margin-top:8px">${autoSaves()?"Each target's save rolls automatically — half damage on a success, full on a failure.":"The DM rolls each target's save and applies full or half damage."}</div>`;
+    html+=`<div style="margin-top:12px"><button class="btn primary" data-bapply="1">Cast ${esc(a.name)} on ${st.targetIds.length} &amp; end turn</button></div>`;
+    return html;
+  }
+  if(!st.targetId&&targets.length){const t=targets.find(x=>x.side==="enemy")||targets[0];st.targetId=t.id;}
+  const tgt=targets.find(x=>x.id===st.targetId);
+  html+=`<div class="field" style="margin-top:12px"><label>Target</label><select id="bTargetSel">`+
+    targets.map(x=>`<option value="${x.id}" ${x.id===st.targetId?"selected":""}>${esc(x.name)}${x.side==="enemy"?" — enemy":" — ally"} · ${Math.round(tileDist(b,c,x))} ft</option>`).join("")+`</select></div>`;
+  if(a.attack&&a.attack!=="auto"&&tgt){ // ---- attack roll, with conditions folded in ----
+    const melee=isMeleeMove(a);const adv=condAdvantage(c,tgt,melee);
+    const seeAC=isDM||tgt.side!=="enemy"||tgt.revealAC;
+    let hit="";
+    if(st.hit){const H=st.hit;const vs=seeAC?(H.nat20?`<b class="ok">Critical hit!</b>`:H.nat1?`<b class="bad">Natural 1 — miss</b>`:H.total>=tgt.ac?`<b class="ok">Hits</b> (AC ${tgt.ac})`:`<b class="bad">Misses</b> (AC ${tgt.ac})`):(H.nat20?`<b class="ok">Critical hit!</b>`:`vs AC ? — ask the DM`);
+      hit=`<div class="hitres"><span class="mono">d20${H.mode!=="none"?" ["+H.rolls.join(", ")+"] → "+H.keep:" "+H.keep}${H.bonus>=0?" +":" "}${H.bonus}</span><span class="n">${H.total}</span><span class="vs">${vs}</span></div>`;}
+    html+=`<div class="hitblk"><div class="lab">To hit <b class="mono">${esc(a.attack)}</b>${adv.mode!=="none"?` · <span class="advtag ${adv.mode}">${adv.mode==="adv"?"Advantage":"Disadvantage"}</span>`:""}</div>
+      ${adv.why.length?`<div class="advwhy">${adv.why.map(w=>"• "+esc(w)).join("<br>")}</div>`:""}
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn sm" data-bhit="1">🎲 Roll to hit</button>${hit}</div></div>`;
+  }
   html+=`<div class="total" style="margin-top:4px"><div class="grand"><span class="cap">${esc(a.dmgType||"damage")}</span><span class="n btot">${res.total}</span></div></div>`;
   html+=`<div style="margin-top:12px"><button class="btn primary" data-bapply="1">Apply ${res.total} &amp; end turn</button></div>`;
   return html;
+}
+/* saving-throw modifier for any combatant */
+function saveModOf(c,ab){ab=(ab||"").toLowerCase();
+  const sheet=actorOf(c);
+  if(sheet&&sheet.scores&&sheet.scores[ab]!=null)return modN(sheet.scores[ab])+((sheet.saveProf||[]).includes(ab)?(sheet.prof||0):0);
+  if(c.saves&&c.saves[ab]!=null)return c.saves[ab];
+  if(c.scores&&c.scores[ab]!=null)return modN(c.scores[ab]);
+  return ab==="dex"?(c.dexMod||0):0;}
+function autoFailsSave(c,ab){ab=(ab||"").toLowerCase();if(ab!=="str"&&ab!=="dex")return false;
+  return (c.conditions||[]).some(k=>["Paralyzed","Stunned","Petrified","Unconscious"].includes(k));}
+function rollSaveFor(c,ab,dc){
+  if(autoFailsSave(c,ab))return {roll:null,total:null,ok:false,auto:true};
+  const r=rollDie(20);const mod=saveModOf(c,ab);return {roll:r,total:r+mod,mod,ok:r+mod>=dc,nat20:r===20,nat1:r===1};}
+/* DM resolves a cast spell's saves by hand */
+function pendingPanel(b,isDM){
+  const P=b.pending;if(!P)return null;const w=el("div","actionpanel pendpanel");
+  if(!isDM){w.innerHTML=`<div class="awaiting">🕯 <b>${esc(P.casterName)}</b> cast <b>${esc(P.abilityName)}</b> — the DM is resolving ${P.targets.length} saving throw${P.targets.length===1?"":"s"} (DC ${P.dc} ${esc(P.ability)}).</div>`;return w;}
+  let h=`<div class="aph"><span class="apt">Resolve ${esc(P.abilityName)}</span><span class="rc">${esc(P.casterName)} · DC ${P.dc} ${esc(P.ability)} · ${P.total} ${esc(P.dmgType||"damage")}</span></div><div class="pendlist">`;
+  P.targets.forEach(t=>{const c=b.combatants.find(x=>x.id===t.id);if(!c)return;
+    let res="";if(t.save)res=t.save.auto?`<span class="bad">auto-fails (${(c.conditions||[]).find(k=>["Paralyzed","Stunned","Petrified","Unconscious"].includes(k))})</span>`:`<span class="mono">d20 ${t.save.roll}${t.save.mod>=0?" +":" "}${t.save.mod} = <b>${t.save.total}</b></span> <span class="${t.save.ok?"ok":"bad"}">${t.save.ok?"saves":"fails"}</span>`;
+    h+=`<div class="pendrow ${t.done?"done":""}"><span class="token sm" style="${tokenBG(c)}">${esc(c.token)}</span><span class="pn">${esc(c.name)}<small>${c.hp}/${c.maxHP} HP · save ${saveModOf(c,P.ability)>=0?"+":""}${saveModOf(c,P.ability)}</small></span>
+      <span class="pr">${res}</span>
+      ${t.done?`<span class="ok">applied ${t.done}</span>`:`<span class="pb"><button class="btn sm ghost" data-bsaveroll="${t.id}">🎲 Save</button><button class="btn sm" data-bresolve="${t.id}|full">Full ${P.total}</button><button class="btn sm" data-bresolve="${t.id}|half">Half ${Math.floor(P.total/2)}</button><button class="btn sm ghost" data-bresolve="${t.id}|none">None</button></span>`}</div>`;});
+  h+=`</div><div style="margin-top:10px"><button class="btn sm ghost" data-bpendclear="1">Done</button></div>`;
+  w.innerHTML=h;return w;
 }
 function enemyActionForm(b,c){
   if(!BACT||BACT.combatantId!==c.id)BACT={combatantId:c.id,abilityId:null,flat:0,targetId:null};
@@ -2283,6 +2434,14 @@ function liveBattle(){
   const n=document.querySelector(".actionpanel .btot");if(n)n.textContent=res.total;
   const ap=document.querySelector(".actionpanel [data-bapply]");if(ap)ap.innerHTML=`Apply ${res.total} &amp; end turn`;
   document.querySelectorAll(".actionpanel [data-bsub]").forEach(sp=>{sp.textContent=instSubtotal(a,BACT,+sp.dataset.bsub);});
+}
+function boardSettingsModal(b){
+  openModal(`<h2>Board settings</h2>
+    <div class="banner">Every tile is a fixed number of feet — 5 ft is the 5e standard. Distances and movement glow are worked out from it.</div>
+    <div style="display:flex;gap:10px"><div class="field" style="flex:1"><label>Feet per tile</label><input id="bsFeet" inputmode="numeric" value="${tileFeet(b)}"></div>
+      <div class="field" style="flex:1"><label>Columns</label><input id="bsCols" inputmode="numeric" value="${b.cols}"></div>
+      <div class="field" style="flex:1"><label>Rows</label><input id="bsRows" inputmode="numeric" value="${b.rows}"></div></div>
+    <div class="acts"><button class="btn ghost" data-close="1">Cancel</button><button class="btn primary" data-bsettingsave="1">Save</button></div>`);
 }
 function dotModal(cid){
   openModal(`<h2>Add damage-over-time</h2>
@@ -2352,13 +2511,15 @@ function enemyModal(){
 }
 function dmgModal(cid){
   const b=ensureBattle(curCamp());const c=b.combatants.find(x=>x.id===cid);if(!c)return;
-  openModal(`<h2>${esc(c.name)}</h2>
+  const rv=isDown(c)&&c.side==="party"?(reviveBlocked(b,c)?`<div class="banner" style="border-color:var(--crit)">⚠ <b>${esc(c.name.split(" ")[0])} is down.</b> Healing only works once an ally is standing on their tile.</div>`:`<div class="banner" style="border-color:var(--ok)">An ally is on ${esc(c.name.split(" ")[0])}'s tile — healing will bring them back.</div>`):"";
+  openModal(`<h2>${esc(c.name)}</h2>${rv}
     <div class="field"><label>Amount</label><input id="dmgAmt" inputmode="numeric" placeholder="e.g. 18"></div>
     <div class="acts" style="justify-content:space-between">
       <button class="btn ghost" data-close="1">Cancel</button>
       <span style="display:flex;gap:8px"><button class="btn" id="healBtn">Heal</button><button class="btn primary" id="dmgBtn">Damage</button></span></div>`);
   setTimeout(()=>{const amt=$("#dmgAmt");if(amt)amt.focus();
     const apply=(sign)=>{const v=parseInt($("#dmgAmt").value,10)||0;
+      if(sign>0&&reviveBlocked(b,c)){toast(`No one's on ${c.name.split(" ")[0]}'s tile — an ally has to reach them first`);return;}
       adjustHP(b,c,sign*v);
       closeModal();render();toast(`${c.name} ${sign<0?"took":"healed"} ${v}`);};
     const d=$("#dmgBtn"),h=$("#healBtn");if(d)d.onclick=()=>apply(-1);if(h)h.onclick=()=>apply(1);},30);
@@ -3060,7 +3221,7 @@ function confirmModal(msg,onYes){
 
 /* ============================ event wiring ============================ */
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-nav],[data-open],[data-del],[data-newcamp],[data-join],[data-leave],[data-ready],[data-startsession],[data-endsession],[data-enterplay],[data-tab],[data-filter],[data-tocalc],[data-use],[data-spend],[data-rollinst],[data-rollall],[data-clearrolls],[data-modtoggle],[data-perinst],[data-bonus],[data-rest],[data-cooldowns],[data-dmview],[data-awardinsp],[data-spendinsp],[data-hpedit],[data-hp],[data-hpsave],[data-close],[data-scrim],[data-createcamp],[data-newchar],[data-dmnewchar],[data-setskin],[data-openacct],[data-abilsort]");
+  const t=e.target.closest("[data-nav],[data-open],[data-del],[data-newcamp],[data-join],[data-leave],[data-ready],[data-startsession],[data-endsession],[data-enterplay],[data-tab],[data-filter],[data-tocalc],[data-use],[data-spend],[data-rollinst],[data-rollall],[data-clearrolls],[data-modtoggle],[data-perinst],[data-bonus],[data-rest],[data-cooldowns],[data-dmview],[data-awardinsp],[data-spendinsp],[data-hpedit],[data-hp],[data-hpsave],[data-close],[data-scrim],[data-createcamp],[data-newchar],[data-dmnewchar],[data-setskin],[data-openacct],[data-abilsort],[data-autoconds],[data-autosaves]");
   if(!t)return;
   const d=t.dataset;
   if(d.scrim&&e.target!==t)return; // clicked inside modal
@@ -3126,6 +3287,8 @@ document.addEventListener("click",e=>{
   if(d.rest){doRest(d.rest);return;}
   if(d.cooldowns){const camp=curCamp();camp.settings.cooldowns=!camp.settings.cooldowns;render();
     toast("Cooldowns "+(camp.settings.cooldowns?"on":"off"));return;}
+  if(d.autoconds){const camp=curCamp();camp.settings.autoConds=!autoConds();render();toast("Auto conditions "+(autoConds()?"on":"off"));return;}
+  if(d.autosaves){const camp=curCamp();camp.settings.autoSaves=!autoSaves();render();toast(autoSaves()?"Saves roll automatically":"You resolve saves by hand");return;}
   if(d.dmview){STATE.ui.viewAs=d.dmview;render();return;}
   if(d.awardinsp){const ch=STATE.roster[d.awardinsp];if(ch){ch.inspiration=(ch.inspiration||0)+1;render();toast("Inspiration awarded to "+ch.name.split(" ")[0]);}return;}
   if(d.spendinsp){const ch=STATE.roster[d.spendinsp];if(ch&&(ch.inspiration||0)>0){ch.inspiration--;render();toast("Inspiration spent — reroll or advantage!");}return;}
@@ -3166,7 +3329,7 @@ function liveCalc(ch,a,st){
 /* battle + lore events */
 let PENDING_PHOTO=null;
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-newroom],[data-newroomsave],[data-roomsel],[data-roomend],[data-addplayer],[data-addplayersave],[data-endbtl],[data-addenemy],[data-addenemysave],[data-nextturn],[data-cell],[data-selbtl],[data-dmgc],[data-revhp],[data-revac],[data-rmc],[data-addnote],[data-delnote],[data-brollinit],[data-rollallinit],[data-begincombat],[data-reroll],[data-reup],[data-redn],[data-passturn],[data-bmove],[data-bmovefilter],[data-buse],[data-ballroll],[data-bclear],[data-bmod],[data-bperinst],[data-bbonus],[data-bapply],[data-eapply],[data-cond],[data-adddot],[data-dotsave],[data-rmdot]");
+  const t=e.target.closest("[data-newroom],[data-newroomsave],[data-roomsel],[data-roomend],[data-addplayer],[data-addplayersave],[data-endbtl],[data-addenemy],[data-addenemysave],[data-nextturn],[data-cell],[data-selbtl],[data-dmgc],[data-revhp],[data-revac],[data-rmc],[data-addnote],[data-delnote],[data-brollinit],[data-rollallinit],[data-begincombat],[data-reroll],[data-reup],[data-redn],[data-passturn],[data-bmove],[data-bmovefilter],[data-buse],[data-ballroll],[data-bclear],[data-bmod],[data-bperinst],[data-bbonus],[data-bapply],[data-eapply],[data-cond],[data-adddot],[data-dotsave],[data-rmdot],[data-bfeet],[data-bmode],[data-bclearmap],[data-bsettingsave],[data-bhit],[data-btgt],[data-bsaveroll],[data-bresolve],[data-bpendclear]");
   if(!t)return;const d=t.dataset;const camp=curCamp();
   const isDM=STATE.cloud?amDM(camp):(STATE.ui.viewAs==="dm"); // host authority (DM keeps it even while viewing a PC)
   // room management (DM) — resolved before we need a battle
@@ -3181,8 +3344,8 @@ document.addEventListener("click",e=>{
   const b=activeBattle();if(!b&&!isLore)return; // lore works without an encounter
   const mayAct=b?canAct(b,isDM):false;
   if(STATE.cloud&&!isDM&&b){
-    const HOST_ONLY={endbtl:1,roomend:1,addplayer:1,addplayersave:1,reroll:1,rollallinit:1,begincombat:1,reup:1,redn:1,nextturn:1,addenemy:1,addenemysave:1,revhp:1,revac:1,rmc:1,cond:1,adddot:1,dotsave:1,rmdot:1};
-    const TURN={bmove:1,bmovefilter:1,buse:1,ballroll:1,bclear:1,bmod:1,bperinst:1,bbonus:1,bapply:1,eapply:1,passturn:1};
+    const HOST_ONLY={endbtl:1,roomend:1,addplayer:1,addplayersave:1,reroll:1,rollallinit:1,begincombat:1,reup:1,redn:1,nextturn:1,addenemy:1,addenemysave:1,revhp:1,revac:1,rmc:1,cond:1,adddot:1,dotsave:1,rmdot:1,bfeet:1,bmode:1,bclearmap:1,bsettingsave:1,bresolve:1,bpendclear:1};
+    const TURN={bmove:1,bmovefilter:1,buse:1,ballroll:1,bclear:1,bmod:1,bperinst:1,bbonus:1,bapply:1,eapply:1,passturn:1,bhit:1,btgt:1};
     for(const k in d){if(HOST_ONLY[k]){toast("The DM runs the encounter");return;}}
     let needsTurn=false;for(const k in d){if(TURN[k])needsTurn=true;}
     if(needsTurn&&!mayAct){const c=curCombatant(b);toast(c?`Hang tight — it's ${c.name.split(" ")[0]}'s turn`:"Wait for your turn");return;}
@@ -3210,11 +3373,27 @@ document.addEventListener("click",e=>{
     b.combatants.push(nc);if(b.phase==="active")b.order.push(nc.id);
     closeModal();render();toast(nm+" added");return;}
   if(d.cell){if(!b.selId)return;const [x,y]=d.cell.split(",").map(Number);
-    if(b.combatants.find(c=>c.x===x&&c.y===y))return;
     const c=b.combatants.find(c=>c.id===b.selId);if(!c)return;
-    if(isDM||c.charId===STATE.ui.viewAs){c.x=x;c.y=y;b.movedId=c.id;b.selId=null;render();}
-    else{b.selId=null;toast("You can only move your own token");render();}return;}
-  if(d.selbtl){b.selId=b.selId===d.selbtl?null:d.selbtl;render();return;}
+    const occ=b.combatants.filter(o=>o.x===x&&o.y===y&&o.id!==c.id);
+    if(occ.some(o=>!(o.side==="party"&&isDown(o)))){toast("That tile's taken — you can only share a tile with a downed ally");return;}
+    const owns=STATE.cloud?(controllerOf(c)===ME()):(c.charId===STATE.ui.viewAs);
+    if(!(isDM||owns)){b.selId=null;toast("You can only move your own token");render();return;}
+    let fx=0,fy=0;if(b.mode==="free"){const r=t.getBoundingClientRect();fx=Math.max(0,Math.min(.99,(e.clientX-r.left)/r.width));fy=Math.max(0,Math.min(.99,(e.clientY-r.top)/r.height));}
+    const ft=moveCombatant(b,c,x,y,fx,fy);
+    if(b.phase==="active"&&!isDM){const sp=speedOf(c);if((c.movedFt||0)>sp)toast(`${Math.round(c.movedFt)} ft moved — that's over your ${sp} ft speed (DM's call)`);}
+    if(occ.length&&c.side==="party")toast(`On ${occ[0].name.split(" ")[0]}'s tile — they can be revived now`);
+    render();return;}
+  if(d.selbtl){const c=b.combatants.find(x=>x.id===d.selbtl);
+    if(b.selId&&b.selId!==d.selbtl&&c){ // tapping another token while moving: if it's a downed ally, step onto its tile
+      const mv=b.combatants.find(x=>x.id===b.selId);
+      if(mv&&c.side==="party"&&isDown(c)&&mv.id!==c.id){const owns=STATE.cloud?(controllerOf(mv)===ME()):(mv.charId===STATE.ui.viewAs);
+        if(isDM||owns){moveCombatant(b,mv,c.x,c.y,c.fx,c.fy);toast(`On ${c.name.split(" ")[0]}'s tile — they can be revived now`);render();return;}}}
+    b.selId=b.selId===d.selbtl?null:d.selbtl;render();return;}
+  if(d.bfeet){if(!isDM)return;boardSettingsModal(b);return;}
+  if(d.bmode){if(!isDM)return;b.mode=d.bmode;b.selId=null;render();toast(b.mode==="free"?"Free movement — tap anywhere on the map":"Snapped to grid");return;}
+  if(d.bclearmap){if(!isDM)return;b.bg=null;render();return;}
+  if(d.bsettingsave){if(!isDM)return;b.feet=Math.max(1,parseInt($("#bsFeet").value,10)||5);b.cols=Math.max(4,Math.min(40,parseInt($("#bsCols").value,10)||12));b.rows=Math.max(4,Math.min(40,parseInt($("#bsRows").value,10)||8));
+    b.combatants.forEach(c=>{c.x=Math.min(c.x,b.cols);c.y=Math.min(c.y,b.rows);});closeModal();render();toast("Board updated");return;}
   if(d.dmgc){const cc=b.combatants.find(x=>x.id===d.dmgc);
     if(STATE.cloud&&!isDM&&controllerOf(cc)!==ME()){toast("You can only change your own HP");return;}
     dmgModal(d.dmgc);return;}
@@ -3239,11 +3418,40 @@ document.addEventListener("click",e=>{
   if(d.buse){const c=curCombatant(b);if(!c)return;const ch=actorOf(c);const a=ch&&(ch.abilities||[]).find(x=>x.id===d.buse);
     if(ch&&a&&!spendSpell(ch,a)){toast("No "+(slotInfo(ch,a)&&slotInfo(ch,a).kind==="pact"?"pact slots":ordLevel(a.level)+"-level slots")+" left");return;}
     blog(b,`${c.name} uses ${a?a.name:"an action"}.`);advanceTurn(b,0);render();toast(a?a.name+" used":"Action used");return;}
+  if(d.bhit){const c=curCombatant(b);if(!c||!BACT)return;const ch=actorOf(c);if(!ch)return;const a=ch.abilities.find(x=>x.id===BACT.abilityId);if(!a)return;
+    const tgt=b.combatants.find(x=>x.id===BACT.targetId);const adv=condAdvantage(c,tgt,isMeleeMove(a));
+    const r1=rollDie(20),r2=rollDie(20);const keep=adv.mode==="adv"?Math.max(r1,r2):adv.mode==="dis"?Math.min(r1,r2):r1;
+    const bonus=parseInt(String(a.attack).replace(/[^-\d]/g,""),10)||0;
+    BACT.hit={rolls:adv.mode==="none"?[r1]:[r1,r2],keep,mode:adv.mode,bonus,total:keep+bonus,nat20:keep===20,nat1:keep===1};
+    blog(b,`${c.name} rolls to hit${tgt?" "+tgt.name:""}: ${keep+bonus}${adv.mode!=="none"?" ("+adv.mode+")":""}${keep===20?" — natural 20!":keep===1?" — natural 1":""}`);render();return;}
+  if(d.btgt){if(!BACT)return;BACT.targetIds=BACT.targetIds||[];const i=BACT.targetIds.indexOf(d.btgt);if(i>=0)BACT.targetIds.splice(i,1);else BACT.targetIds.push(d.btgt);render();return;}
   if(d.bapply){const c=curCombatant(b);if(!c||!BACT)return;const ch=actorOf(c);if(!ch)return;const a=ch.abilities.find(x=>x.id===BACT.abilityId);
-    const res=computeTotal(ch,a,BACT);const tgt=b.combatants.find(x=>x.id===BACT.targetId);if(!tgt){toast("Pick a target");return;}
+    const res=computeTotal(ch,a,BACT);
+    if(a.save&&a.save.ability){ // save-based, many targets
+      const ids=(BACT.targetIds||[]);const tg=ids.map(id=>b.combatants.find(x=>x.id===id)).filter(Boolean);
+      if(!tg.length){toast("Pick at least one target");return;}
+      if(!spendSpell(ch,a)){const si=slotInfo(ch,a);toast("No "+(si&&si.kind==="pact"?"pact slots":ordLevel(a.level)+"-level slots")+" left");return;}
+      if(autoSaves()){
+        blog(b,`${c.name} casts ${a.name} (DC ${a.save.dc} ${a.save.ability}) on ${tg.length}.`);
+        tg.forEach(t=>{const sv=rollSaveFor(t,a.save.ability,a.save.dc);const dmg=sv.ok?Math.floor(res.total/2):res.total;
+          adjustHP(b,t,-dmg);blog(b,`${t.name} ${sv.auto?"auto-fails":(sv.ok?"saves ("+sv.total+")":"fails ("+sv.total+")")} — takes ${dmg}.`);});
+        advanceTurn(b,0);render();toast(`${a.name} resolved on ${tg.length}`);return;}
+      b.pending={casterId:c.id,casterName:c.name,abilityName:a.name,ability:a.save.ability,dc:a.save.dc,total:res.total,dmgType:a.dmgType||"",targets:tg.map(t=>({id:t.id,save:null,done:null}))};
+      blog(b,`${c.name} casts ${a.name} on ${tg.map(t=>t.name).join(", ")} — DC ${a.save.dc} ${a.save.ability}. DM resolves.`);
+      advanceTurn(b,0);render();toast(`${a.name} cast — the DM resolves the saves`);return;}
+    const tgt=b.combatants.find(x=>x.id===BACT.targetId);if(!tgt){toast("Pick a target");return;}
     if(!spendSpell(ch,a)){const si=slotInfo(ch,a);toast("No "+(si&&si.kind==="pact"?"pact slots":ordLevel(a.level)+"-level slots")+" left");return;}
-    adjustHP(b,tgt,-res.total);
-    blog(b,`${c.name} hits ${tgt.name} for ${res.total}${a.dmgType?" "+a.dmgType:""}.`);advanceTurn(b,0);render();toast(`${res.total} to ${tgt.name}`);return;}
+    let total=res.total;const H=BACT.hit;
+    if(H&&H.nat20){ // critical hit (5e): roll all the damage dice again and add them
+      const die=+a.dmg.match(/d(\d+)/)[1];let extra=0;BACT.rolls.forEach(r=>r.forEach(()=>{extra+=rollDie(die);}));total+=extra;}
+    adjustHP(b,tgt,-total);
+    blog(b,`${c.name} hits ${tgt.name} for ${total}${a.dmgType?" "+a.dmgType:""}${H&&H.nat20?" (critical!)":""}.`);advanceTurn(b,0);render();toast(`${total} to ${tgt.name}`);return;}
+  if(d.bsaveroll){const P=b.pending;if(!P)return;const t=P.targets.find(x=>x.id===d.bsaveroll);const c=b.combatants.find(x=>x.id===d.bsaveroll);if(!t||!c)return;
+    t.save=rollSaveFor(c,P.ability,P.dc);blog(b,`${c.name} ${t.save.auto?"auto-fails":(t.save.ok?"saves ("+t.save.total+")":"fails ("+t.save.total+")")} vs ${P.abilityName}.`);render();return;}
+  if(d.bresolve){const P=b.pending;if(!P)return;const [tid,how]=d.bresolve.split("|");const t=P.targets.find(x=>x.id===tid);const c=b.combatants.find(x=>x.id===tid);if(!t||!c)return;
+    const dmg=how==="full"?P.total:how==="half"?Math.floor(P.total/2):0;if(dmg)adjustHP(b,c,-dmg);t.done=how==="none"?"nothing":dmg+"";
+    blog(b,`${c.name} takes ${dmg} from ${P.abilityName}.`);if(P.targets.every(x=>x.done))b.pending=null;render();return;}
+  if(d.bpendclear){b.pending=null;render();return;}
   if(d.eapply){const c=curCombatant(b);const v=parseInt(($("#eFlat")||{}).value,10)||0;const tid=(($("#eTargetSel")||{}).value)||(BACT&&BACT.targetId);
     const tgt=b.combatants.find(x=>x.id===tid);if(!tgt){toast("Pick a target");return;}
     adjustHP(b,tgt,-v);
@@ -3264,11 +3472,19 @@ document.addEventListener("change",e=>{
         const s=Math.max(W/img.width,H/img.height),w=img.width*s,h=img.height*s;x.drawImage(img,(W-w)/2,(H-h)/2,w,h);
         if(!PORTRAIT)return;PORTRAIT.url=c.toDataURL("image/jpeg",.86);PORTRAIT.status="ready";PORTRAIT.seed=null;renderPortraitStudio();};
       img.src=r.result;};r.readAsDataURL(f);return;}
+  if(e.target.id==="btlMap"){const f=e.target.files&&e.target.files[0];if(!f)return;const b=activeBattle();if(!b)return;
+    const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=()=>{ // downscale so the shared room state stays light
+        const MAX=1400;const s=Math.min(1,MAX/Math.max(img.width,img.height));const c=document.createElement("canvas");c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);
+        c.getContext("2d").drawImage(img,0,0,c.width,c.height);b.bg=c.toDataURL("image/jpeg",.8);render();toast("Battle map set");};img.src=r.result;};r.readAsDataURL(f);return;}
   if(e.target.id==="notePhoto"){const f=e.target.files&&e.target.files[0];if(!f)return;
     const r=new FileReader();r.onload=()=>{PENDING_PHOTO=r.result;const pn=$("#photoName");if(pn)pn.textContent=f.name+" attached";};r.readAsDataURL(f);return;}
   if(e.target.id==="bAbSel"){const b=migrateBattle(ensureBattle(curCamp()));const c=curCombatant(b);if(!c)return;
     const ch=actorOf(c);if(!ch)return;const a=ch.abilities.find(x=>x.id===e.target.value);BACT=null;ensureBACT(c,a);render();return;}
   if(e.target.id==="bTargetSel"){if(BACT)BACT.targetId=e.target.value;return;}
+  if(e.target.dataset&&e.target.dataset.condsel){const b=activeBattle();const camp=curCamp();if(!b)return;
+    if(STATE.cloud&&!amDM(camp)){toast("The DM sets conditions");return;}
+    const c=b.combatants.find(x=>x.id===e.target.dataset.condsel);const cd=e.target.value;if(!c||!cd)return;
+    c.conditions=c.conditions||[];if(!c.conditions.includes(cd))c.conditions.push(cd);blog(b,`${c.name} is ${cd}.`);render();return;}
   if(e.target.id==="eTargetSel"){if(BACT)BACT.targetId=e.target.value;return;}
 });
 document.addEventListener("input",e=>{
