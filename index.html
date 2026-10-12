@@ -630,6 +630,10 @@ body.tableview #screen{max-width:none;padding:14px 18px}
 .defchip{font-size:10px;padding:1px 6px;border-radius:5px;border:1px solid var(--line2);color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .defchip.immune{color:var(--ok)} .defchip.vuln{color:var(--crit)}
 .concpanel{border-color:color-mix(in srgb,var(--c-control) 50%,var(--line2))}
+.aoeblk{background:var(--bg3);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:12px} .aoeblk .lab{font-size:12px;color:var(--muted);margin-bottom:6px}
+.aoesize{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;color:var(--muted)} .aoesize input{width:52px;padding:4px 6px;font-size:13px}
+.board2 .tile.aoe{background:color-mix(in srgb,var(--c-damage) 32%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c-damage) 60%,transparent)}
+.board2.placing{cursor:crosshair;outline:2px dashed color-mix(in srgb,var(--gold) 70%,transparent)} .board2.placing .tok{pointer-events:none}
 .coinrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0 10px}
 .coin{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--faint);font-family:var(--f-mono)} .coin input{width:56px;padding:5px 6px;font-size:13px;text-align:right}
 .cointot{margin-left:auto;font-family:var(--f-mono);font-size:12px;color:var(--gold)}
@@ -2173,6 +2177,33 @@ function reviveBlocked(b,c){
   if(!b||!c||c.side!=="party"||!isDown(c))return false;
   return !b.combatants.some(o=>o.id!==c.id&&o.side==="party"&&!isDown(o)&&sameTile(o,c));
 }
+/* ---- area-of-effect templates (feet-scaled, tile-based) ---- */
+const AOE_SHAPES=[["sphere","Circle"],["cone","Cone"],["line","Line"],["cube","Square"]];
+function aoeTiles(b,aoe,origin){ // → Set of "x,y" tiles inside the template
+  const out=new Set();if(!aoe||aoe.cx==null)return out;const ft=tileFeet(b);const r=(aoe.size||0)/ft;
+  const ox=origin?origin.x:aoe.cx,oy=origin?origin.y:aoe.cy;
+  for(let y=1;y<=b.rows;y++)for(let x=1;x<=b.cols;x++){
+    const dx=x-aoe.cx,dy=y-aoe.cy;
+    if(aoe.shape==="sphere"){if(Math.hypot(dx,dy)<=r+0.01)out.add(x+","+y);}
+    else if(aoe.shape==="cube"){if(Math.max(Math.abs(dx),Math.abs(dy))<=r/2+0.01)out.add(x+","+y);}
+    else { // cone / line start at the caster and point at the tapped tile
+      const vx=aoe.cx-ox,vy=aoe.cy-oy;const len=Math.hypot(vx,vy)||1;const ux=vx/len,uy=vy/len;
+      const px=x-ox,py=y-oy;const along=px*ux+py*uy;const perp=Math.abs(px*uy-py*ux);
+      if(along<0.5)continue;
+      if(aoe.shape==="cone"){if(along<=r+0.01&&perp<=along/2+0.01)out.add(x+","+y);}
+      else if(aoe.shape==="line"){const w=(aoe.width||5)/ft;if(along<=r+0.01&&perp<=w/2+0.01)out.add(x+","+y);}
+    }}
+  return out;
+}
+function aoeTargets(b,aoe,origin){const tiles=aoeTiles(b,aoe,origin);return b.combatants.filter(c=>tiles.has(c.x+","+c.y)&&(!origin||c.id!==origin.id)).map(c=>c.id);}
+const AOE_BY_NAME={"fireball":["sphere",20],"burning hands":["cone",15],"lightning bolt":["line",100],"thunderwave":["cube",15],"cone of cold":["cone",60],"shatter":["sphere",10],"spirit guardians":["sphere",15],"earth tremor":["sphere",10],"web":["cube",20],"hypnotic pattern":["cube",30],"sleep":["sphere",20],"fear":["cone",30],"ice storm":["sphere",20],"fire storm":["cube",10],"flame strike":["sphere",10],"sunburst":["sphere",60],"meteor swarm":["sphere",40],"cloudkill":["sphere",20],"stinking cloud":["sphere",20],"entangle":["cube",20],"grease":["cube",10],"faerie fire":["cube",20],"color spray":["cone",15],"sacred flame":["sphere",5],"spike growth":["sphere",20],"sleet storm":["sphere",40],"wall of fire":["line",60],"blade barrier":["line",100],"circle of death":["sphere",60],"delayed blast fireball":["sphere",20],"chain lightning":["sphere",5],"acid splash":["sphere",5],"thunderclap":["cube",5],"word of radiance":["sphere",5],"mass healing word":["sphere",30],"aura of vitality":["sphere",30],"destructive wave":["sphere",30],"holy aura":["sphere",30],"calm emotions":["sphere",20],"silence":["sphere",20],"darkness":["sphere",15],"fog cloud":["sphere",20],"moonbeam":["sphere",5],"call lightning":["sphere",5],"flaming sphere":["sphere",5],"plant growth":["sphere",100],"gust of wind":["line",60],"breath weapon":["cone",15],"dragon's breath":["cone",15]};
+function aoeBlock(b,c,a,st){ // UI for placing a template; st.aoe={shape,size,width,cx,cy,placing}
+  let d=a.aoe||null;if(!d){const k=AOE_BY_NAME[(a.name||"").toLowerCase()];if(k)d={type:k[0],size:k[1]};}d=d||{};if(!st.aoe)st.aoe={shape:d.type||"sphere",size:d.size||20,width:5,cx:null,cy:null,placing:false};const A=st.aoe;
+  return `<div class="aoeblk"><div class="lab">Area <small style="color:var(--faint)">tap a tile on the board to place it — targets inside get ticked</small></div>
+    <div class="chiprow">${AOE_SHAPES.map(([k,l])=>`<button class="chip ${A.shape===k?"on":""}" data-aoeshape="${k}">${l}</button>`).join("")}
+      <span class="aoesize"><input inputmode="numeric" id="aoeSize" value="${A.size}"> ft${A.shape==="line"?` × <input inputmode="numeric" id="aoeWidth" value="${A.width}" style="width:44px"> ft`:""}</span>
+      <button class="btn sm ${A.placing?"gold":""}" data-aoeplace="1">${A.placing?"Tap the board…":A.cx!=null?"Move it":"Place on board"}</button>${A.cx!=null?`<button class="btn sm ghost" data-aoeclear="1">Clear</button>`:""}</div></div>`;
+}
 function moveCombatant(b,c,x,y,fx,fy){
   const from={x:c.x,y:c.y,fx:c.fx||0,fy:c.fy||0};
   c.x=x;c.y=y;if(b.mode==="free"){c.fx=fx||0;c.fy=fy||0;}else{c.fx=0;c.fy=0;}
@@ -2250,12 +2281,16 @@ function boardHTML(b,isDM,me){
   board.style.aspectRatio=`${b.cols} / ${b.rows}`;
   if(b.bg)board.style.backgroundImage=`url(${b.bg})`;
   board.dataset.boardsurface="1";
+  // area template in play (current actor's pending cast)
+  const curC=b.phase==="active"?curCombatant(b):null;const A=(BACT&&curC&&BACT.combatantId===curC.id&&BACT.aoe)?BACT.aoe:null;
+  const aoeSet=A&&A.cx!=null?aoeTiles(b,A,(A.shape==="cone"||A.shape==="line")?curC:null):new Set();
+  if(A&&A.placing)board.classList.add("placing");
   // tiles (grid mode: tap targets + reach highlight)
   let cells="";
   const reach=(mover&&!free&&b.phase==="active")?Math.floor(Math.max(0,speedOf(mover)-(mover.movedFt||0))/ft):null;
   for(let y=1;y<=b.rows;y++)for(let x=1;x<=b.cols;x++){
     const occ=b.combatants.filter(c=>c.x===x&&c.y===y);
-    let cl="tile";
+    let cl="tile";if(aoeSet.has(x+","+y))cl+=" aoe";
     if(mover){const d=Math.max(Math.abs(mover.x-x),Math.abs(mover.y-y));
       if(reach!=null&&d<=reach&&d>0)cl+=" inreach";
       if(occ.length===0||occ.every(o=>isDown(o)&&o.side==="party"&&o.id!==mover.id))cl+=" tgt";}
@@ -2569,8 +2604,9 @@ function partyActionForm(b,c,isDM){
   if(a.bonus)html+=`<div class="modrow"><div class="lab">${esc(a.bonus.toggle)}<small>${esc(a.bonus.why)}</small></div><span class="val">+${a.bonus.dice}</span><button class="sw ${st.bonusOn?"on":""}" data-bbonus="1"></button></div>`;
   const targets=b.combatants.filter(x=>x.id!==c.id);
   const res=computeTotal(ch,a,st);
-  if(a.save&&a.save.ability){ // ---- save-based: pick several targets ----
+  if(a.save&&a.save.ability){ // ---- save-based: pick several targets, or drop a template ----
     if(!st.targetIds)st.targetIds=targets.filter(x=>x.side==="enemy").map(x=>x.id);
+    html+=aoeBlock(b,c,a,st);
     html+=`<div class="field" style="margin-top:12px"><label>Targets · ${esc(a.save.ability)} save, DC ${a.save.dc}</label><div class="tgtlist">`+
       targets.map(x=>`<label class="tgtrow ${st.targetIds.includes(x.id)?"on":""}"><input type="checkbox" data-btgt="${x.id}" ${st.targetIds.includes(x.id)?"checked":""}><span class="token sm" style="${tokenBG(x)}">${esc(x.token)}</span><span>${esc(x.name)}<small>${x.side==="enemy"?"enemy":"ally"} · ${Math.round(tileDist(b,c,x))} ft</small></span></label>`).join("")+`</div></div>`;
     html+=`<div class="total" style="margin-top:4px"><div class="grand"><span class="cap">${esc(a.dmgType||"damage")} on a failed save</span><span class="n btot">${res.total}</span></div></div>`;
@@ -2638,6 +2674,7 @@ function enemyActionForm(b,c,isDM){
     const dice=m.dmg?m.dmg.match(/(\d+)d(\d+)/):null;
     if(m.save&&m.save.ability){ // save-based monster action → party targets
       if(!BACT.targetIds)BACT.targetIds=targets.filter(x=>x.side==="party"&&!isDown(x)).map(x=>x.id);
+      html+=aoeBlock(b,c,m,BACT);
       html+=`<div class="field" style="margin-top:10px"><label>Targets · ${esc(m.save.ability)} save, DC ${m.save.dc}</label><div class="tgtlist">`+
         targets.map(x=>`<label class="tgtrow ${BACT.targetIds.includes(x.id)?"on":""}"><input type="checkbox" data-btgt="${x.id}" ${BACT.targetIds.includes(x.id)?"checked":""}><span class="token sm" style="${tokenBG(x)}">${esc(x.token)}</span><span>${esc(x.name)}<small>${Math.round(tileDist(b,c,x))} ft</small></span></label>`).join("")+`</div></div>`;
     }else{
@@ -2762,6 +2799,7 @@ async function monDetail(index){
     if(d){const mm=d.damage_dice.match(/(\d+)d(\d+)(?:\s*([+-])\s*(\d+))?/);if(mm){m.dmg=mm[1]+"d"+mm[2];m.flatPer=mm[3]?(mm[3]==="-"?-1:1)*(+mm[4]):0;}
       m.dmgType=(d.damage_type&&d.damage_type.name||"").toLowerCase();}
     const dc=ac.dc||(d&&d.dc);if(dc&&dc.dc_type)m.save={ability:(dc.dc_type.name||"").slice(0,3).toUpperCase(),dc:dc.dc_value};
+    const am=(ac.desc||"").match(/(\d+)-foot[- ](cone|line|radius|cube|sphere)/i);if(am){const t=am[2].toLowerCase();m.aoe={type:t==="radius"?"sphere":t,size:+am[1]};}
     moves.push(m);});
   const low=a=>(a||[]).map(x=>String(x).toLowerCase());
   const mon={index:j.index,name:j.name,hp:j.hit_points,ac:Array.isArray(j.armor_class)?(j.armor_class[0]&&j.armor_class[0].value)||10:(j.armor_class||10),resist:low(j.damage_resistances),immune:low(j.damage_immunities),vuln:low(j.damage_vulnerabilities),condImmune:low((j.condition_immunities||[]).map(x=>x.name)),
@@ -3716,6 +3754,7 @@ async function wizFinalize(wiz){
       if(dice){const mm=String(dice).match(/(\d+)d(\d+)(?:\s*\+\s*(\d+))?/);if(mm){if(/missile/i.test(sp.name)&&+mm[1]>1){o.dmg="1d"+mm[2];o.instances=+mm[1];o.flatPer=1;}else{o.dmg=mm[1]+"d"+mm[2];if(mm[3])o.flatPer=+mm[3];}}}
       const heal=sp.heal_at_slot_level;if(heal&&!dice){const hv=heal[String(L||1)]||Object.values(heal)[0];if(hv)o.text="Heals "+hv.replace("MOD","+ spellcasting mod")+". ";}
       if(sp.dc&&sp.dc.dc_type)o.save={ability:(sp.dc.dc_type.name||"").toUpperCase().slice(0,3),dc};
+      if(sp.area_of_effect)o.aoe={type:sp.area_of_effect.type==="cylinder"?"sphere":sp.area_of_effect.type,size:sp.area_of_effect.size};
       if(sp.attack_type)o.attack=(atk>=0?"+":"")+atk;
       const nm=sp.name;o.type=o.dmg?"damage":heal?"support":DEF_RE_W.test(nm)?"defense":MOVE_RE_W.test(nm)?"movement":/(hold|sleep|web|entangle|command|charm|fear|slow|banish|hypnotic|grease|blind|suggestion)/i.test(nm)?"control":"utility";
       const meta=[sp.range,sp.concentration?"concentration":"",sp.ritual?"ritual":"",sp.duration&&sp.duration!=="Instantaneous"?sp.duration:""].filter(Boolean).join(" · ");
@@ -4155,7 +4194,7 @@ function liveCalc(ch,a,st){
 
 /* battle + lore events */
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-newroom],[data-newroomsave],[data-roomsel],[data-roomend],[data-addplayer],[data-addplayersave],[data-endbtl],[data-addenemy],[data-addenemysave],[data-nextturn],[data-cell],[data-selbtl],[data-dmgc],[data-revhp],[data-revac],[data-rmc],[data-brollinit],[data-rollallinit],[data-begincombat],[data-reroll],[data-reup],[data-redn],[data-passturn],[data-bmove],[data-bmovefilter],[data-buse],[data-ballroll],[data-bclear],[data-bmod],[data-bperinst],[data-bbonus],[data-bapply],[data-eapply],[data-cond],[data-adddot],[data-dotsave],[data-rmdot],[data-bfeet],[data-bmode],[data-bclearmap],[data-bsettingsave],[data-undo],[data-defs],[data-defsave],[data-concroll],[data-concdrop],[data-conckeep],[data-enaddmove],[data-enrmmove],[data-monpick],[data-emove],[data-ehit],[data-eroll],[data-bgridopen],[data-bhit],[data-btgt],[data-bsaveroll],[data-bresolve],[data-bpendclear]");
+  const t=e.target.closest("[data-newroom],[data-newroomsave],[data-roomsel],[data-roomend],[data-addplayer],[data-addplayersave],[data-endbtl],[data-addenemy],[data-addenemysave],[data-nextturn],[data-cell],[data-selbtl],[data-dmgc],[data-revhp],[data-revac],[data-rmc],[data-brollinit],[data-rollallinit],[data-begincombat],[data-reroll],[data-reup],[data-redn],[data-passturn],[data-bmove],[data-bmovefilter],[data-buse],[data-ballroll],[data-bclear],[data-bmod],[data-bperinst],[data-bbonus],[data-bapply],[data-eapply],[data-cond],[data-adddot],[data-dotsave],[data-rmdot],[data-bfeet],[data-bmode],[data-bclearmap],[data-bsettingsave],[data-undo],[data-defs],[data-defsave],[data-concroll],[data-concdrop],[data-conckeep],[data-aoeshape],[data-aoeplace],[data-aoeclear],[data-enaddmove],[data-enrmmove],[data-monpick],[data-emove],[data-ehit],[data-eroll],[data-bgridopen],[data-bhit],[data-btgt],[data-bsaveroll],[data-bresolve],[data-bpendclear]");
   if(!t)return;const d=t.dataset;const camp=curCamp();
   const isDM=STATE.cloud?amDM(camp):(STATE.ui.viewAs==="dm"); // host authority (DM keeps it even while viewing a PC)
   // room management (DM) — resolved before we need a battle
@@ -4171,7 +4210,7 @@ document.addEventListener("click",e=>{
   const mayAct=b?canAct(b,isDM):false;
   if(STATE.cloud&&!isDM&&b){
     const HOST_ONLY={endbtl:1,roomend:1,addplayer:1,addplayersave:1,reroll:1,rollallinit:1,begincombat:1,reup:1,redn:1,nextturn:1,addenemy:1,addenemysave:1,revhp:1,revac:1,rmc:1,cond:1,adddot:1,dotsave:1,rmdot:1,bfeet:1,bmode:1,bclearmap:1,bsettingsave:1,bresolve:1,bpendclear:1,undo:1,defs:1,defsave:1,conckeep:1};
-    const TURN={bmove:1,bmovefilter:1,buse:1,ballroll:1,bclear:1,bmod:1,bperinst:1,bbonus:1,bapply:1,eapply:1,passturn:1,bhit:1,btgt:1,emove:1,ehit:1,eroll:1,bgridopen:1};
+    const TURN={bmove:1,bmovefilter:1,buse:1,ballroll:1,bclear:1,bmod:1,bperinst:1,bbonus:1,bapply:1,eapply:1,passturn:1,bhit:1,btgt:1,emove:1,ehit:1,eroll:1,bgridopen:1,aoeshape:1,aoeplace:1,aoeclear:1};
     for(const k in d){if(HOST_ONLY[k]){toast("The DM runs the encounter");return;}}
     let needsTurn=false;for(const k in d){if(TURN[k])needsTurn=true;}
     if(needsTurn&&!mayAct){const c=curCombatant(b);toast(c?`Hang tight — it's ${c.name.split(" ")[0]}'s turn`:"Wait for your turn");return;}
@@ -4209,6 +4248,8 @@ document.addEventListener("click",e=>{
   if(d.enaddmove){const box=$("#enMoves");if(box){const i=box.children.length;box.insertAdjacentHTML("beforeend",enemyMoveRow({},i));}return;}
   if(d.enrmmove!=null){const row=t.closest(".enmove");if(row)row.remove();return;}
   if(d.monpick){monPick(d.monpick);return;}
+  if(d.cell&&BACT&&BACT.aoe&&BACT.aoe.placing){const [x,y]=d.cell.split(",").map(Number);const c=curCombatant(b);if(!c||BACT.combatantId!==c.id)return;
+    const A=BACT.aoe;A.cx=x;A.cy=y;A.placing=false;const ids=aoeTargets(b,A,(A.shape==="cone"||A.shape==="line")?c:null);BACT.targetIds=ids;render();toast(ids.length?`${ids.length} in the area`:"No one in the area");return;}
   if(d.cell){if(!b.selId)return;const [x,y]=d.cell.split(",").map(Number);
     const c=b.combatants.find(c=>c.id===b.selId);if(!c)return;
     const occ=b.combatants.filter(o=>o.x===x&&o.y===y&&o.id!==c.id);
@@ -4276,6 +4317,10 @@ document.addEventListener("click",e=>{
     const bonus=parseInt(String(a.attack).replace(/[^-\d]/g,""),10)||0;
     BACT.hit={rolls:adv.mode==="none"?[r1]:[r1,r2],keep,mode:adv.mode,bonus,total:keep+bonus,nat20:keep===20,nat1:keep===1};
     blog(b,`${c.name} rolls to hit${tgt?" "+tgt.name:""}: ${keep+bonus}${adv.mode!=="none"?" ("+adv.mode+")":""}${keep===20?" — natural 20!":keep===1?" — natural 1":""}`);render();return;}
+  if(d.aoeshape){if(!BACT||!BACT.aoe)return;BACT.aoe.shape=d.aoeshape;BACT.aoe.cx=null;render();return;}
+  if(d.aoeplace){if(!BACT||!BACT.aoe)return;const sz=$("#aoeSize");if(sz)BACT.aoe.size=Math.max(5,parseInt(sz.value,10)||BACT.aoe.size);const wd=$("#aoeWidth");if(wd)BACT.aoe.width=Math.max(5,parseInt(wd.value,10)||5);BACT.aoe.placing=!BACT.aoe.placing;render();
+    if(BACT.aoe.placing){const bd=document.querySelector(".board2");if(bd)bd.scrollIntoView({behavior:"smooth",block:"center"});}return;}
+  if(d.aoeclear){if(!BACT||!BACT.aoe)return;BACT.aoe.cx=null;BACT.aoe.placing=false;render();return;}
   if(d.btgt){if(!BACT)return;BACT.targetIds=BACT.targetIds||[];const i=BACT.targetIds.indexOf(d.btgt);if(i>=0)BACT.targetIds.splice(i,1);else BACT.targetIds.push(d.btgt);render();return;}
   if(d.bapply){const c=curCombatant(b);if(!c||!BACT)return;const ch=actorOf(c);if(!ch)return;const a=ch.abilities.find(x=>x.id===BACT.abilityId);
     const res=computeTotal(ch,a,BACT);
