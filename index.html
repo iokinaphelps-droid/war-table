@@ -1092,6 +1092,42 @@ function mod(score){const m=Math.floor((score-10)/2);return (m>=0?"+":"")+m;}
 function modN(score){return Math.floor((score-10)/2);}
 function uid(p){return p+"_"+Math.random().toString(36).slice(2,8);}
 function ordLevel(n){return n===1?"1st":n===2?"2nd":n===3?"3rd":n+"th";} // D&D spell-level wording
+/* ---- 5e spell slots ---- */
+const FULL_SLOTS={1:[2],2:[3],3:[4,2],4:[4,3],5:[4,3,2],6:[4,3,3],7:[4,3,3,1],8:[4,3,3,2],
+  9:[4,3,3,3,1],10:[4,3,3,3,2],11:[4,3,3,3,2,1],12:[4,3,3,3,2,1],13:[4,3,3,3,2,1,1],14:[4,3,3,3,2,1,1],
+  15:[4,3,3,3,2,1,1,1],16:[4,3,3,3,2,1,1,1],17:[4,3,3,3,2,1,1,1,1],18:[4,3,3,3,3,1,1,1,1],
+  19:[4,3,3,3,3,2,1,1,1],20:[4,3,3,3,3,2,2,1,1]};
+function casterType(ch){const c=(ch.cls||"").toLowerCase();
+  if(/warlock/.test(c))return "pact";
+  if(/(druid|wizard|cleric|sorcerer|bard)/.test(c))return "full";
+  if(/(ranger|paladin|artificer)/.test(c))return "half";
+  return "none";}
+function ensureSlots(ch){
+  if(ch.slots)return ch.slots;
+  const t=casterType(ch);ch.slots={};
+  if(t==="full"||t==="half"){let lvl=ch.level||1;if(t==="half")lvl=Math.max(1,Math.floor(lvl/2));
+    (FULL_SLOTS[Math.min(20,lvl)]||[]).forEach((n,i)=>{ch.slots[i+1]={max:n,cur:n};});}
+  return ch.slots;}
+function isLeveledSpell(a){return !!(a&&!a.passive&&a.level>=1&&/level/i.test(a.source||""));} // "1st-level" etc.
+function slotInfo(ch,a){ // {kind:'pact'|'slot', cur, max, level?} for a slot-using spell, else null
+  if(!isLeveledSpell(a))return null;
+  if(casterType(ch)==="pact"){const c=ch.charges&&ch.charges.pact;return c?{kind:"pact",cur:c.cur,max:c.max}:null;}
+  const slots=ensureSlots(ch);
+  for(let L=a.level;L<=9;L++){if(slots[L])return {kind:"slot",level:L,cur:slots[L].cur,max:slots[L].max};}
+  return null;}
+function spendSpell(ch,a){ // returns false only when cooldowns enforced and nothing available
+  const camp=curCamp();if(camp&&camp.settings&&camp.settings.cooldowns===false)return true;
+  if(a.charge)return spendCharge(ch,a.charge);
+  if(casterType(ch)==="pact"&&isLeveledSpell(a))return spendCharge(ch,"pact");
+  if(!isLeveledSpell(a))return true;
+  const slots=ensureSlots(ch);
+  for(let L=a.level;L<=9;L++){if(slots[L]&&slots[L].cur>0){slots[L].cur--;return true;}}
+  return false;}
+function spellUsesLabel(ch,a){
+  if(a.charge&&ch.charges&&ch.charges[a.charge]){const c=ch.charges[a.charge];return `${c.cur}/${c.max} ${c.label}`;}
+  const si=slotInfo(ch,a);
+  if(!si)return "At will";
+  return si.kind==="pact"?`${si.cur}/${si.max} Pact Slots`:`${si.cur}/${si.max} ${ordLevel(si.level)} slots`;}
 function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show");
   clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove("show"),1900);}
 function curCamp(){return STATE.campaigns[STATE.ui.campId];}
@@ -2180,8 +2216,7 @@ function partyActionForm(b,c){
     present.map(t=>`<button class="chip ${filt===t?"on":""}" data-bmovefilter="${t}" style="--_c:var(--c-${t})">${t[0].toUpperCase()+t.slice(1)}</button>`).join("")+`</div>
     <div class="movegrid">`+
     shown.map(x=>{const sel=x.id===a.id;
-      const slot=(x.charge&&ch.charges&&ch.charges[x.charge]);
-      const uses=slot?`${slot.cur}/${slot.max} ${slot.label}`:"At will";      // D&D terms, not "PP"
+      const uses=spellUsesLabel(ch,x);                                        // D&D terms: At will / x/y slots
       const kind=x.source||(x.level===0?"Cantrip":x.level>0?ordLevel(x.level)+" spell":"Feature");
       const dice=x.dmg?((x.instances>1?x.instances+" × ":"")+x.dmg+(x.flatPer?" + "+x.flatPer:"")+(x.dmgType?" "+x.dmgType:"")):"no attack roll";
       return `<button class="movebtn ${sel?"on":""}" data-bmove="${x.id}" style="--mt:var(--c-${x.type})">
@@ -2927,7 +2962,8 @@ function doRest(kind){
       if(kind==="long")c.cur=c.max;
       else if(c.recharge==="short")c.cur=c.max;
     });
-    if(kind==="long"){ch.hp=ch.maxHP;ch.tempHP=0;}
+    if(kind==="long"){ch.hp=ch.maxHP;ch.tempHP=0;
+      if(ch.slots)Object.values(ch.slots).forEach(s=>s.cur=s.max);} // spell slots refill on a long rest
   });
   toast(kind==="long"?"Long rest — party restored":"Short rest — short-rest charges back");
   render();
@@ -3129,9 +3165,11 @@ document.addEventListener("click",e=>{
   if(d.bperinst){if(BACT)BACT.perInstance=!BACT.perInstance;render();return;}
   if(d.bbonus){if(BACT){BACT.bonusOn=!BACT.bonusOn;BACT._bonusRoll=null;}render();return;}
   if(d.buse){const c=curCombatant(b);if(!c)return;const ch=actorOf(c);const a=ch&&(ch.abilities||[]).find(x=>x.id===d.buse);
+    if(ch&&a&&!spendSpell(ch,a)){toast("No "+(slotInfo(ch,a)&&slotInfo(ch,a).kind==="pact"?"pact slots":ordLevel(a.level)+"-level slots")+" left");return;}
     blog(b,`${c.name} uses ${a?a.name:"an action"}.`);advanceTurn(b,0);render();toast(a?a.name+" used":"Action used");return;}
   if(d.bapply){const c=curCombatant(b);if(!c||!BACT)return;const ch=actorOf(c);if(!ch)return;const a=ch.abilities.find(x=>x.id===BACT.abilityId);
     const res=computeTotal(ch,a,BACT);const tgt=b.combatants.find(x=>x.id===BACT.targetId);if(!tgt){toast("Pick a target");return;}
+    if(!spendSpell(ch,a)){const si=slotInfo(ch,a);toast("No "+(si&&si.kind==="pact"?"pact slots":ordLevel(a.level)+"-level slots")+" left");return;}
     adjustHP(b,tgt,-res.total);
     blog(b,`${c.name} hits ${tgt.name} for ${res.total}${a.dmgType?" "+a.dmgType:""}.`);advanceTurn(b,0);render();toast(`${res.total} to ${tgt.name}`);return;}
   if(d.eapply){const c=curCombatant(b);const v=parseInt(($("#eFlat")||{}).value,10)||0;const tid=(($("#eTargetSel")||{}).value)||(BACT&&BACT.targetId);
