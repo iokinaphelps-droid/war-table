@@ -596,6 +596,10 @@ select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px
 .jl .t{font-family:var(--f-mono);font-size:11px;color:var(--faint);flex:none} .jl .x{flex:1} .jl .r{font-size:10.5px;color:var(--faint);font-family:var(--f-mono)}
 .recapnote{border-color:color-mix(in srgb,var(--gold) 40%,var(--line))} .ctxnote{border-style:dashed}
 .fbbox{display:flex;flex-direction:column;gap:10px;margin-bottom:24px}
+.asirow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:13px} .asirow .al{font-family:var(--f-mono);font-size:11px;color:var(--faint);width:40px}
+.asirow select{width:auto;padding:6px 8px;font-size:13px}
+.spellsec{margin-top:12px} .gcat{color:var(--faint);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;align-self:center;margin-right:4px;min-width:92px}
+.chip small{opacity:.7;font-size:10.5px;margin-left:3px}
 .fbf{display:grid;grid-template-columns:70px 1fr;gap:8px;font-size:13.5px;padding:4px 0;border-top:1px solid var(--line)} .fbf .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);padding-top:3px} .fbf .v{white-space:pre-wrap}
 .prefrow{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted);margin-top:8px;background:var(--bg3);border:1px solid var(--line);border-radius:10px;padding:6px 8px}
 .prefrow img{width:40px;height:40px;object-fit:cover;border-radius:7px}
@@ -3192,89 +3196,220 @@ const SKILL_ABILITY={Athletics:"str",Acrobatics:"dex","Sleight of Hand":"dex",St
 const ALL_SKILLS=Object.keys(SKILL_ABILITY);
 const STD_ARRAY=[15,14,13,12,10,8];
 const POINT_COST={8:0,9:1,10:2,11:3,12:4,13:5,14:7,15:9};
-const WIZ_STEPS=["Race","Class","Background","Abilities","Skills","Details","Review"];
 
-function newWiz(){return {step:0,race:null,cls:null,bg:null,method:"array",
-  assign:{str:"",dex:"",con:"",int:"",wis:"",cha:""},pb:{str:8,dex:8,con:8,int:8,wis:8,cha:8},
-  classSkills:[],raceSkills:[],heAsi:[],name:"",player:STATE.user?STATE.user.name:"",appearance:"",role:"",color:"#7a4fd0",portrait:null,portraitSeed:null};}
-function openWizard(){STATE.ui.wiz=newWiz();STATE.ui.wizReturn=STATE.ui.screen;STATE.ui.screen="wizard";render();}
+/* ============================ 5e SRD data (dnd5eapi.co, CORS-open, cached) ============================ */
+const D5E={base:"https://www.dnd5eapi.co",mem:{},
+  async get(path){ // path like "/api/classes/wizard"
+    if(D5E.mem[path])return D5E.mem[path];
+    const key="d5e:"+path;
+    try{const raw=localStorage.getItem(key);if(raw){const j=JSON.parse(raw);D5E.mem[path]=j;return j;}}catch(e){}
+    const r=await fetch(D5E.base+path);if(!r.ok)throw new Error("SRD "+r.status);
+    const j=await r.json();D5E.mem[path]=j;try{localStorage.setItem(key,JSON.stringify(j));}catch(e){}
+    return j;
+  },
+  async many(paths,limit){ // small parallel fetch pool
+    const out=new Array(paths.length);let i=0;
+    const worker=async()=>{while(i<paths.length){const k=i++;try{out[k]=await D5E.get(paths[k]);}catch(e){out[k]=null;}}};
+    await Promise.all(Array.from({length:Math.min(limit||6,paths.length)},worker));return out;
+  },
+  idx(name){return String(name||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");},
+};
+const CLASS_IDX={Barbarian:"barbarian",Bard:"bard",Cleric:"cleric",Druid:"druid",Fighter:"fighter",Monk:"monk",Paladin:"paladin",Ranger:"ranger",Rogue:"rogue",Sorcerer:"sorcerer",Warlock:"warlock",Wizard:"wizard"};
+const SUBCLASS_LEVEL={Cleric:1,Sorcerer:1,Warlock:1,Druid:2,Wizard:2};             // everyone else picks at 3
+const PREPARED_CLASSES={Cleric:"wis",Druid:"wis",Paladin:"cha",Wizard:"int"};          // prepare = mod + level (paladin: half)
+const UNARMORED={Barbarian:"con",Monk:"wis"};
+
+/* ============================ guided builder (DDB-style: pick, don't type) ============================ */
+function newWiz(){return {step:0,race:null,cls:null,level:1,subclass:null,bg:null,method:"array",
+  assign:{str:"",dex:"",con:"",int:"",wis:"",cha:""},pb:{str:8,dex:8,con:8,int:8,wis:8,cha:8},asi:[],
+  classSkills:[],raceSkills:[],heAsi:[],cantrips:[],spells:[],armor:null,shield:false,weapons:[],
+  name:"",player:STATE.user?STATE.user.name:"",appearance:"",role:"",color:"#7a4fd0",portrait:null,portraitSeed:null,
+  data:{},loading:{},err:null};}
+function openWizard(){STATE.ui.wiz=newWiz();STATE.ui.wizReturn=STATE.ui.screen;STATE.ui.screen="wizard";render();wizLoadGear();}
+
+/* data loading — kicked off when a class is picked; re-renders when it lands */
+function wizLoadClass(wiz){
+  const ci=CLASS_IDX[wiz.cls];if(!ci||wiz.data["cls:"+ci]!==undefined||wiz.loading["cls:"+ci])return;
+  wiz.loading["cls:"+ci]=true;
+  Promise.all([D5E.get(`/api/classes/${ci}`),D5E.get(`/api/classes/${ci}/levels`),D5E.get(`/api/classes/${ci}/spells`).catch(()=>({results:[]}))])
+    .then(([cls,levels,spells])=>{wiz.data["cls:"+ci]={cls,levels,spells:(spells.results||[])};})
+    .catch(e=>{wiz.data["cls:"+ci]=false;wiz.err="Couldn't reach the SRD service — building from the built-in tables instead.";})
+    .finally(()=>{delete wiz.loading["cls:"+ci];if(STATE.ui.wiz===wiz)render();});
+}
+function wizLoadSubclass(wiz){
+  const sc=wiz.subclass;if(!sc||wiz.data["sub:"+sc]!==undefined||wiz.loading["sub:"+sc])return;
+  wiz.loading["sub:"+sc]=true;
+  D5E.get(`/api/subclasses/${sc}/levels`).then(lv=>{wiz.data["sub:"+sc]=lv;}).catch(()=>{wiz.data["sub:"+sc]=false;}).finally(()=>{delete wiz.loading["sub:"+sc];if(STATE.ui.wiz===wiz)render();});
+}
+let GEAR=null; // {armor:[...], weapons:[...]} from the SRD, loaded once
+function wizLoadGear(){
+  if(GEAR||wizLoadGear._busy||wizLoadGear._failed)return;wizLoadGear._busy=true;
+  Promise.all([D5E.get("/api/equipment-categories/armor"),D5E.get("/api/equipment-categories/weapon")]).then(async([a,w])=>{
+    const ap=(a.equipment||[]).map(x=>x.url.replace(/^\/api/,"/api"));const wp=(w.equipment||[]).map(x=>x.url);
+    const [ad,wd]=await Promise.all([D5E.many(ap,8),D5E.many(wp,8)]);
+    GEAR={armor:ad.filter(Boolean).map(x=>({index:x.index,name:x.name,cat:(x.armor_category||"").toLowerCase(),base:x.armor_class&&x.armor_class.base,dex:!!(x.armor_class&&x.armor_class.dex_bonus),max:x.armor_class&&x.armor_class.max_bonus,str:x.str_minimum||0,stealth:!!x.stealth_disadvantage,cost:x.cost?x.cost.quantity+" "+x.cost.unit:""})),
+      weapons:wd.filter(Boolean).filter(x=>x.damage).map(x=>({index:x.index,name:x.name,cat:(x.weapon_category||"").toLowerCase(),range:(x.weapon_range||"").toLowerCase(),dmg:x.damage.damage_dice,dtype:(x.damage.damage_type&&x.damage.damage_type.name||"").toLowerCase(),props:(x.properties||[]).map(p=>p.name),cost:x.cost?x.cost.quantity+" "+x.cost.unit:""}))};
+  }).catch(()=>{wizLoadGear._failed=true;}).finally(()=>{wizLoadGear._busy=false;if(STATE.ui.wiz)render();});
+}
+function wizClassData(wiz){return wiz.data["cls:"+CLASS_IDX[wiz.cls]]||null;}
+function wizLevelRow(wiz){const d=wizClassData(wiz);if(!d)return null;return (d.levels||[]).find(l=>l.level===wiz.level)||null;}
+function wizSubclassLevel(wiz){return SUBCLASS_LEVEL[wiz.cls]||3;}
+function wizIsCaster(wiz){const d=wizClassData(wiz);if(d){const r=wizLevelRow(wiz);return !!(r&&r.spellcasting);}return !!(SRD.classes[wiz.cls]&&SRD.classes[wiz.cls].spell);}
+function wizSteps(wiz){const s=["Race","Class","Background","Abilities","Skills"];if(wizIsCaster(wiz))s.push("Spells");s.push("Gear","Details","Review");return s;}
+function wizStepName(wiz){return wizSteps(wiz)[wiz.step];}
+function wizProf(wiz){const r=wizLevelRow(wiz);return r&&r.prof_bonus||(2+Math.floor((wiz.level-1)/4));}
+function wizAsiCount(wiz){const r=wizLevelRow(wiz);if(r&&r.ability_score_bonuses!=null)return r.ability_score_bonuses;
+  return [4,8,12,16,19].filter(l=>l<=wiz.level).length+((wiz.cls==="Fighter"?[6,14]:wiz.cls==="Rogue"?[10]:[]).filter(l=>l<=wiz.level).length);}
 
 function wizBaseScores(wiz){ // scores before racial ASI
   const s={};
-  if(wiz.method==="array"){ABIL6.forEach(a=>{const v=parseInt(wiz.assign[a],10);s[a]=isNaN(v)?10:v;});}
-  else if(wiz.method==="pointbuy"){ABIL6.forEach(a=>s[a]=wiz.pb[a]);}
+  if(wiz.method==="pointbuy"){ABIL6.forEach(a=>s[a]=wiz.pb[a]);}
   else {ABIL6.forEach(a=>{const v=parseInt(wiz.assign[a],10);s[a]=isNaN(v)?10:v;});}
   return s;
 }
 function wizFinalScores(wiz){
   const s=wizBaseScores(wiz);const r=SRD.races[wiz.race];
-  if(r){Object.entries(r.asi||{}).forEach(([a,v])=>s[a]+=v); (wiz.heAsi||[]).forEach(a=>s[a]+=1);}
+  if(r){Object.entries(r.asi||{}).forEach(([a,v])=>s[a]+=v);(wiz.heAsi||[]).forEach(a=>s[a]+=1);}
+  (wiz.asi||[]).forEach(x=>{if(x&&x.a)s[x.a]+=1;if(x&&x.b)s[x.b]+=1;});
+  ABIL6.forEach(a=>s[a]=Math.min(20,s[a]));
   return s;
 }
-function wizSkills(wiz){ // merged skill proficiencies
+function wizSkills(wiz){
   const set=new Set();
   const r=SRD.races[wiz.race];if(r&&r.skills)r.skills.forEach(x=>set.add(x));
-  (wiz.raceSkills||[]).forEach(x=>set.add(x));
-  (wiz.classSkills||[]).forEach(x=>set.add(x));
+  (wiz.raceSkills||[]).forEach(x=>set.add(x));(wiz.classSkills||[]).forEach(x=>set.add(x));
   const bg=SRD.backgrounds[wiz.bg];if(bg)bg.skills.forEach(x=>set.add(x));
   return [...set];
 }
-function wizToChar(wiz){
+/* spell limits for this class/level, from the SRD level table */
+function wizSpellLimits(wiz){
+  const r=wizLevelRow(wiz);const sc=r&&r.spellcasting;if(!sc)return null;
+  const scores=wizFinalScores(wiz);const ab=(SRD.classes[wiz.cls]||{}).spell||"int";const m=Math.floor((scores[ab]-10)/2);
+  let maxSlot=0;for(let L=1;L<=9;L++){if(sc["spell_slots_level_"+L]>0)maxSlot=L;}
+  let known=sc.spells_known||null,mode="known";
+  if(known==null&&PREPARED_CLASSES[wiz.cls]){mode="prepared";known=Math.max(1,m+(wiz.cls==="Paladin"?Math.floor(wiz.level/2):wiz.level));}
+  return {cantrips:sc.cantrips_known||0,spells:known||0,mode,maxSlot,ability:ab,slots:sc};
+}
+function wizAC(wiz,scores){
+  const sm=a=>Math.floor((scores[a]-10)/2);const dex=sm("dex");
+  let ac=10+dex,note="unarmored";
+  const un=UNARMORED[wiz.cls];if(un&&!wiz.armor){ac=10+dex+sm(un);note="Unarmored Defense";}
+  if(wiz.armor&&GEAR){const a=GEAR.armor.find(x=>x.index===wiz.armor);if(a){ac=a.base+(a.dex?Math.min(dex,a.max!=null?a.max:99):0);note=a.name;}}
+  if(wiz.shield){ac+=2;note+=" + shield";}
+  return {ac,note};
+}
+function wizExtraAttacks(wiz){const L=wiz.level;
+  if(wiz.cls==="Fighter")return L>=20?4:L>=11?3:L>=5?2:1;
+  if(["Barbarian","Paladin","Ranger","Monk"].includes(wiz.cls))return L>=5?2:1;return 1;}
+
+/* ---- assemble the character (sync; uses whatever SRD data has already loaded) ---- */
+function wizToChar(wiz,detail){
   const scores=wizFinalScores(wiz);const sm=a=>Math.floor((scores[a]-10)/2);
   const cls=SRD.classes[wiz.cls],race=SRD.races[wiz.race],bg=SRD.backgrounds[wiz.bg];
-  const prof=2;const conMod=sm("con");
-  let maxHP=(cls?cls.hd:8)+conMod;if(wiz.race==="Hill Dwarf")maxHP+=1;
+  const prof=wizProf(wiz);const conMod=sm("con");const hd=cls?cls.hd:8;
+  let maxHP=hd+conMod+(wiz.level-1)*(Math.floor(hd/2)+1+conMod);if(wiz.race==="Hill Dwarf")maxHP+=wiz.level;maxHP=Math.max(1,maxHP);
   const saveProf=cls?cls.saves.slice():[];
   const skills=wizSkills(wiz);const skillSet=new Set(skills);
   const pv=(sk)=>10+sm(SKILL_ABILITY[sk])+(skillSet.has(sk)?prof:0);
   const passives={Perception:pv("Perception"),Investigation:pv("Investigation"),Insight:pv("Insight")};
   const speed=race?race.speed:30;
-  const ac=10+sm("dex");
+  const {ac,note:acNote}=wizAC(wiz,scores);
   const spellAb=cls&&cls.spell?cls.spell.toUpperCase():"—";
-  const spellDC=spellAb!=="—"?8+prof+sm(cls.spell):0;
-  const spellAtk=spellAb!=="—"?prof+sm(cls.spell):0;
+  const spellDC=spellAb!=="—"?8+prof+sm(cls.spell):0;const spellAtk=spellAb!=="—"?prof+sm(cls.spell):0;
   const abilities=[];
-  (cls?cls.feats:[]).forEach(f=>abilities.push(ab({name:f,type:"utility",source:wiz.cls,action:"—",text:"Level 1 "+wiz.cls+" feature."})));
-  (race?race.traits:[]).forEach(t=>abilities.push(ab({name:t.split(":")[0].split("(")[0].trim(),type:"utility",source:wiz.race,action:"—",text:t})));
-  if(bg)abilities.push(ab({name:bg.feature,type:"utility",source:wiz.bg,action:"—",text:wiz.bg+" background feature."}));
-  return {id:uid("ch"),name:wiz.name||"New Hero",player:wiz.player||"",cls:wiz.cls+" 1",
-    subtitle:[wiz.race,wiz.bg].filter(Boolean).join(" · "),level:1,color:wiz.color||"#7a4fd0",
+  const d=detail||{};
+  // class + subclass features (SRD), else the built-in level-1 list
+  if(d.features&&d.features.length)d.features.forEach(f=>abilities.push(ab({name:f.name,type:"utility",source:f.source,level:f.level||0,action:"—",passive:true,text:f.text||""})));
+  else (cls?cls.feats:[]).forEach(f=>abilities.push(ab({name:f,type:"utility",source:wiz.cls,action:"—",passive:true,text:"Level 1 "+wiz.cls+" feature."})));
+  (race?race.traits:[]).forEach(t=>abilities.push(ab({name:t.split(":")[0].split("(")[0].trim(),type:"utility",source:wiz.race,action:"—",passive:true,text:t})));
+  if(bg)abilities.push(ab({name:bg.feature,type:"utility",source:wiz.bg,action:"—",passive:true,text:wiz.bg+" background feature."}));
+  // weapons → attacks
+  const extra=wizExtraAttacks(wiz);
+  (wiz.weapons||[]).forEach(idx=>{const w=GEAR&&GEAR.weapons.find(x=>x.index===idx);if(!w)return;
+    const fin=w.props.includes("Finesse");const ranged=w.range==="ranged";const mod=fin?Math.max(sm("str"),sm("dex")):ranged?sm("dex"):sm("str");
+    const mm=(w.dmg||"").match(/(\d+)d(\d+)/);
+    abilities.push(ab({name:w.name,type:"damage",source:"Weapon",action:"Action",attack:(prof+mod>=0?"+":"")+(prof+mod),dmg:mm?mm[1]+"d"+mm[2]:null,flatPer:mod,instances:extra,dmgType:w.dtype,
+      text:[w.cat+" "+w.range+" weapon",w.props.join(", ")].filter(Boolean).join(" · ")+(extra>1?` · Extra Attack ×${extra}`:"")}));});
+  // spells
+  (d.spells||[]).forEach(sp=>abilities.push(ab(sp)));
+  // slots
+  let slots=null,charges={};
+  const lim=wizSpellLimits(wiz);
+  if(lim){if(wiz.cls==="Warlock"){const n=lim.slots.spell_slots_level_1||lim.slots.spell_slots_level_2||lim.slots.spell_slots_level_3||lim.slots.spell_slots_level_4||lim.slots.spell_slots_level_5||1;charges.pact={label:"Pact Slots",max:n,cur:n,recharge:"short"};}
+    else{slots={};for(let L=1;L<=9;L++){const n=lim.slots["spell_slots_level_"+L]||0;if(n)slots[L]={max:n,cur:n};}}}
+  const subName=wiz.subclass&&d.subclassName?d.subclassName:null;
+  return {id:uid("ch"),name:wiz.name||"New Hero",player:wiz.player||"",cls:wiz.cls+" "+wiz.level,
+    subtitle:[wiz.race,subName,wiz.bg].filter(Boolean).join(" · "),level:wiz.level,color:wiz.color||"#7a4fd0",
     token:((wiz.name||"?")[0]||"?").toUpperCase(),scores,saveProf,prof,baseAC:ac,maxHP,hp:maxHP,speed,
-    spellAbility:spellAb,spellDC,spellAtk,passives,charges:{},abilities,modifiers:[],role:wiz.role||"",
-    appearance:wiz.appearance,portrait:wiz.portrait,portraitSeed:wiz.portraitSeed};
+    spellAbility:spellAb,spellDC,spellAtk,passives,charges,slots,abilities,modifiers:[],role:wiz.role||"",
+    appearance:wiz.appearance,portrait:wiz.portrait,portraitSeed:wiz.portraitSeed,_acNote:acNote,skills};
 }
+/* ---- the slow part: pull feature + spell text from the SRD, then build ---- */
+async function wizFinalize(wiz){
+  const detail={features:[],spells:[],subclassName:null};
+  const cd=wizClassData(wiz);
+  if(cd){
+    const feats=[];(cd.levels||[]).filter(l=>l.level<=wiz.level).forEach(l=>(l.features||[]).forEach(f=>feats.push({index:f.index,name:f.name,level:l.level,source:wiz.cls})));
+    const sd=wiz.subclass&&wiz.data["sub:"+wiz.subclass];
+    if(sd){(sd||[]).filter(l=>l.level<=wiz.level).forEach(l=>(l.features||[]).forEach(f=>feats.push({index:f.index,name:f.name,level:l.level,source:"Subclass"})));
+      try{const sub=await D5E.get(`/api/subclasses/${wiz.subclass}`);detail.subclassName=sub.name;feats.forEach(f=>{if(f.source==="Subclass")f.source=sub.name;});}catch(e){}}
+    const seen=new Set();const uniq=feats.filter(f=>{if(seen.has(f.index))return false;seen.add(f.index);return !/^(spellcasting|ability-score-improvement|proficiency-bonus)/.test(f.index)||/^spellcasting/.test(f.index);});
+    const descs=await D5E.many(uniq.map(f=>`/api/features/${f.index}`),8);
+    uniq.forEach((f,i)=>{const dd=descs[i];f.text=dd&&Array.isArray(dd.desc)?dd.desc.join(" ").replace(/\s+/g," ").slice(0,420):"";detail.features.push(f);});
+  }
+  // spells
+  const scores=wizFinalScores(wiz);const cls=SRD.classes[wiz.cls];const prof=wizProf(wiz);
+  const sm=a=>Math.floor((scores[a]-10)/2);const spellAtk=cls&&cls.spell?prof+sm(cls.spell):0;const spellDC=cls&&cls.spell?8+prof+sm(cls.spell):0;
+  const picks=(wiz.cantrips||[]).concat(wiz.spells||[]);
+  if(picks.length){const ds=await D5E.many(picks.map(i=>`/api/spells/${i}`),8);
+    ds.forEach(sp=>{if(!sp)return;
+      const L=sp.level||0;const o={name:sp.name,level:L,source:L===0?"Cantrip":ordLevel(L)+"-level",action:(sp.casting_time||"1 action").replace("1 action","Action").replace("1 bonus action","Bonus").replace("1 reaction","Reaction")};
+      let dice=null;
+      if(sp.damage){const at=sp.damage.damage_at_slot_level||sp.damage.damage_at_character_level||{};
+        const key=sp.damage.damage_at_slot_level?String(L||1):String([1,5,11,17].filter(x=>x<=wiz.level).pop()||1);
+        dice=at[key]||Object.values(at)[0]||null;const dt=sp.damage.damage_type&&sp.damage.damage_type.name;if(dt)o.dmgType=dt.toLowerCase();}
+      if(dice){const mm=String(dice).match(/(\d+)d(\d+)(?:\s*\+\s*(\d+))?/);if(mm){o.dmg=mm[1]+"d"+mm[2];if(mm[3])o.flatPer=+mm[3];}}
+      if(sp.dc&&sp.dc.dc_type)o.save={ability:(sp.dc.dc_type.name||"").toUpperCase().slice(0,3),dc:spellDC};
+      if(sp.attack_type)o.attack=(spellAtk>=0?"+":"")+spellAtk;
+      const heal=sp.heal_at_slot_level;const nm=sp.name;
+      o.type=o.dmg?"damage":heal?"support":DEF_RE_W.test(nm)?"defense":MOVE_RE_W.test(nm)?"movement":/(hold|sleep|web|entangle|command|charm|fear|slow|banish|hypnotic|grease|blind|suggestion)/i.test(nm)?"control":"utility";
+      const meta=[sp.range,sp.concentration?"concentration":"",sp.ritual?"ritual":"",sp.duration&&sp.duration!=="Instantaneous"?sp.duration:""].filter(Boolean).join(" · ");
+      o.text=((sp.desc||[])[0]||"").replace(/\s+/g," ").slice(0,260)+(meta?" ("+meta+")":"");
+      detail.spells.push(o);});}
+  return wizToChar(wiz,detail);
+}
+const MOVE_RE_W=/(step|door|blink|misty|dimension|teleport|dash|fly|longstrider|expeditious|freedom of movement|wind walk|jump|gust|haste)/i;
+const DEF_RE_W=/(shield|armor|barkskin|stoneskin|shell|ward|protection|resist|sanctuary|blur|absorb|investiture|fire shield|mage armor|mirror|counterspell|dispel)/i;
 
 function screenWizard(){
-  const wiz=STATE.ui.wiz;const w=el("div");const step=wiz.step;
-  w.appendChild(el("div","screenhead",`<div class="eyebrow">Guided build · SRD core</div><h1 style="font-size:clamp(22px,4vw,30px)">New character</h1>`));
-  // progress
+  const wiz=STATE.ui.wiz;const w=el("div");const step=wiz.step;const steps=wizSteps(wiz);
+  w.appendChild(el("div","screenhead",`<div class="eyebrow">Guided build · 5e SRD</div><h1 style="font-size:clamp(22px,4vw,30px)">New character</h1>`));
   const prog=el("div","wizprog");
-  prog.innerHTML=WIZ_STEPS.map((s,i)=>`<span class="wizstep ${i===step?"on":""} ${i<step?"done":""}">${i+1}. ${s}</span>`).join("");
+  prog.innerHTML=steps.map((s,i)=>`<span class="wizstep ${i===step?"on":""} ${i<step?"done":""}">${i+1}. ${s}</span>`).join("");
   w.appendChild(prog);
-  const body=el("div","wizbody");
-  body.appendChild(wizStep(wiz,step));
-  w.appendChild(body);
-  // nav
-  const nav=el("div","bbar");
-  const canNext=wizCanAdvance(wiz,step);
+  if(wiz.err)w.appendChild(el("div","banner",esc(wiz.err)));
+  const body=el("div","wizbody");body.appendChild(wizStep(wiz,steps[step]));w.appendChild(body);
+  const nav=el("div","bbar");const canNext=wizCanAdvance(wiz,steps[step]);
   nav.innerHTML=`<button class="btn ghost" data-wizcancel="1">Cancel</button>
     ${step>0?`<button class="btn" data-wizback="1">← Back</button>`:""}
-    ${step<WIZ_STEPS.length-1?`<button class="btn primary" data-wiznext="1" ${canNext?"":"disabled"}>Next →</button>`:`<button class="btn primary" data-wizcreate="1">Create character</button>`}`;
+    ${step<steps.length-1?`<button class="btn primary" data-wiznext="1" ${canNext?"":"disabled"}>Next →</button>`:`<button class="btn primary" data-wizcreate="1" ${wiz.building?"disabled":""}>${wiz.building?"Building…":"Create character"}</button>`}`;
   w.appendChild(nav);
   return w;
 }
-function wizCanAdvance(wiz,step){
-  if(step===0)return !!wiz.race&&(SRD.races[wiz.race].chooseAsi?wiz.heAsi.length===SRD.races[wiz.race].chooseAsi:true)&&(SRD.races[wiz.race].chooseSkills?wiz.raceSkills.length===SRD.races[wiz.race].chooseSkills:true);
-  if(step===1)return !!wiz.cls;
-  if(step===2)return !!wiz.bg;
-  if(step===3){const s=wizBaseScores(wiz);if(wiz.method==="array"){const used=ABIL6.map(a=>wiz.assign[a]).filter(x=>x!=="");return used.length===6&&new Set(used).size===6;}return true;}
-  if(step===4){const need=SRD.classes[wiz.cls].skN;return wiz.classSkills.length===need;}
-  if(step===5)return !!(wiz.name&&wiz.name.trim());
+function wizCanAdvance(wiz,name){
+  if(name==="Race")return !!wiz.race&&(SRD.races[wiz.race].chooseAsi?wiz.heAsi.length===SRD.races[wiz.race].chooseAsi:true)&&(SRD.races[wiz.race].chooseSkills?wiz.raceSkills.length===SRD.races[wiz.race].chooseSkills:true);
+  if(name==="Class")return !!wiz.cls&&(wiz.level<wizSubclassLevel(wiz)||!wizClassData(wiz)||!!wiz.subclass);
+  if(name==="Background")return !!wiz.bg;
+  if(name==="Abilities"){if(wiz.method==="array"){const used=ABIL6.map(a=>wiz.assign[a]).filter(x=>x!=="");if(!(used.length===6&&new Set(used).size===6))return false;}
+    const n=wizAsiCount(wiz);for(let i=0;i<n;i++){const x=wiz.asi[i];if(!x||!x.a||!x.b)return false;}return true;}
+  if(name==="Skills"){const need=SRD.classes[wiz.cls].skN;return wiz.classSkills.length===need;}
+  if(name==="Spells"){const lim=wizSpellLimits(wiz);if(!lim)return true;return wiz.cantrips.length<=lim.cantrips&&wiz.spells.length<=lim.spells;}
+  if(name==="Details")return !!(wiz.name&&wiz.name.trim());
   return true;
 }
-function wizStep(wiz,step){
+function wizStep(wiz,name){
   const d=el("div");
-  if(step===0){ // Race
+  if(name==="Race"){
     d.innerHTML=`<div class="sub" style="margin-bottom:10px">Pick a lineage. Ability bonuses and traits apply automatically.</div>`;
     const grid=el("div","pickgrid");
     Object.entries(SRD.races).forEach(([n,r])=>{const asi=Object.entries(r.asi||{}).map(([a,v])=>a.toUpperCase()+" +"+v).join(", ");
@@ -3285,51 +3420,61 @@ function wizStep(wiz,step){
       if(r.chooseAsi)extra+=`<div class="wizdetail"><b>Choose ${r.chooseAsi} abilities for +1:</b><div class="chiprow">${ABIL6.filter(a=>a!=="cha").map(a=>`<button class="chip ${wiz.heAsi.includes(a)?"on":""}" data-wizheasi="${a}">${a.toUpperCase()}</button>`).join("")}</div></div>`;
       if(r.chooseSkills)extra+=`<div class="wizdetail"><b>Choose ${r.chooseSkills} skills:</b><div class="chiprow">${ALL_SKILLS.map(s=>`<button class="chip sm ${wiz.raceSkills.includes(s)?"on":""}" data-wizraceskill="${esc(s)}">${esc(s)}</button>`).join("")}</div></div>`;
       d.innerHTML+=extra;}
-  } else if(step===1){ // Class
-    d.innerHTML=`<div class="sub" style="margin-bottom:10px">Your class sets hit points, saving throws, and your level-1 kit.</div>`;
+  } else if(name==="Class"){
+    d.innerHTML=`<div class="sub" style="margin-bottom:10px">Class, level, and subclass. Hit points, proficiency, features, and spell slots are worked out for you.</div>`;
     const grid=el("div","pickgrid");
     Object.entries(SRD.classes).forEach(([n,c])=>{grid.innerHTML+=`<button class="pickcard ${wiz.cls===n?"on":""}" data-wizclass="${esc(n)}"><div class="pt">${esc(n)}</div><div class="pm">d${c.hd} HD · ${c.saves.map(s=>s.toUpperCase()).join("/")} saves${c.spell?" · "+c.spell.toUpperCase()+" caster":""}</div></button>`;});
     d.appendChild(grid);
-    const c=SRD.classes[wiz.cls];if(c)d.innerHTML+=`<div class="wizdetail"><b>Level 1:</b> ${c.feats.join(" · ")}</div>`;
-  } else if(step===2){ // Background
+    if(wiz.cls){
+      const cd=wizClassData(wiz);const loading=!cd&&Object.keys(wiz.loading).length;
+      let h=`<div class="wizdetail" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><b>Level</b><span class="pbctl"><button class="hpbtn" data-wizlevel="-1">−</button><b class="mono" style="width:30px;display:inline-block;text-align:center;font-size:16px">${wiz.level}</b><button class="hpbtn" data-wizlevel="1">+</button></span><span style="color:var(--muted);font-size:13px">Proficiency +${wizProf(wiz)}${wizAsiCount(wiz)?` · ${wizAsiCount(wiz)} ability score improvement${wizAsiCount(wiz)>1?"s":""}`:""}</span></div>`;
+      if(loading)h+=`<div class="wizdetail" style="color:var(--muted)">Loading ${esc(wiz.cls)} from the SRD…</div>`;
+      if(cd){
+        const sl=wizSubclassLevel(wiz);
+        if(wiz.level>=sl){const subs=(cd.cls.subclasses||[]);
+          h+=`<div class="wizdetail"><b>Subclass</b> <small style="color:var(--faint)">(from level ${sl})</small><div class="chiprow" style="margin-top:6px">${subs.map(s=>`<button class="chip ${wiz.subclass===s.index?"on":""}" data-wizsub="${esc(s.index)}">${esc(s.name)}</button>`).join("")||'<span style="color:var(--faint)">none in the SRD</span>'}</div></div>`;}
+        const feats=[];(cd.levels||[]).filter(l=>l.level<=wiz.level).forEach(l=>(l.features||[]).forEach(f=>{if(!/ability-score-improvement/.test(f.index))feats.push(f.name);}));
+        const sd=wiz.subclass&&wiz.data["sub:"+wiz.subclass];if(sd)sd.filter(l=>l.level<=wiz.level).forEach(l=>(l.features||[]).forEach(f=>feats.push(f.name)));
+        h+=`<div class="wizdetail"><b>Features through level ${wiz.level}:</b> ${feats.filter((x,i,a)=>a.indexOf(x)===i).map(esc).join(" · ")||"—"}</div>`;
+      } else if(!loading){const c=SRD.classes[wiz.cls];h+=`<div class="wizdetail"><b>Level 1:</b> ${c.feats.join(" · ")}</div>`;}
+      d.innerHTML+=h;
+    }
+  } else if(name==="Background"){
     d.innerHTML=`<div class="sub" style="margin-bottom:10px">Backgrounds grant two skill proficiencies and a feature.</div>`;
     const grid=el("div","pickgrid");
     Object.entries(SRD.backgrounds).forEach(([n,b])=>{grid.innerHTML+=`<button class="pickcard ${wiz.bg===n?"on":""}" data-wizbg="${esc(n)}"><div class="pt">${esc(n)}</div><div class="pm">${b.skills.join(", ")}</div></button>`;});
     d.appendChild(grid);
-  } else if(step===3){ // Abilities
-    d.innerHTML=`<div class="sub" style="margin-bottom:10px">Set your six ability scores. Racial bonuses are added on top.</div>
+  } else if(name==="Abilities"){
+    d.innerHTML=`<div class="sub" style="margin-bottom:10px">Set your six ability scores. Racial bonuses and level-up improvements are added on top.</div>
       <div class="chiprow" style="margin-bottom:14px">
         <button class="chip ${wiz.method==="array"?"on":""}" data-wizmethod="array">Standard array</button>
         <button class="chip ${wiz.method==="pointbuy"?"on":""}" data-wizmethod="pointbuy">Point buy</button>
         <button class="chip ${wiz.method==="manual"?"on":""}" data-wizmethod="manual">Manual</button></div>`;
     const r=SRD.races[wiz.race];const final=wizFinalScores(wiz);
-    if(wiz.method==="array"){
-      const used=ABIL6.map(a=>wiz.assign[a]).filter(x=>x!=="");
+    const bonus=a=>(r&&r.asi&&r.asi[a]||0)+((wiz.heAsi||[]).includes(a)?1:0)+(wiz.asi||[]).reduce((t,x)=>t+(x&&x.a===a?1:0)+(x&&x.b===a?1:0),0);
+    const grid=el("div","abilassign");
+    if(wiz.method==="array"){const used=ABIL6.map(a=>wiz.assign[a]).filter(x=>x!=="");
       d.innerHTML+=`<div class="sub">Assign each value once: ${STD_ARRAY.join(", ")}</div>`;
-      const grid=el("div","abilassign");
-      ABIL6.forEach(a=>{const racial=(r&&r.asi&&r.asi[a]||0)+((wiz.heAsi||[]).includes(a)?1:0);
-        grid.innerHTML+=`<div class="aarow"><span class="al">${a.toUpperCase()}</span>
+      ABIL6.forEach(a=>{grid.innerHTML+=`<div class="aarow"><span class="al">${a.toUpperCase()}</span>
           <select data-wizassign="${a}"><option value="">—</option>${STD_ARRAY.map(v=>`<option value="${v}" ${wiz.assign[a]==v?"selected":""} ${used.includes(String(v))&&wiz.assign[a]!=v?"disabled":""}>${v}</option>`).join("")}</select>
-          <span class="ar">${racial?`+${racial}`:""} = <b>${final[a]}</b> (${mod(final[a])})</span></div>`;});
-      d.appendChild(grid);
-    } else if(wiz.method==="pointbuy"){
-      const spent=ABIL6.reduce((t,a)=>t+(POINT_COST[wiz.pb[a]]||0),0);const left=27-spent;
+          <span class="ar">${bonus(a)?`+${bonus(a)}`:""} = <b>${final[a]}</b> (${mod(final[a])})</span></div>`;});
+    } else if(wiz.method==="pointbuy"){const spent=ABIL6.reduce((t,a)=>t+(POINT_COST[wiz.pb[a]]||0),0);const left=27-spent;
       d.innerHTML+=`<div class="sub">Points left: <b style="color:${left<0?"var(--crit)":"var(--ok)"}">${left}</b> / 27 · each score 8–15</div>`;
-      const grid=el("div","abilassign");
-      ABIL6.forEach(a=>{const racial=(r&&r.asi&&r.asi[a]||0)+((wiz.heAsi||[]).includes(a)?1:0);
-        grid.innerHTML+=`<div class="aarow"><span class="al">${a.toUpperCase()}</span>
+      ABIL6.forEach(a=>{grid.innerHTML+=`<div class="aarow"><span class="al">${a.toUpperCase()}</span>
           <span class="pbctl"><button class="hpbtn" data-wizpb="${a}|-1">−</button><b class="mono" style="width:24px;display:inline-block;text-align:center">${wiz.pb[a]}</b><button class="hpbtn" data-wizpb="${a}|1">+</button></span>
-          <span class="ar">${racial?`+${racial}`:""} = <b>${final[a]}</b> (${mod(final[a])})</span></div>`;});
-      d.appendChild(grid);
+          <span class="ar">${bonus(a)?`+${bonus(a)}`:""} = <b>${final[a]}</b> (${mod(final[a])})</span></div>`;});
     } else {
-      const grid=el("div","abilassign");
-      ABIL6.forEach(a=>{const racial=(r&&r.asi&&r.asi[a]||0)+((wiz.heAsi||[]).includes(a)?1:0);
-        grid.innerHTML+=`<div class="aarow"><span class="al">${a.toUpperCase()}</span>
+      ABIL6.forEach(a=>{grid.innerHTML+=`<div class="aarow"><span class="al">${a.toUpperCase()}</span>
           <input data-wizassign="${a}" inputmode="numeric" value="${wiz.assign[a]||""}" style="width:60px" placeholder="10">
-          <span class="ar">${racial?`+${racial}`:""} = <b>${final[a]}</b></span></div>`;});
-      d.appendChild(grid);
+          <span class="ar">${bonus(a)?`+${bonus(a)}`:""} = <b>${final[a]}</b></span></div>`;});
     }
-  } else if(step===4){ // Skills
+    d.appendChild(grid);
+    const n=wizAsiCount(wiz);
+    if(n){let h=`<div class="wizdetail" style="margin-top:14px"><b>Ability score improvements</b> <small style="color:var(--faint)">${n} from your level — +2 to one ability, or +1 to two</small>`;
+      for(let i=0;i<n;i++){const x=wiz.asi[i]||{};
+        h+=`<div class="asirow"><span class="al">ASI ${i+1}</span><select data-wizasi="${i}|a"><option value="">—</option>${ABIL6.map(a=>`<option value="${a}" ${x.a===a?"selected":""}>${a.toUpperCase()} +1</option>`).join("")}</select><span>and</span><select data-wizasi="${i}|b"><option value="">—</option>${ABIL6.map(a=>`<option value="${a}" ${x.b===a?"selected":""}>${a.toUpperCase()} +1</option>`).join("")}</select><small style="color:var(--faint)">pick the same twice for +2</small></div>`;}
+      d.innerHTML+=h+`</div>`;}
+  } else if(name==="Skills"){
     const c=SRD.classes[wiz.cls];const pool=(c.skills[0]==="ANY")?ALL_SKILLS:c.skills;
     const bgSk=SRD.backgrounds[wiz.bg].skills;const raceSk=(SRD.races[wiz.race].skills||[]).concat(wiz.raceSkills||[]);
     const already=new Set([...bgSk,...raceSk]);
@@ -3338,7 +3483,37 @@ function wizStep(wiz,step){
     pool.forEach(s=>{const owned=already.has(s);const picked=wiz.classSkills.includes(s);
       grid.innerHTML+=`<button class="chip ${picked?"on":""}" data-wizclassskill="${esc(s)}" ${owned?"disabled title='already proficient'":""} style="${owned?"opacity:.45":""}">${esc(s)}${owned?" ✓":""}</button>`;});
     d.appendChild(grid);
-  } else if(step===5){ // Details
+  } else if(name==="Spells"){
+    const cd=wizClassData(wiz);const lim=wizSpellLimits(wiz);
+    if(!cd||!lim){d.innerHTML=`<div class="sub">${cd===false?"The SRD spell list isn't reachable right now — skip this step and add spells from the sheet editor.":"Loading the "+esc(wiz.cls)+" spell list from the SRD…"}</div>`;wizLoadClass(wiz);return d;}
+    const all=cd.spells.filter(s=>s.level<=lim.maxSlot);
+    const byLevel={};all.forEach(s=>{(byLevel[s.level]=byLevel[s.level]||[]).push(s);});
+    const q=(wiz.spellQ||"").toLowerCase();
+    d.innerHTML=`<div class="sub" style="margin-bottom:8px">${lim.cantrips?`<b>${wiz.cantrips.length}/${lim.cantrips}</b> cantrips · `:""}<b>${wiz.spells.length}/${lim.spells}</b> ${lim.mode==="prepared"?"prepared":"known"} spells${lim.mode==="prepared"?` <small style="color:var(--faint)">(${lim.ability.toUpperCase()} modifier + ${wiz.cls==="Paladin"?"half your ":""}level)</small>`:""} · slots up to ${ordLevel(lim.maxSlot)} level</div>
+      <div class="field" style="margin-bottom:10px"><input id="wizSpellQ" placeholder="Search spells…" value="${esc(wiz.spellQ||"")}"></div>`;
+    Object.keys(byLevel).map(Number).sort((a,b)=>a-b).forEach(L=>{const list=byLevel[L].filter(s=>!q||s.name.toLowerCase().includes(q));if(!list.length)return;
+      if(L===0&&!lim.cantrips)return;
+      const sec=el("div","spellsec");sec.innerHTML=`<div class="seclabel2">${L===0?"Cantrips":ordLevel(L)+"-level"} <small style="color:var(--faint);font-weight:400">${L===0?"":"slots: "+(lim.slots["spell_slots_level_"+L]||0)}</small></div><div class="chiprow">`+
+        list.map(s=>{const on=L===0?wiz.cantrips.includes(s.index):wiz.spells.includes(s.index);return `<button class="chip ${on?"on":""}" data-wizspell="${L===0?"c":"s"}|${esc(s.index)}">${esc(s.name)}</button>`;}).join("")+`</div>`;
+      d.appendChild(sec);});
+  } else if(name==="Gear"){
+    const scores=wizFinalScores(wiz);const {ac,note}=wizAC(wiz,scores);
+    d.innerHTML=`<div class="sub" style="margin-bottom:10px">Armor sets your AC; weapons become attacks on your sheet with to-hit and damage worked out. Current AC: <b>${ac}</b> <small style="color:var(--faint)">(${esc(note)})</small></div>`;
+    if(!GEAR){d.innerHTML+=`<div class="sub">${wizLoadGear._failed?"The SRD gear list isn't reachable right now — skip this step and add gear from the sheet editor.":"Loading armor and weapons from the SRD…"}</div>`;wizLoadGear();return d;}
+    const dex=Math.floor((scores.dex-10)/2);
+    const armorChips=cat=>GEAR.armor.filter(a=>a.cat===cat).map(a=>{const v=a.base+(a.dex?Math.min(dex,a.max!=null?a.max:99):0);return `<button class="chip ${wiz.armor===a.index?"on":""}" data-wizarmor="${esc(a.index)}" title="${a.stealth?"stealth disadvantage":""}${a.str?" · STR "+a.str:""}">${esc(a.name)} <small>AC ${v}</small></button>`;}).join("");
+    d.innerHTML+=`<div class="wizdetail"><b>Armor</b> <button class="chip ${!wiz.armor?"on":""}" data-wizarmor="">None</button>
+      <div class="chiprow" style="margin-top:6px"><small class="gcat">Light</small>${armorChips("light")}</div>
+      <div class="chiprow" style="margin-top:6px"><small class="gcat">Medium</small>${armorChips("medium")}</div>
+      <div class="chiprow" style="margin-top:6px"><small class="gcat">Heavy</small>${armorChips("heavy")}</div>
+      <div class="chiprow" style="margin-top:6px"><small class="gcat">Shield</small><button class="chip ${wiz.shield?"on":""}" data-wizshield="1">Shield <small>+2</small></button></div></div>`;
+    const wchips=(cat,range)=>GEAR.weapons.filter(w=>w.cat===cat&&w.range===range).map(w=>`<button class="chip ${wiz.weapons.includes(w.index)?"on":""}" data-wizweapon="${esc(w.index)}" title="${esc(w.props.join(", "))}">${esc(w.name)} <small>${esc(w.dmg)} ${esc(w.dtype.slice(0,5))}</small></button>`).join("");
+    d.innerHTML+=`<div class="wizdetail"><b>Weapons</b> <small style="color:var(--faint)">pick any — each becomes an attack</small>
+      <div class="chiprow" style="margin-top:6px"><small class="gcat">Simple melee</small>${wchips("simple","melee")}</div>
+      <div class="chiprow" style="margin-top:6px"><small class="gcat">Simple ranged</small>${wchips("simple","ranged")}</div>
+      <div class="chiprow" style="margin-top:6px"><small class="gcat">Martial melee</small>${wchips("martial","melee")}</div>
+      <div class="chiprow" style="margin-top:6px"><small class="gcat">Martial ranged</small>${wchips("martial","ranged")}</div></div>`;
+  } else if(name==="Details"){
     d.innerHTML=`<div class="bgrid">
       <div class="bfield"><label>Name</label><input data-wizf="name" value="${esc(wiz.name)}" placeholder="Character name"></div>
       <div class="bfield"><label>Player</label><input data-wizf="player" value="${esc(wiz.player)}"></div>
@@ -3349,7 +3524,11 @@ function wizStep(wiz,step){
       <div class="pc"><div class="bfield"><label>Appearance</label><input data-wizf="appearance" value="${esc(wiz.appearance)}" placeholder="e.g. tall tiefling, crimson skin, golden eyes"></div>
       <div style="margin-top:8px"><button class="btn sm" data-wizportrait="1">✨ Generate portrait</button>${wiz.portrait?` <button class="btn sm ghost" data-wizportrait="re">↻</button>`:""}</div></div></div></div>`;
   } else { // Review
-    const ch=wizToChar(wiz);
+    const ch=wizToChar(wiz);const lim=wizSpellLimits(wiz);
+    const cd=wizClassData(wiz);let featNames=[];if(cd){(cd.levels||[]).filter(l=>l.level<=wiz.level).forEach(l=>(l.features||[]).forEach(f=>{if(!/ability-score-improvement/.test(f.index))featNames.push(f.name);}));const sd=wiz.subclass&&wiz.data["sub:"+wiz.subclass];if(sd)sd.filter(l=>l.level<=wiz.level).forEach(l=>(l.features||[]).forEach(f=>featNames.push(f.name)));}
+    else featNames=ch.abilities.map(a=>a.name);
+    const spellNames=(wiz.cantrips||[]).concat(wiz.spells||[]).map(i=>{const s=cd&&cd.spells.find(x=>x.index===i);return s?s.name:i;});
+    const weaponNames=(wiz.weapons||[]).map(i=>{const w=GEAR&&GEAR.weapons.find(x=>x.index===i);return w?w.name:i;});
     d.innerHTML=`<div class="acctrow">${avatarHTML(ch,"lg")}<div class="ai"><div class="nm">${esc(ch.name)}</div><div class="em">${esc(ch.cls)} · ${esc(ch.subtitle)}</div></div></div>
       <div class="vitals" style="margin-top:10px">
         <div class="vital"><div class="k">AC</div><div class="v">${ch.baseAC}</div></div>
@@ -3359,8 +3538,10 @@ function wizStep(wiz,step){
         ${ch.spellDC?`<div class="vital"><div class="k">Spell DC</div><div class="v">${ch.spellDC}</div></div>`:""}</div>
       <div class="abil6" style="margin-top:8px">${ABIL6.map(a=>`<div class="ascore ${ch.saveProf.includes(a)?"sv":""}"><div class="ab">${a}${ch.saveProf.includes(a)?" •":""}</div><div class="md">${mod(ch.scores[a])}</div><div class="sc">${ch.scores[a]}</div></div>`).join("")}</div>
       <div class="wizdetail" style="margin-top:12px"><b>Skills:</b> ${wizSkills(wiz).join(", ")||"none"}</div>
-      <div class="wizdetail"><b>Features:</b> ${ch.abilities.map(a=>esc(a.name)).join(" · ")}</div>
-      <div class="authnote">Unarmored AC shown — equip armor in the sheet to raise it. You can fine-tune anything in the full builder after creating.</div>`;
+      <div class="wizdetail"><b>Features (${featNames.length}):</b> ${featNames.filter((x,i,a)=>a.indexOf(x)===i).map(esc).join(" · ")||"—"}</div>
+      ${spellNames.length?`<div class="wizdetail"><b>Spells (${spellNames.length}):</b> ${spellNames.map(esc).join(" · ")}${lim&&wiz.cls==="Warlock"?` · pact slots ${ch.charges.pact?ch.charges.pact.max:0}`:lim?` · slots ${Object.entries(ch.slots||{}).map(([L,s])=>ordLevel(+L)+"×"+s.max).join(", ")}`:""}</div>`:""}
+      <div class="wizdetail"><b>Armor:</b> ${esc(ch._acNote)}${weaponNames.length?` · <b>Weapons:</b> ${weaponNames.map(esc).join(", ")}`:""}</div>
+      <div class="authnote">Pressing Create pulls the full text of every feature and spell from the SRD (a few seconds). You can fine-tune anything in the sheet editor after.</div>`;
   }
   return d;
 }
@@ -3958,7 +4139,7 @@ document.addEventListener("change",e=>{
 
 /* wizard + characters events */
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-wiznew],[data-wizrace],[data-wizclass],[data-wizbg],[data-wizheasi],[data-wizraceskill],[data-wizclassskill],[data-wizmethod],[data-wizpb],[data-wizportrait],[data-wiznext],[data-wizback],[data-wizcancel],[data-wizcreate],[data-joinwith],[data-addseed],[data-dedupechars]");
+  const t=e.target.closest("[data-wiznew],[data-wizrace],[data-wizclass],[data-wizbg],[data-wizheasi],[data-wizraceskill],[data-wizclassskill],[data-wizmethod],[data-wizpb],[data-wizportrait],[data-wiznext],[data-wizback],[data-wizcancel],[data-wizcreate],[data-joinwith],[data-addseed],[data-dedupechars],[data-wizlevel],[data-wizsub],[data-wizspell],[data-wizarmor],[data-wizshield],[data-wizweapon]");
   if(!t)return;const d=t.dataset;const wiz=STATE.ui.wiz;
   if(d.wiznew!=null){openWizard();return;}
   if(d.addseed){const src=SEED_ROSTER[d.addseed];if(!src){toast("Couldn't find that character");return;}
@@ -3976,7 +4157,15 @@ document.addEventListener("click",e=>{
     joinModal("",d.joinwith);return;}
   if(!wiz)return;
   if(d.wizrace!=null){wiz.race=d.wizrace;wiz.heAsi=[];wiz.raceSkills=[];render();return;}
-  if(d.wizclass!=null){wiz.cls=d.wizclass;wiz.classSkills=[];render();return;}
+  if(d.wizclass!=null){wiz.cls=d.wizclass;wiz.classSkills=[];wiz.subclass=null;wiz.cantrips=[];wiz.spells=[];wiz.asi=[];wizLoadClass(wiz);render();return;}
+  if(d.wizlevel!=null){wiz.level=Math.max(1,Math.min(20,wiz.level+(+d.wizlevel)));if(wiz.level<wizSubclassLevel(wiz))wiz.subclass=null;wiz.asi=wiz.asi.slice(0,wizAsiCount(wiz));
+    const lim=wizSpellLimits(wiz);if(lim){wiz.cantrips=wiz.cantrips.slice(0,lim.cantrips);wiz.spells=wiz.spells.slice(0,lim.spells);}render();return;}
+  if(d.wizsub!=null){wiz.subclass=d.wizsub||null;wizLoadSubclass(wiz);render();return;}
+  if(d.wizspell!=null){const [k,idx]=d.wizspell.split("|");const arr=k==="c"?wiz.cantrips:wiz.spells;const lim=wizSpellLimits(wiz);const i=arr.indexOf(idx);
+    if(i>=0)arr.splice(i,1);else{const max=lim?(k==="c"?lim.cantrips:lim.spells):99;if(arr.length>=max){toast(k==="c"?"That's all your cantrips — unpick one first":"That's all the spells you can "+(lim&&lim.mode==="prepared"?"prepare":"know")+" at this level");return;}arr.push(idx);}render();return;}
+  if(d.wizarmor!=null){wiz.armor=d.wizarmor||null;render();return;}
+  if(d.wizshield!=null){wiz.shield=!wiz.shield;render();return;}
+  if(d.wizweapon!=null){const i=wiz.weapons.indexOf(d.wizweapon);if(i>=0)wiz.weapons.splice(i,1);else wiz.weapons.push(d.wizweapon);render();return;}
   if(d.wizbg!=null){wiz.bg=d.wizbg;render();return;}
   if(d.wizheasi!=null){const a=d.wizheasi;const max=SRD.races[wiz.race].chooseAsi;
     if(wiz.heAsi.includes(a))wiz.heAsi=wiz.heAsi.filter(x=>x!==a);else if(wiz.heAsi.length<max)wiz.heAsi.push(a);render();return;}
@@ -3991,20 +4180,24 @@ document.addEventListener("click",e=>{
     tmp.portrait=wiz.portrait;tmp.portraitSeed=wiz.portraitSeed;tmp.portraitStyle=wiz.portraitStyle;
     openPortraitStudio(tmp,(url,seed,style,desc)=>{wiz.portrait=url;wiz.portraitSeed=seed;wiz.portraitStyle=style;if(desc!=null)wiz.appearance=desc;render();});return;}
   if(d.wizback!=null){wiz.step=Math.max(0,wiz.step-1);render();return;}
-  if(d.wiznext!=null){if(wizCanAdvance(wiz,wiz.step))wiz.step=Math.min(WIZ_STEPS.length-1,wiz.step+1);render();return;}
+  if(d.wiznext!=null){const steps=wizSteps(wiz);if(wizCanAdvance(wiz,steps[wiz.step]))wiz.step=Math.min(steps.length-1,wiz.step+1);if(wizStepName(wiz)==="Spells")wizLoadClass(wiz);if(wizStepName(wiz)==="Gear")wizLoadGear();render();return;}
   if(d.wizcancel!=null){STATE.ui.wiz=null;STATE.ui.screen=STATE.ui.wizReturn||"characters";render();return;}
-  if(d.wizcreate!=null){const ch=wizToChar(wiz);if(STATE.cloud)ch.owner_id=ME();STATE.roster[ch.id]=ch;STATE.ui.wiz=null;
-    STATE.ui.draft=null;STATE.ui.screen="characters";render();toast("Created "+ch.name);return;}
+  if(d.wizcreate!=null){if(wiz.building)return;wiz.building=true;render();
+    wizFinalize(wiz).catch(()=>wizToChar(wiz)).then(ch=>{if(STATE.ui.wiz!==wiz)return;delete ch._acNote;if(STATE.cloud)ch.owner_id=ME();STATE.roster[ch.id]=ch;STATE.ui.wiz=null;
+      STATE.ui.draft=null;STATE.ui.screen="characters";render();toast(`Created ${ch.name} — ${(ch.abilities||[]).length} features, spells & attacks`);});return;}
 });
 document.addEventListener("change",e=>{
   const wiz=STATE.ui.wiz;if(!wiz)return;
   if(e.target.dataset.wizassign!=null){wiz.assign[e.target.dataset.wizassign]=e.target.value;render();return;}
+  if(e.target.dataset.wizasi!=null){const [i,k]=e.target.dataset.wizasi.split("|");wiz.asi[+i]=wiz.asi[+i]||{};wiz.asi[+i][k]=e.target.value;render();return;}
   if(e.target.dataset.wizf!=null){wiz[e.target.dataset.wizf]=e.target.value;if(["role","color"].includes(e.target.dataset.wizf))render();return;}
 });
 document.addEventListener("input",e=>{
   const wiz=STATE.ui.wiz;if(!wiz)return;
   if(e.target.dataset.wizassign!=null&&wiz.method==="manual"){wiz.assign[e.target.dataset.wizassign]=e.target.value;}
-  if(e.target.dataset.wizf!=null&&!["role","color"].includes(e.target.dataset.wizf)){wiz[e.target.dataset.wizf]=e.target.value;}
+  if(e.target.id==="wizSpellQ"){wiz.spellQ=e.target.value;clearTimeout(wizStep._qt);wizStep._qt=setTimeout(()=>{render();const n=$("#wizSpellQ");if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length);}},220);}
+  if(e.target.dataset.wizf!=null&&!["role","color"].includes(e.target.dataset.wizf)){wiz[e.target.dataset.wizf]=e.target.value;
+    const nx=document.querySelector("[data-wiznext]");if(nx)nx.disabled=!wizCanAdvance(wiz,wizStepName(wiz));}
 });
 
 /* appearance — opens the Profile tab's theme picker */
