@@ -2528,12 +2528,14 @@ function openBuilder(charId,ret){
 }
 /* ============================ portrait generator ============================ */
 const PORTRAIT_STYLES={
+  vox:{label:"Vox Machina",prompt:"in the animated style of The Legend of Vox Machina, Titmouse 2D animation, bold clean linework, cel shading, rich saturated colors, expressive stylized face, dramatic rim lighting"},
+  spiderverse:{label:"Spider-Verse",prompt:"in the style of Into the Spider-Verse, stylized comic-book animation, halftone dot shading, chromatic aberration offset, bold ink outlines, vivid painterly color blocks, dynamic graphic composition"},
   dark:{label:"Dark fantasy",prompt:"dark fantasy oil painting, Elden Ring art style, dramatic chiaroscuro lighting, muted gold and deep shadow palette, painterly, highly detailed"},
   classic:{label:"Classic D&D",prompt:"classic Dungeons and Dragons character illustration, painted, warm dramatic lighting, highly detailed"},
   ink:{label:"Ink & wash",prompt:"grim ink and wash illustration, high contrast, engraved linework, fantasy"},
 };
 function portraitPrompt(ch,style){
-  const st=PORTRAIT_STYLES[style||"dark"]||PORTRAIT_STYLES.dark;
+  const st=PORTRAIT_STYLES[style||"vox"]||PORTRAIT_STYLES.vox;
   const bits=["portrait of a single fantasy character","head and shoulders, centered, facing the viewer",
     ch.appearance||"",ch.subtitle||"",ch.cls||"",st.prompt,"no text, no watermark, no frame"];
   return bits.filter(Boolean).join(", ");
@@ -2545,7 +2547,7 @@ function buildPortraitURL(ch,seed,style){
 /* Portrait studio: preloads the image before it's saved, so a slow/failed generation never leaves a blank avatar */
 let PORTRAIT=null; // {subject,onSave,desc,style,seed,url,status:'idle'|'loading'|'ready'|'error',timer,img}
 function openPortraitStudio(subject,onSave){
-  PORTRAIT={subject,onSave,desc:subject.appearance||"",style:subject.portraitStyle||"dark",seed:subject.portraitSeed||null,
+  PORTRAIT={subject,onSave,desc:subject.appearance||"",style:subject.portraitStyle||"vox",seed:subject.portraitSeed||null,
     url:subject.portrait||null,status:subject.portrait?"ready":"idle",timer:null,img:null};
   renderPortraitStudio();
 }
@@ -2579,6 +2581,7 @@ function renderPortraitStudio(){
         <div class="pacts">
           <button class="btn primary" data-pgen="1" ${P.status==="loading"?"disabled":""}>${P.url||P.status==="error"||P.status==="slow"?"↻ Try another":"✨ Generate"}</button>
           ${P.status==="ready"&&P.url?`<button class="btn gold" data-psave="1">Use this portrait</button>`:""}
+          <label class="btn ghost sm filebtn">📎 Use my own image<input type="file" accept="image/*" id="pUpload"></label>
           ${s.portrait?`<button class="btn ghost sm" data-premove="1">Remove current</button>`:""}
           <button class="btn ghost sm" data-close="1">Close</button>
         </div>
@@ -3253,6 +3256,12 @@ document.addEventListener("click",e=>{
   if(d.delnote){if(STATE.cloud){try{SB.from("lore_notes").delete().eq("id",d.delnote);}catch(e){}}camp.lore=(camp.lore||[]).filter(n=>n.id!==d.delnote);delete PHOTOS[d.delnote];render();return;}
 });
 document.addEventListener("change",e=>{
+  if(e.target.id==="pUpload"){const f=e.target.files&&e.target.files[0];if(!f||!PORTRAIT)return;
+    const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=()=>{ // downscale to a 512x640 cover crop so it stays small in the cloud
+        const W=512,H=640,c=document.createElement("canvas");c.width=W;c.height=H;const x=c.getContext("2d");
+        const s=Math.max(W/img.width,H/img.height),w=img.width*s,h=img.height*s;x.drawImage(img,(W-w)/2,(H-h)/2,w,h);
+        if(!PORTRAIT)return;PORTRAIT.url=c.toDataURL("image/jpeg",.86);PORTRAIT.status="ready";PORTRAIT.seed=null;renderPortraitStudio();};
+      img.src=r.result;};r.readAsDataURL(f);return;}
   if(e.target.id==="notePhoto"){const f=e.target.files&&e.target.files[0];if(!f)return;
     const r=new FileReader();r.onload=()=>{PENDING_PHOTO=r.result;const pn=$("#photoName");if(pn)pn.textContent=f.name+" attached";};r.readAsDataURL(f);return;}
   if(e.target.id==="bAbSel"){const b=migrateBattle(ensureBattle(curCamp()));const c=curCombatant(b);if(!c)return;
