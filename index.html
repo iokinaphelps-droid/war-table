@@ -577,6 +577,42 @@ select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px
 .pendrow .pb{display:flex;gap:6px;flex-wrap:wrap}
 .condchip button,.dotchip button{background:none;border:none;color:inherit;cursor:pointer;font-size:10px;padding:0 0 0 3px}
 .condsel{font-size:12px;padding:4px 8px}
+.monres{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow:auto;margin:-4px 0 8px}
+.monhit{text-align:left;background:var(--bg3);border:1px solid var(--line);border-radius:9px;padding:7px 10px;color:var(--fg);font-size:13.5px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.monhit:hover{border-color:var(--accent)} .monhit small{color:var(--faint);font-size:11px} .monhit.home{border-color:color-mix(in srgb,var(--gold) 40%,var(--line))}
+.enmove{display:grid;grid-template-columns:1.6fr .6fr .9fr .9fr .8fr 30px;gap:5px;margin-bottom:6px;align-items:center}
+.enmove input{background:var(--bg3);border:1px solid var(--line2);border-radius:7px;padding:6px 7px;color:var(--fg);font-size:12.5px;min-width:0;font-family:inherit}
+.enmove .em-text{grid-column:1/-1}
+.emoves{margin-bottom:6px}
+.ktag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:2px 7px;border-radius:6px;background:var(--bg3);border:1px solid var(--line2);color:var(--muted)}
+.ktag.handout{color:var(--gold);border-color:color-mix(in srgb,var(--gold) 45%,var(--line2))} .ktag.dm{color:var(--c-control);border-color:color-mix(in srgb,var(--c-control) 45%,var(--line2))}
+.note.kind-handout{border-color:color-mix(in srgb,var(--gold) 35%,var(--line))} .note.kind-dm{border-style:dashed}
+.note .ntitle{font-family:var(--f-display);font-weight:600;font-size:17px;margin:2px 0 6px}
+.note img{cursor:zoom-in;max-width:100%}
+.lightbox img{max-width:min(92vw,900px);max-height:78vh;border-radius:10px;display:block;margin:0 auto}
+.jlog{display:flex;flex-direction:column;gap:3px;font-size:13px}
+.jday{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);margin:12px 0 4px}
+.jl{display:flex;gap:10px;align-items:baseline;padding:5px 8px;border-radius:8px;background:var(--bg2);border:1px solid var(--line)}
+.jl .t{font-family:var(--f-mono);font-size:11px;color:var(--faint);flex:none} .jl .x{flex:1} .jl .r{font-size:10.5px;color:var(--faint);font-family:var(--f-mono)}
+.recapnote{border-color:color-mix(in srgb,var(--gold) 40%,var(--line))} .ctxnote{border-style:dashed}
+.movepick{display:flex;flex-direction:column;gap:8px;margin-bottom:10px} .movepick .movebtn{cursor:default}
+/* ---- phones first: the party plays from their pockets ---- */
+@media (max-width:700px){
+  input,select,textarea{font-size:16px !important} /* stops iOS zooming on focus */
+  .btn{min-height:40px} .btn.sm{min-height:36px}
+  .tabs{position:sticky;top:0;z-index:20;background:var(--bg);padding-top:6px;margin-left:-16px;margin-right:-16px;padding-left:16px;padding-right:16px}
+  .tab{padding:10px 11px;font-size:13.5px}
+  .actionpanel{padding:12px}
+  .movegrid{grid-template-columns:1fr 1fr}
+  .dicegrid .bdie{width:46px;height:44px}
+  .cbts{grid-template-columns:1fr 1fr;gap:8px} .cbt{padding:10px}
+  .initstrip{gap:6px}
+  .boardwrap{margin-left:-6px;margin-right:-6px}
+  .enmove{grid-template-columns:1fr 1fr;} .enmove .em-name{grid-column:1/-1}
+  .pendrow .pb{width:100%}
+  .slots{grid-template-columns:1fr}
+  .modal{max-height:92vh;overflow:auto}
+}
 /* ---- builder ---- */
 .bform{display:flex;flex-direction:column;gap:18px}
 .bsec{background:var(--bg2);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow)}
@@ -1492,7 +1528,7 @@ function screenLobby(){
 }
 
 /* ============================ screen: play ============================ */
-const PLAY_TABS=[["sheet","Sheet"],["calc","Dice & Damage"],["map","Map"],["battle","Battle"],["lore","Lore"]];
+const PLAY_TABS=[["sheet","Sheet"],["calc","Dice & Damage"],["map","Map"],["battle","Battle"],["lore","Lore"],["journal","Journal"]];
 function screenPlay(){
   const camp=curCamp();const wrap=el("div");
   if(!camp.session.live){
@@ -1519,7 +1555,8 @@ function screenPlay(){
   else if(tab==="calc")body.appendChild(viewingDM?dmCalcNote():calcView(viewedChar()));
   else if(tab==="map")body.appendChild(mapView(host));
   else if(tab==="battle")body.appendChild(battleRouter(host));
-  else if(tab==="lore")body.appendChild(loreView(viewingDM));
+  else if(tab==="lore")body.appendChild(loreView(host));
+  else if(tab==="journal")body.appendChild(journalView(host));
   main.appendChild(body);
   if(railChar){const lay=el("div","playwrap");lay.appendChild(statusRail(railChar));lay.appendChild(main);wrap.appendChild(lay);}
   else wrap.appendChild(main);
@@ -1559,7 +1596,7 @@ function sheetView(ch){
   w.appendChild(el("div","sheethead",
     `${avatarHTML(ch,"lg")}
      <div class="who"><h1>${esc(ch.name)}</h1><div class="cl">${esc(ch.cls)} · ${esc(ch.subtitle||"")}</div></div>
-     <div style="margin-left:auto;display:flex;gap:7px;flex-wrap:wrap"><button class="btn sm ghost" data-portrait="${ch.id}">🖼 Portrait</button><button class="btn sm ghost" data-buildedit="${ch.id}">Edit sheet</button></div>`));
+     <div style="margin-left:auto;display:flex;gap:7px;flex-wrap:wrap">${ch.ddbId?`<button class="btn sm ghost" data-ddbsync="${ch.id}" title="${ch.ddbSynced?"Last checked "+new Date(ch.ddbSynced).toLocaleTimeString():"Not checked yet"}">⟳ D&amp;D Beyond</button>`:""}<button class="btn sm ghost" data-portrait="${ch.id}">🖼 Portrait</button><button class="btn sm ghost" data-buildedit="${ch.id}">Edit sheet</button></div>`));
   // vitals
   const dc=ch.spellDC?`${ch.spellDC}`:"—";
   const atk=ch.spellAtk?`+${ch.spellAtk}`:"—";
@@ -2141,7 +2178,7 @@ function migrateBattle(b){
     if(!c.conditions)c.conditions=[];if(!c.dots)c.dots=[];});
   return b;
 }
-function blog(b,m){b.log=b.log||[];b.log.unshift(m);if(b.log.length>40)b.log.pop();}
+function blog(b,m){b.log=b.log||[];b.log.unshift(m);if(b.log.length>40)b.log.pop();try{journalAuto(curCamp(),m,b.name);}catch(e){}}
 function initTotal(c){return (c.initRoll==null?0:c.initRoll)+(c.dexMod||0);}
 function curCombatant(b){return b.combatants.find(c=>c.id===b.order[b.turnIdx]);}
 function skipReason(c){return c.hp<=0?"down":(c.conditions||[]).find(x=>SKIP_CONDS.includes(x));}
@@ -2311,7 +2348,7 @@ function turnActionPanel(b,isDM){
   if(!c){wrap.innerHTML=`<div class="awaiting">No combatants in the fight.</div>`;return wrap;}
   if(!canAct(b,isDM)){wrap.innerHTML=`<div class="awaiting">⏳ It's <b>${esc(c.name)}</b>'s turn. Hang tight — the controls appear on your turn.</div>`;return wrap;}
   let h=`<div class="aph"><span class="apt">${esc(c.name)}'s turn</span><button class="btn sm ghost" data-passturn="1">Skip / Pass →</button></div>`;
-  h+=(c.side==="enemy")?enemyActionForm(b,c):partyActionForm(b,c,isDM);
+  h+=(c.side==="enemy")?enemyActionForm(b,c,isDM):partyActionForm(b,c,isDM);
   wrap.innerHTML=h;return wrap;
 }
 function ensureBACT(c,a){
@@ -2334,8 +2371,14 @@ function partyActionForm(b,c,isDM){
   if(BACT&&BACT.combatantId===c.id&&BACT.abilityId)a=shown.find(x=>x.id===BACT.abilityId)||null;
   if(!a)a=shown.find(x=>x.dmg)||shown[0];
   const st=ensureBACT(c,a);
-  let html=`<label style="font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)">Choose a move</label>
-    <div class="bfilters"><button class="chip ${filt==="all"?"on":""}" data-bmovefilter="all">All</button>`+
+  const phone=window.innerWidth<700;const gridOpen=!phone||st.gridOpen;
+  let html=`<label style="font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)">${gridOpen?"Choose a move":"Your move"}</label>`;
+  if(!gridOpen){ // phones: show the chosen move and a button to open the full grid
+    const uses=spellUsesLabel(ch,a);const kind=a.source||(a.level===0?"Cantrip":a.level>0?ordLevel(a.level)+" spell":"Feature");
+    const dice=a.dmg?((a.instances>1?a.instances+" × ":"")+a.dmg+(a.flatPer?" + "+a.flatPer:"")+(a.dmgType?" "+a.dmgType:"")):"no attack roll";
+    html+=`<div class="movepick"><div class="movebtn on" style="--mt:var(--c-${a.type})"><span class="mtype">${esc(a.type)}</span><span class="mname">${esc(a.name)}</span><span class="mmeta">${esc(dice)}</span><span class="msrc">${esc(kind)} · ${esc(uses)}</span></div>
+      <button class="btn sm" data-bgridopen="1">Change move (${moves.length})</button></div>`;
+  }else html+=`<div class="bfilters"><button class="chip ${filt==="all"?"on":""}" data-bmovefilter="all">All</button>`+
     present.map(t=>`<button class="chip ${filt===t?"on":""}" data-bmovefilter="${t}" style="--_c:var(--c-${t})">${t[0].toUpperCase()+t.slice(1)}</button>`).join("")+`</div>
     <div class="movegrid">`+
     shown.map(x=>{const sel=x.id===a.id;
@@ -2417,11 +2460,45 @@ function pendingPanel(b,isDM){
   h+=`</div><div style="margin-top:10px"><button class="btn sm ghost" data-bpendclear="1">Done</button></div>`;
   w.innerHTML=h;return w;
 }
-function enemyActionForm(b,c){
-  if(!BACT||BACT.combatantId!==c.id)BACT={combatantId:c.id,abilityId:null,flat:0,targetId:null};
+function enemyActionForm(b,c,isDM){
+  const moves=c.moves||[];
+  if(!BACT||BACT.combatantId!==c.id)BACT={combatantId:c.id,moveId:moves[0]?moves[0].id:null,flat:0,targetId:null,targetIds:null,rolls:null,hit:null};
   const targets=b.combatants.filter(x=>x.id!==c.id);
-  if(!BACT.targetId&&targets.length){const t=targets.find(x=>x.side==="party")||targets[0];BACT.targetId=t.id;}
-  let html=`<div class="field"><label>Damage this enemy deals</label><input id="eFlat" class="mono" inputmode="numeric" placeholder="e.g. 14" value="${BACT.flat||""}"></div>`;
+  if(!BACT.targetId&&targets.length){const t=targets.find(x=>x.side==="party"&&!isDown(x))||targets[0];BACT.targetId=t.id;}
+  let html="";
+  const m=moves.find(x=>x.id===BACT.moveId)||null;
+  if(moves.length){
+    html+=`<label style="font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)">Its attacks</label><div class="movegrid emoves">`+
+      moves.map(x=>`<button class="movebtn ${m&&x.id===m.id?"on":""}" data-emove="${x.id}" style="--mt:var(--c-damage)"><span class="mtype">${x.save?"save":x.attack?"attack":"action"}</span><span class="mname">${esc(x.name)}</span><span class="mmeta">${esc(x.dmg?(x.dmg+(x.flatPer?(x.flatPer>0?"+":"")+x.flatPer:"")+(x.dmgType?" "+x.dmgType:"")):(x.attack?"to hit "+x.attack:"no roll"))}</span></button>`).join("")+`</div>
+      <button class="btn sm ghost" data-emove="">Flat damage instead</button>`;
+  }
+  if(m){
+    if(m.text)html+=`<p class="usetext" style="margin-top:8px">${esc(m.text)}</p>`;
+    const dice=m.dmg?m.dmg.match(/(\d+)d(\d+)/):null;
+    if(m.save&&m.save.ability){ // save-based monster action → party targets
+      if(!BACT.targetIds)BACT.targetIds=targets.filter(x=>x.side==="party"&&!isDown(x)).map(x=>x.id);
+      html+=`<div class="field" style="margin-top:10px"><label>Targets · ${esc(m.save.ability)} save, DC ${m.save.dc}</label><div class="tgtlist">`+
+        targets.map(x=>`<label class="tgtrow ${BACT.targetIds.includes(x.id)?"on":""}"><input type="checkbox" data-btgt="${x.id}" ${BACT.targetIds.includes(x.id)?"checked":""}><span class="token sm" style="${tokenBG(x)}">${esc(x.token)}</span><span>${esc(x.name)}<small>${Math.round(tileDist(b,c,x))} ft</small></span></label>`).join("")+`</div></div>`;
+    }else{
+      html+=`<div class="field" style="margin-top:10px"><label>Target</label><select id="eTargetSel">`+
+        targets.map(x=>`<option value="${x.id}" ${x.id===BACT.targetId?"selected":""}>${esc(x.name)}${x.side==="party"?" — player":""} · ${Math.round(tileDist(b,c,x))} ft</option>`).join("")+`</select></div>`;
+      const tgt=targets.find(x=>x.id===BACT.targetId);
+      if(m.attack&&tgt){const adv=condAdvantage(c,tgt,isMeleeMove(m));let hit="";
+        if(BACT.hit){const H=BACT.hit;hit=`<div class="hitres"><span class="mono">d20${H.mode!=="none"?" ["+H.rolls.join(", ")+"] → "+H.keep:" "+H.keep}${H.bonus>=0?" +":" "}${H.bonus}</span><span class="n">${H.total}</span><span class="vs">${H.nat20?'<b class="ok">Critical!</b>':H.nat1?'<b class="bad">Natural 1</b>':H.total>=tgt.ac?`<b class="ok">Hits</b> (AC ${tgt.ac})`:`<b class="bad">Misses</b> (AC ${tgt.ac})`}</span></div>`;}
+        html+=`<div class="hitblk"><div class="lab">To hit <b class="mono">${esc(m.attack)}</b>${adv.mode!=="none"?` · <span class="advtag ${adv.mode}">${adv.mode==="adv"?"Advantage":"Disadvantage"}</span>`:""}</div>${adv.why.length?`<div class="advwhy">${adv.why.map(w=>"• "+esc(w)).join("<br>")}</div>`:""}
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn sm" data-ehit="1">🎲 Roll to hit</button>${hit}</div></div>`;}
+    }
+    if(dice){const cnt=+dice[1],die=+dice[2];if(!BACT.rolls||BACT.rolls.length!==cnt)BACT.rolls=Array(cnt).fill(0);
+      const sum=BACT.rolls.reduce((x,y)=>x+y,0);const total=sum+(m.flatPer||0)+(BACT.hit&&BACT.hit.nat20?(BACT.critExtra||0):0);BACT.total=total;
+      html+=`<div class="instblk" style="margin-top:10px"><div class="ih"><span class="t">Damage · ${cnt}d${die}${m.flatPer?(m.flatPer>0?" +":" ")+m.flatPer:""}</span><span class="sub">${sum}${m.flatPer?(m.flatPer>0?" + ":" − ")+Math.abs(m.flatPer):""}${BACT.hit&&BACT.hit.nat20?" + crit "+(BACT.critExtra||0):""}</span></div>
+        <div class="dicegrid">${BACT.rolls.map((v,i)=>`<input class="bdie edie ${v===die?"crit":v===1?"min":""}" inputmode="numeric" data-edie="${i}" value="${v||""}" placeholder="d${die}">`).join("")}</div>
+        <div style="display:flex;gap:8px;margin-top:8px"><button class="btn sm ghost" data-eroll="1">🎲 Roll damage</button></div></div>
+        <div class="total" style="margin-top:4px"><div class="grand"><span class="cap">${esc(m.dmgType||"damage")}</span><span class="n etot">${total}</span></div></div>`;
+    }
+    html+=`<div style="margin-top:12px"><button class="btn primary" data-eapply="1">${m.save?"Resolve":"Apply"} ${esc(m.name)} &amp; end turn</button></div>`;
+    return html;
+  }
+  html+=`<div class="field"><label>Damage this enemy deals</label><input id="eFlat" class="mono" inputmode="numeric" placeholder="e.g. 14" value="${BACT.flat||""}"></div>`;
   html+=`<div class="field"><label>Target</label><select id="eTargetSel">`+
     targets.map(x=>`<option value="${x.id}" ${x.id===BACT.targetId?"selected":""}>${esc(x.name)}${x.side==="party"?" — player":""}</option>`).join("")+`</select></div>`;
   html+=`<div style="margin-top:8px"><button class="btn primary" data-eapply="1">Apply &amp; end turn</button></div>`;
@@ -2500,14 +2577,98 @@ function addPartyToBattle(b,charIds){
     blog(b,`${ch.name} joins the fight.`);added++;});
   return added;
 }
+/* ============================ monster compendium (SRD via dnd5eapi.co + campaign homebrew) ============================ */
+const MON={list:null,cache:{},q:"",busy:false,sel:null};
+async function monList(){
+  if(MON.list)return MON.list;
+  try{const raw=localStorage.getItem("wt_monlist");if(raw){MON.list=JSON.parse(raw);return MON.list;}}catch(e){}
+  try{const r=await fetch("https://www.dnd5eapi.co/api/monsters");const j=await r.json();MON.list=(j.results||[]).map(m=>({index:m.index,name:m.name}));
+    try{localStorage.setItem("wt_monlist",JSON.stringify(MON.list));}catch(e){}}catch(e){MON.list=[];MON.offline=true;}
+  return MON.list;
+}
+async function monDetail(index){
+  if(MON.cache[index])return MON.cache[index];
+  const r=await fetch("https://www.dnd5eapi.co/api/monsters/"+index);const j=await r.json();
+  const sm=v=>Math.floor(((v||10)-10)/2);
+  const scores={str:j.strength,dex:j.dexterity,con:j.constitution,int:j.intelligence,wis:j.wisdom,cha:j.charisma};
+  const saves={};(j.proficiencies||[]).forEach(p=>{const m=(p.proficiency&&p.proficiency.index||"").match(/^saving-throw-(\w+)$/);if(m)saves[m[1]]=p.value;});
+  const moves=[];
+  (j.actions||[]).forEach(ac=>{
+    const d=(ac.damage||[]).find(x=>x.damage_dice);
+    const m={id:uid("m"),name:ac.name,text:(ac.desc||"").replace(/\s+/g," ").slice(0,300)};
+    if(ac.attack_bonus!=null)m.attack=(ac.attack_bonus>=0?"+":"")+ac.attack_bonus;
+    if(d){const mm=d.damage_dice.match(/(\d+)d(\d+)(?:\s*([+-])\s*(\d+))?/);if(mm){m.dmg=mm[1]+"d"+mm[2];m.flatPer=mm[3]?(mm[3]==="-"?-1:1)*(+mm[4]):0;}
+      m.dmgType=(d.damage_type&&d.damage_type.name||"").toLowerCase();}
+    const dc=ac.dc||(d&&d.dc);if(dc&&dc.dc_type)m.save={ability:(dc.dc_type.name||"").slice(0,3).toUpperCase(),dc:dc.dc_value};
+    moves.push(m);});
+  const mon={index:j.index,name:j.name,hp:j.hit_points,ac:Array.isArray(j.armor_class)?(j.armor_class[0]&&j.armor_class[0].value)||10:(j.armor_class||10),
+    dexMod:sm(j.dexterity),scores,saves,moves,cr:j.challenge_rating,speed:(j.speed&&j.speed.walk)||"30 ft.",type:j.type,size:j.size,
+    hpDice:j.hit_dice,src:"SRD"};
+  MON.cache[index]=mon;return mon;
+}
+function bestiary(){const c=curCamp();if(!c)return [];c.bestiary=c.bestiary||[];return c.bestiary;}
 function enemyModal(){
-  openModal(`<h2>Add enemy</h2>
-    <div class="field"><label>Name</label><input id="enName" placeholder="e.g. Ashfall Cultist"></div>
-    <div style="display:flex;gap:10px"><div class="field" style="flex:1"><label>Max HP</label><input id="enHP" inputmode="numeric" value="24"></div>
-      <div class="field" style="flex:1"><label>AC</label><input id="enAC" inputmode="numeric" value="13"></div></div>
-    <div class="banner">Players won't see its HP or AC until you reveal them — they only see the damage they've dealt.</div>
-    <div class="acts"><button class="btn ghost" data-close="1">Cancel</button><button class="btn primary" data-addenemysave="1">Add to board</button></div>`);
-  setTimeout(()=>{const n=$("#enName");if(n)n.focus();},30);
+  MON.sel=null;MON.q="";
+  openModal(`<h2>Add opponent</h2>
+    <div class="field"><label>Search the compendium <small style="color:var(--faint)">SRD monsters + your homebrew</small></label><input id="monQ" placeholder="goblin, owlbear, bandit captain…" autocomplete="off"></div>
+    <div id="monRes" class="monres"></div>
+    <div id="enForm">${enemyFormHTML(null)}</div>`);
+  setTimeout(()=>{const n=$("#monQ");if(n)n.focus();monSearch("");},30);
+}
+function enemyFormHTML(m){
+  const mv=(m&&m.moves)||[];
+  return `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px">
+      <div class="field" style="flex:2;min-width:150px"><label>Name</label><input id="enName" value="${esc(m?m.name:"")}" placeholder="e.g. Ashfall Cultist"></div>
+      <div class="field" style="flex:1;min-width:70px"><label>Max HP</label><input id="enHP" inputmode="numeric" value="${m?m.hp:24}"></div>
+      <div class="field" style="flex:1;min-width:60px"><label>AC</label><input id="enAC" inputmode="numeric" value="${m?m.ac:13}"></div>
+      <div class="field" style="flex:1;min-width:60px"><label>DEX mod</label><input id="enDex" inputmode="numeric" value="${m?m.dexMod:0}"></div>
+      <div class="field" style="flex:1;min-width:60px"><label>How many</label><input id="enN" inputmode="numeric" value="1"></div></div>
+    ${m&&m.cr!=null?`<div class="authnote" style="margin:-4px 0 8px">CR ${m.cr} · ${esc(m.size||"")} ${esc(m.type||"")} · speed ${esc(String(m.speed))}${m.src==="SRD"?" · from the SRD":" · homebrew"}</div>`:""}
+    <div class="seclabel2" style="margin:8px 0 6px">Attacks &amp; actions <small style="color:var(--faint);font-weight:400">become usable moves on its turn</small></div>
+    <div id="enMoves">${mv.map((x,i)=>enemyMoveRow(x,i)).join("")}</div>
+    <button class="btn sm ghost" data-enaddmove="1" style="margin-top:6px">+ Add attack</button>
+    <label style="display:flex;gap:7px;align-items:center;font-size:13px;margin-top:12px"><input type="checkbox" id="enHome" ${m&&m.src!=="SRD"?"checked":""}> Save to this campaign's homebrew bestiary</label>
+    <div class="banner" style="margin-top:10px">Players won't see its HP or AC until you reveal them — they only see the damage they've dealt.</div>
+    <div class="acts"><button class="btn ghost" data-close="1">Cancel</button><button class="btn primary" data-addenemysave="1">Add to board</button></div>`;
+}
+function enemyMoveRow(x,i){
+  return `<div class="enmove" data-enrow="${i}">
+    <input class="em-name" placeholder="Attack name" value="${esc(x.name||"")}">
+    <input class="em-atk mono" placeholder="+4" value="${esc(x.attack||"")}" title="to hit">
+    <input class="em-dmg mono" placeholder="1d6+2" value="${esc(x.dmg?x.dmg+(x.flatPer?(x.flatPer>0?"+":"")+x.flatPer:""):"")}" title="damage dice">
+    <input class="em-type" placeholder="slashing" value="${esc(x.dmgType||"")}">
+    <input class="em-save mono" placeholder="DEX 13" value="${esc(x.save?x.save.ability+" "+x.save.dc:"")}" title="save (ability DC)">
+    <button class="iconbtn" data-enrmmove="${i}" title="Remove" style="width:28px;height:28px;font-size:12px">✕</button>
+    <input class="em-text" placeholder="Notes" value="${esc(x.text||"")}"></div>`;
+}
+function readEnemyMoves(){
+  return [...document.querySelectorAll("#enMoves .enmove")].map(r=>{
+    const v=c=>(r.querySelector(c)||{}).value||"";
+    const m={id:uid("m"),name:v(".em-name").trim(),text:v(".em-text").trim()};if(!m.name)return null;
+    const atk=v(".em-atk").trim();if(atk)m.attack=/^[+-]/.test(atk)?atk:"+"+atk;
+    const dm=v(".em-dmg").match(/(\d+)d(\d+)(?:\s*([+-])\s*(\d+))?/);if(dm){m.dmg=dm[1]+"d"+dm[2];m.flatPer=dm[3]?(dm[3]==="-"?-1:1)*(+dm[4]):0;}
+    const ty=v(".em-type").trim();if(ty)m.dmgType=ty.toLowerCase();
+    const sv=v(".em-save").match(/(STR|DEX|CON|INT|WIS|CHA)\s*(\d+)/i);if(sv)m.save={ability:sv[1].toUpperCase(),dc:+sv[2]};
+    return m;}).filter(Boolean);
+}
+let MONSEARCH_T=null;
+async function monSearch(q){
+  const box=$("#monRes");if(!box)return;q=(q||"").trim().toLowerCase();MON.q=q;
+  const home=bestiary().filter(m=>!q||m.name.toLowerCase().includes(q)).slice(0,6);
+  let html=home.map(m=>`<button class="monhit home" data-monpick="home:${esc(m.id)}"><b>${esc(m.name)}</b><small>homebrew · HP ${m.hp} · AC ${m.ac}</small></button>`).join("");
+  if(q.length>=2){const list=await monList();if(MON.q!==q)return;
+    const hits=list.filter(m=>m.name.toLowerCase().includes(q)).slice(0,10);
+    html+=hits.map(m=>`<button class="monhit" data-monpick="srd:${m.index}">${esc(m.name)}<small>SRD</small></button>`).join("");
+    if(!hits.length&&!home.length)html+=`<div class="empty">${MON.offline?"Compendium offline — fill the stats in by hand.":"Nothing matches — fill it in by hand below."}</div>`;}
+  else if(!home.length)html+=`<div class="empty" style="padding:8px">Type to search ${MON.list?MON.list.length+" SRD monsters":"the SRD"}, or just fill in the stats below.</div>`;
+  box.innerHTML=html;
+}
+async function monPick(key){
+  const [kind,id]=key.split(":");let m=null;
+  if(kind==="home")m=bestiary().find(x=>x.id===id);
+  else{const box=$("#monRes");if(box)box.innerHTML=`<div class="empty" style="padding:8px">Loading…</div>`;try{m=await monDetail(id);}catch(e){toast("Couldn't load that monster");}}
+  if(!m)return;MON.sel=m;const f=$("#enForm");if(f)f.innerHTML=enemyFormHTML(m);const box=$("#monRes");if(box)box.innerHTML="";
+  const q=$("#monQ");if(q)q.value=m.name;
 }
 function dmgModal(cid){
   const b=ensureBattle(curCamp());const c=b.combatants.find(x=>x.id===cid);if(!c)return;
@@ -2524,31 +2685,115 @@ function dmgModal(cid){
       closeModal();render();toast(`${c.name} ${sign<0?"took":"healed"} ${v}`);};
     const d=$("#dmgBtn"),h=$("#healBtn");if(d)d.onclick=()=>apply(-1);if(h)h.onclick=()=>apply(1);},30);
 }
-/* ============================ lore ============================ */
+/* ============================ lore: handouts, party notes, DM notes ============================ */
+let LOREF="all",PENDING_PHOTO=null,LORE_EDIT=null;
+function whoAmI(isDM){return STATE.cloud?(STATE.user.name||"Player"):(isDM?"DM":(STATE.roster[STATE.ui.viewAs]?STATE.roster[STATE.ui.viewAs].name:"Player"));}
+function canSeeNote(n,isDM){if(isDM)return true;if(n.kind==="dm")return false;if(n.kind==="handout")return n.visible!==false;return true;}
+function canEditNote(n,isDM){if(isDM)return true;if(!STATE.cloud)return true;return n.author_id===ME();}
 function loreView(isDM){
   const camp=curCamp();if(!camp.lore)camp.lore=[];
-  const who=isDM?"DM":(STATE.roster[STATE.ui.viewAs]?STATE.roster[STATE.ui.viewAs].name:"Player");
   const w=el("div");
-  const comp=el("div","notecomposer");
-  comp.innerHTML=`<textarea id="noteText" placeholder="Jot a note as ${esc(who)} — what happened, a clue, an NPC's name…"></textarea>
-    <div class="nr"><button class="btn primary sm" data-addnote="1">Add note</button>
-      <label class="btn sm ghost filebtn">📷 Attach photo<input type="file" accept="image/*" id="notePhoto"></label>
-      <span id="photoName" style="font-size:12px;color:var(--muted)"></span></div>`;
-  w.appendChild(comp);
+  if(STATE.cloud&&isDM&&!Cloud.feat.lore2)w.appendChild(el("div","banner",`<b>Handouts need a one-time database upgrade.</b> Run the SQL Claude gave you in Supabase to unlock DM-only notes, handouts with images, and reveal-to-party.`));
+  const kinds=isDM?[["all","All"],["handout","Handouts"],["note","Party notes"],["dm","DM only"]]:[["all","All"],["handout","Handouts"],["note","Party notes"]];
+  const fb=el("div","bfilters");fb.innerHTML=kinds.map(([k,l])=>`<button class="chip ${LOREF===k?"on":""}" data-loref="${k}">${l}</button>`).join("")+`<span style="flex:1"></span><button class="btn sm primary" data-lorenew="${isDM?"handout":"note"}">+ ${isDM?"New handout":"New note"}</button>${isDM?`<button class="btn sm ghost" data-lorenew="dm">+ DM note</button>`:""}`;
+  w.appendChild(fb);
   const list=el("div","notes");
-  if(camp.lore.length===0)list.appendChild(el("div","empty","No notes yet. The campaign's story builds up here."));
-  camp.lore.slice().reverse().forEach(n=>{
-    const nd=el("div","note");const ph=PHOTOS[n.id];
-    nd.innerHTML=`<div class="meta"><span class="au">${esc(n.author)}</span><span class="ts">${new Date(n.ts).toLocaleString()}</span>
-        <span style="flex:1"></span><button class="btn sm ghost" data-delnote="${n.id}" style="padding:2px 8px;font-size:11px">✕</button></div>
+  const vis=camp.lore.filter(n=>canSeeNote(n,isDM)).filter(n=>LOREF==="all"||(n.kind||"note")===LOREF);
+  if(!vis.length)list.appendChild(el("div","empty",isDM?"Nothing here yet. Handouts are what the party sees — DM notes stay yours until you reveal them.":"No notes yet. Jot what happened, clues, names — the party's story builds up here."));
+  vis.slice().reverse().forEach(n=>{
+    const nd=el("div","note kind-"+(n.kind||"note"));const img=n.image||PHOTOS[n.id];const kind=n.kind||"note";
+    const tag=kind==="handout"?`<span class="ktag handout">Handout${n.visible===false?" · hidden":""}</span>`:kind==="dm"?`<span class="ktag dm">DM only</span>`:`<span class="ktag">Note</span>`;
+    nd.innerHTML=`<div class="meta">${tag}<span class="au">${esc(n.author)}</span><span class="ts">${new Date(n.ts).toLocaleString()}</span><span style="flex:1"></span>
+        ${isDM&&kind==="handout"?`<button class="btn sm ${n.visible===false?"gold":"ghost"}" data-lorereveal="${n.id}" style="padding:2px 8px;font-size:11px">${n.visible===false?"Reveal to party":"Hide"}</button>`:""}
+        ${canEditNote(n,isDM)?`<button class="btn sm ghost" data-loreedit="${n.id}" style="padding:2px 8px;font-size:11px">Edit</button><button class="btn sm ghost" data-delnote="${n.id}" style="padding:2px 8px;font-size:11px">✕</button>`:""}</div>
+      ${n.title?`<div class="ntitle">${esc(n.title)}</div>`:""}
       ${n.text?`<div class="body">${esc(n.text)}</div>`:""}
-      ${ph?`<img src="${ph}" alt="note photo">`:n.hadPhoto?`<div class="nophoto">📷 Photo attached — previews live only this session in the draft; real uploads save to the backend.</div>`:""}`;
+      ${img?`<img src="${img}" alt="${esc(n.title||"handout")}" data-lightbox="${n.id}">`:""}`;
     list.appendChild(nd);
   });
   w.appendChild(list);
   return w;
 }
-
+function loreModal(kind,noteId){
+  const camp=curCamp();const n=noteId?(camp.lore||[]).find(x=>x.id===noteId):null;kind=n?(n.kind||"note"):kind;
+  LORE_EDIT={id:noteId||null,kind,image:n?n.image||null:null};PENDING_PHOTO=null;
+  const titles={handout:"Handout for the party",dm:"DM note (only you see this)",note:"Story note"};
+  openModal(`<h2>${n?"Edit":"New"} — ${titles[kind]||"Note"}</h2>
+    ${kind==="handout"?`<div class="banner">A handout is something the party can look at: a letter, a map scrap, a wanted poster. Keep it hidden until the moment, then reveal.</div>`:""}
+    <div class="field"><label>Title <small style="color:var(--faint)">optional</small></label><input id="lTitle" value="${esc(n?n.title||"":"")}" placeholder="${kind==="handout"?"e.g. The sealed letter":"e.g. The innkeeper's warning"}"></div>
+    <div class="field"><label>Text</label><textarea id="lText" style="min-height:110px">${esc(n?n.text||"":"")}</textarea></div>
+    <div class="nr" style="display:flex;gap:9px;align-items:center;flex-wrap:wrap"><label class="btn sm ghost filebtn">📷 ${LORE_EDIT.image?"Replace image":"Attach image"}<input type="file" accept="image/*" id="notePhoto"></label><span id="photoName" style="font-size:12px;color:var(--muted)">${LORE_EDIT.image?"image attached":""}</span>${LORE_EDIT.image?`<button class="btn sm ghost" data-loreimgrm="1">Remove image</button>`:""}</div>
+    ${kind==="handout"?`<label style="display:flex;gap:7px;align-items:center;font-size:13px;margin-top:12px"><input type="checkbox" id="lVis" ${n?(n.visible!==false?"checked":""):""}> Visible to the party right now</label>`:""}
+    <div class="acts"><button class="btn ghost" data-close="1">Cancel</button><button class="btn primary" data-loresave="1">${n?"Save":"Add"}</button></div>`);
+  setTimeout(()=>{const t=$("#lTitle");if(t)t.focus();},30);
+}
+/* ============================ session journal ============================ */
+let JTAB="recap";
+function journalOf(camp){camp.journal=camp.journal||[];return camp.journal;}
+function journalAdd(camp,kind,text,meta){const j={id:uid("j"),kind,author:whoAmI(STATE.cloud?amDM(camp):STATE.ui.viewAs==="dm"),author_id:STATE.cloud?ME():null,ts:Date.now(),text,meta:meta||{}};
+  journalOf(camp).push(j);if(STATE.cloud)Cloud.addJournal(camp.id,j);return j;}
+const AUTO_KEEP=/hits|takes|drops to 0|has fallen|back up|is stable|casts|uses|joins|Initiative|Round|saves|fails|is [A-Z][a-z]+\.$|rest|started|ended|Encounter|begins/;
+const AUTO_SKIP=/rolls to hit|ends turn|passes\.|resolves\.$/;
+function journalAuto(camp,text,room){if(!camp||!text)return;if(AUTO_SKIP.test(text)||!AUTO_KEEP.test(text))return;
+  journalAdd(camp,"auto",text,{room:room||null});}
+function journalView(isDM){
+  const camp=curCamp();const J=journalOf(camp);const w=el("div");
+  if(STATE.cloud&&isDM&&!Cloud.feat.journal)w.appendChild(el("div","banner",`<b>The journal needs a one-time database upgrade.</b> Run the SQL Claude gave you in Supabase — until then it's saved only in this browser.`));
+  const tabs=el("div","bfilters");tabs.innerHTML=[["recap","Recap"],["story","Story notes"],["log","Auto-log"]].map(([k,l])=>`<button class="chip ${JTAB===k?"on":""}" data-jtab="${k}">${l}</button>`).join("");
+  w.appendChild(tabs);
+  const fmt=ts=>new Date(ts).toLocaleString([],{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
+  if(JTAB==="log"){
+    const log=J.filter(j=>j.kind==="auto").slice().reverse();
+    const box=el("div","jlog");
+    if(!log.length)box.innerHTML=`<div class="empty">Nothing logged yet. Attacks, kills, saves, rests, and encounters land here automatically as you play.</div>`;
+    let lastDay="";log.forEach(j=>{const day=new Date(j.ts).toDateString();if(day!==lastDay){lastDay=day;box.innerHTML+=`<div class="jday">${day}</div>`;}
+      box.innerHTML+=`<div class="jl"><span class="t">${new Date(j.ts).toLocaleTimeString([],{hour:"numeric",minute:"2-digit"})}</span><span class="x">${esc(j.text)}</span>${j.meta&&j.meta.room?`<span class="r">${esc(j.meta.room)}</span>`:""}${isDM?`<button class="iconbtn" data-jdel="${j.id}" style="width:22px;height:22px;font-size:10px">✕</button>`:""}</div>`;});
+    w.appendChild(box);return w;
+  }
+  if(JTAB==="story"){
+    const comp=el("div","notecomposer");
+    comp.innerHTML=`<textarea id="jStory" placeholder="What happened from your character's point of view? These notes become the party's recap."></textarea>
+      <div class="nr"><button class="btn primary sm" data-jadd="story">Add story note</button></div>`;
+    w.appendChild(comp);
+    const list=el("div","notes");const notes=J.filter(j=>j.kind==="story").slice().reverse();
+    if(!notes.length)list.appendChild(el("div","empty","No story notes yet. Every player can add their own take — the DM weaves them into the recap."));
+    notes.forEach(j=>{const nd=el("div","note");const mine=!STATE.cloud||j.author_id===ME()||isDM;
+      nd.innerHTML=`<div class="meta"><span class="au">${esc(j.author)}</span><span class="ts">${fmt(j.ts)}</span><span style="flex:1"></span>${mine?`<button class="btn sm ghost" data-jdel="${j.id}" style="padding:2px 8px;font-size:11px">✕</button>`:""}</div><div class="body">${esc(j.text)}</div>`;list.appendChild(nd);});
+    w.appendChild(list);return w;
+  }
+  // recap
+  const recaps=J.filter(j=>j.kind==="recap").slice().reverse();const ctx=J.filter(j=>j.kind==="context").slice().reverse();
+  if(isDM){
+    const comp=el("div","notecomposer");
+    const draft=STATE.ui.recapDraft||"";
+    comp.innerHTML=`<div class="seclabel2" style="margin-bottom:6px">DM recap</div>
+      <textarea id="jRecap" style="min-height:140px" placeholder="Write the session recap here — or press Build from the party's notes and polish it.">${esc(draft)}</textarea>
+      <div class="nr"><button class="btn sm" data-jbuild="1">✦ Build from the party's notes</button><button class="btn primary sm" data-jadd="recap">Save recap</button></div>
+      <div class="seclabel2" style="margin:14px 0 6px">Context for the party <small style="color:var(--faint);font-weight:400">clarifications, rulings, what they missed</small></div>
+      <textarea id="jCtx" style="min-height:60px" placeholder="e.g. The symbol on the letter was the Ashen Hand — the cult from the first session."></textarea>
+      <div class="nr"><button class="btn sm" data-jadd="context">Add context note</button></div>`;
+    w.appendChild(comp);
+  }
+  const list=el("div","notes");
+  if(!recaps.length&&!ctx.length)list.appendChild(el("div","empty",isDM?"No recap yet. Build one from the party's story notes after the session.":"The DM hasn't posted a recap yet. Add your story notes so they have something to work from."));
+  const merged=recaps.concat(ctx).sort((a,b)=>b.ts-a.ts);
+  merged.forEach(j=>{const nd=el("div","note "+(j.kind==="recap"?"recapnote":"ctxnote"));
+    nd.innerHTML=`<div class="meta"><span class="ktag ${j.kind==="recap"?"handout":""}">${j.kind==="recap"?"Session recap":"DM context"}</span><span class="au">${esc(j.author)}</span><span class="ts">${fmt(j.ts)}</span><span style="flex:1"></span>${isDM?`<button class="btn sm ghost" data-jedit="${j.id}" style="padding:2px 8px;font-size:11px">Edit</button><button class="btn sm ghost" data-jdel="${j.id}" style="padding:2px 8px;font-size:11px">✕</button>`:""}</div><div class="body">${esc(j.text)}</div>`;list.appendChild(nd);});
+  w.appendChild(list);
+  return w;
+}
+function buildRecapDraft(camp){
+  const J=journalOf(camp);const last=J.filter(j=>j.kind==="recap").reduce((m,j)=>Math.max(m,j.ts),0);
+  const since=j=>j.ts>last;
+  const story=J.filter(j=>j.kind==="story"&&since(j));
+  const auto=J.filter(j=>j.kind==="auto"&&since(j));
+  const hi=auto.filter(j=>/has fallen|drops to 0|back up|is stable|joins|Initiative|Round 1|rest|casts/.test(j.text));
+  let out="";
+  if(story.length){out+="From the party:\n"+story.map(j=>`• ${j.author.split(" ")[0]}: ${j.text.trim()}`).join("\n")+"\n\n";}
+  if(hi.length){out+="Notable moments:\n"+hi.slice(-12).map(j=>`• ${j.text}`).join("\n")+"\n\n";}
+  if(!out)out="Nothing new since the last recap — add story notes or play a session first.";
+  return out.trim();
+}
 /* ============================ shared HP write-path + death saves ============================ */
 function adjustHP(b,c,delta){
   const before=c.hp;
@@ -2799,6 +3044,7 @@ function ddbToChar(d){
   (d.inventory||[]).forEach(it=>{const def=it.definition||{};if(def.filterType==="Weapon"&&def.damage&&def.damage.diceString){const fin=(def.properties||[]).some(p=>p.name==="Finesse");const amod=fin?Math.max(strMod,dexMod):strMod;abilities.push(ab({name:def.name,type:"damage",source:"Weapon",attack:"+"+(prof+amod),dmg:def.damage.diceString,flatPer:amod,dmgType:def.damageType||"",text:"Weapon attack."}));}});
   const allSpells=[].concat(...(d.classSpells||[]).map(cs=>cs.spells||[]),...Object.values(d.spells||{}).map(v=>v||[]).flat());
   allSpells.forEach(s=>{const def=s.definition||{};if(!def.name)return;const dmgDie=(def.modifiers||[]).find(m=>m.die&&m.die.diceString);abilities.push(ab({name:def.name,type:dmgDie?"damage":"utility",source:"Spell",level:def.level||0,dmg:dmgDie?dmgDie.die.diceString:null,text:stripHtml(def.description).slice(0,240)}));});
+  abilities.forEach(a=>a.ddb=true);
   return {id:uid("ch"),name:d.name||"Imported Hero",player:d.username||"",cls,subtitle,level:totalLevel,
     color:"#7a4fd0",token:((d.name||"?")[0]||"?").toUpperCase(),scores,saveProf,prof,baseAC:ac,maxHP,hp:curHP,speed,
     spellAbility,spellDC,spellAtk,passives,charges:{},abilities,modifiers:[],ddbId:d.id,_acNote:acNote};
@@ -2811,6 +3057,33 @@ async function fetchDDB(idOrUrl){
   if(!r.ok)throw new Error(j.error||("Import failed ("+r.status+")"));
   return j;
 }
+/* D&D Beyond is the source of truth for level & core stats; War Table keeps its own HP, AC, items, charges, companions, portrait. */
+const DDB_WINS=["scores","level","prof","saveProf","passives","speed","spellAbility","spellDC","spellAtk","cls","subtitle"];
+function ddbMergeInto(ch,fresh){
+  const prev=ch.level;
+  DDB_WINS.forEach(k=>{if(fresh[k]!==undefined)ch[k]=fresh[k];});
+  const keep=(ch.abilities||[]).filter(a=>!a.ddb);const names=new Set(keep.map(a=>(a.name||"").toLowerCase()));
+  const add=(fresh.abilities||[]).filter(a=>!names.has((a.name||"").toLowerCase())).map(a=>Object.assign(a,{ddb:true}));
+  ch.abilities=keep.concat(add);dedupeAbilities(ch);
+  if(ch.maxHP==null)ch.maxHP=fresh.maxHP;if(ch.hp==null)ch.hp=fresh.hp;if(ch.baseAC==null)ch.baseAC=fresh.baseAC;
+  if(ch.level!==prev){delete ch.slots;ensureSlots(ch);}
+  ch.ddbSynced=Date.now();ch.ddbId=ch.ddbId||fresh.ddbId;
+  return {leveled:ch.level!==prev,from:prev,to:ch.level};
+}
+const DDB_SYNC_MS=10*60*1000;
+async function ddbSyncChar(ch,force){
+  if(!ch||!ch.ddbId)return null;
+  if(!force&&ch.ddbSynced&&Date.now()-ch.ddbSynced<DDB_SYNC_MS)return null;
+  try{const data=await fetchDDB(String(ch.ddbId));const fresh=ddbToChar(data);const r=ddbMergeInto(ch,fresh);
+    if(r.leveled)toast(`${ch.name.split(" ")[0]} is now level ${r.to} — stats refreshed from D&D Beyond`);
+    return r;}catch(e){ch.ddbSynced=Date.now();return null;} // don't hammer DDB on failure
+}
+async function ddbSyncMine(force){
+  const mine=Object.values(STATE.roster).filter(c=>c.ddbId&&(!STATE.cloud||(c.owner_id||ME())===ME()));
+  let changed=false;for(const ch of mine){const r=await ddbSyncChar(ch,force);if(r)changed=true;}
+  if(changed)render();return changed;
+}
+setInterval(()=>{ddbSyncMine(false);},DDB_SYNC_MS);
 function ddbImportModal(){
   openModal(`<h2>Import from D&D Beyond</h2>
     <div class="banner">Set the character to <b>Public</b> on D&D Beyond (character → Edit → Home → Character Privacy), then paste its link or ID.</div>
@@ -2842,11 +3115,8 @@ async function doDdbFetch(){
 }
 function ddbCreate(existingId,openInBuilder){
   if(!DDB_DRAFT)return;let ch=DDB_DRAFT;
-  if(existingId&&STATE.roster[existingId]){ // merge: keep custom items, role, color, token
-    const old=STATE.roster[existingId];
-    const customMods=(old.modifiers||[]);const customAb=(old.abilities||[]).filter(a=>a.dmGranted);
-    ch.id=old.id;ch.ddbId=old.ddbId||ch.ddbId;ch.color=old.color;ch.token=old.token;ch.role=old.role;ch.owner_id=old.owner_id;
-    ch.modifiers=customMods;ch.abilities=ch.abilities.concat(customAb);
+  if(existingId&&STATE.roster[existingId]){ // merge: D&D Beyond stats win; War Table keeps HP, AC, items, charges, companions, portrait
+    const old=STATE.roster[existingId];ddbMergeInto(old,ch);ch=old;
   }
   if(STATE.cloud&&!ch.owner_id)ch.owner_id=ME();
   STATE.roster[ch.id]=ch;DDB_DRAFT=null;
@@ -3255,8 +3525,8 @@ document.addEventListener("click",e=>{
     camp.ready[d.ready]=!camp.ready[d.ready];render();return;}
   if(d.startsession){const camp=curCamp();if(STATE.cloud&&!amDM(camp)){toast("Only the host can start");return;}
     camp.session.live=true;camp.lastPlayed=Date.now();STATE.ui.screen="play";STATE.ui.tab="sheet";
-    if(STATE.ui.viewAs!=="dm"&&!camp.party.includes(STATE.ui.viewAs))STATE.ui.viewAs="dm";render();toast("Session started — the night begins");return;}
-  if(d.endsession){const camp=curCamp();if(STATE.cloud&&!amDM(camp)){toast("Only the host can end the session");return;}camp.session.live=false;go("lobby");toast("Session ended");return;}
+    if(STATE.ui.viewAs!=="dm"&&!camp.party.includes(STATE.ui.viewAs))STATE.ui.viewAs="dm";journalAdd(camp,"auto","Session started.");render();toast("Session started — the night begins");ddbSyncMine(false);return;}
+  if(d.endsession){const camp=curCamp();if(STATE.cloud&&!amDM(camp)){toast("Only the host can end the session");return;}journalAdd(camp,"auto","Session ended.");camp.session.live=false;go("lobby");toast("Session ended");return;}
   if(d.enterplay){STATE.ui.screen="play";STATE.ui.tab="sheet";render();return;}
   if(d.tab){STATE.ui.tab=d.tab;render();return;}
   if(d.filter){const ch=viewedChar();if(ch){ch._filter=ch._filter||{};ch._filter.active=d.filter;render();}return;}
@@ -3327,9 +3597,8 @@ function liveCalc(ch,a,st){
 }
 
 /* battle + lore events */
-let PENDING_PHOTO=null;
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-newroom],[data-newroomsave],[data-roomsel],[data-roomend],[data-addplayer],[data-addplayersave],[data-endbtl],[data-addenemy],[data-addenemysave],[data-nextturn],[data-cell],[data-selbtl],[data-dmgc],[data-revhp],[data-revac],[data-rmc],[data-addnote],[data-delnote],[data-brollinit],[data-rollallinit],[data-begincombat],[data-reroll],[data-reup],[data-redn],[data-passturn],[data-bmove],[data-bmovefilter],[data-buse],[data-ballroll],[data-bclear],[data-bmod],[data-bperinst],[data-bbonus],[data-bapply],[data-eapply],[data-cond],[data-adddot],[data-dotsave],[data-rmdot],[data-bfeet],[data-bmode],[data-bclearmap],[data-bsettingsave],[data-bhit],[data-btgt],[data-bsaveroll],[data-bresolve],[data-bpendclear]");
+  const t=e.target.closest("[data-newroom],[data-newroomsave],[data-roomsel],[data-roomend],[data-addplayer],[data-addplayersave],[data-endbtl],[data-addenemy],[data-addenemysave],[data-nextturn],[data-cell],[data-selbtl],[data-dmgc],[data-revhp],[data-revac],[data-rmc],[data-brollinit],[data-rollallinit],[data-begincombat],[data-reroll],[data-reup],[data-redn],[data-passturn],[data-bmove],[data-bmovefilter],[data-buse],[data-ballroll],[data-bclear],[data-bmod],[data-bperinst],[data-bbonus],[data-bapply],[data-eapply],[data-cond],[data-adddot],[data-dotsave],[data-rmdot],[data-bfeet],[data-bmode],[data-bclearmap],[data-bsettingsave],[data-enaddmove],[data-enrmmove],[data-monpick],[data-emove],[data-ehit],[data-eroll],[data-bgridopen],[data-bhit],[data-btgt],[data-bsaveroll],[data-bresolve],[data-bpendclear]");
   if(!t)return;const d=t.dataset;const camp=curCamp();
   const isDM=STATE.cloud?amDM(camp):(STATE.ui.viewAs==="dm"); // host authority (DM keeps it even while viewing a PC)
   // room management (DM) — resolved before we need a battle
@@ -3340,12 +3609,11 @@ document.addEventListener("click",e=>{
     if(picked.length===0){toast("Pick at least one hero for the encounter");return;}
     const nm=($("#roomName")&&$("#roomName").value||"").trim()||"Encounter";
     startRoom(camp,picked,nm);closeModal();render();toast(`Encounter started — ${picked.length} pulled in to roll`);return;}
-  const isLore=("addnote" in d)||("delnote" in d);
-  const b=activeBattle();if(!b&&!isLore)return; // lore works without an encounter
+  const b=activeBattle();if(!b)return;
   const mayAct=b?canAct(b,isDM):false;
   if(STATE.cloud&&!isDM&&b){
     const HOST_ONLY={endbtl:1,roomend:1,addplayer:1,addplayersave:1,reroll:1,rollallinit:1,begincombat:1,reup:1,redn:1,nextturn:1,addenemy:1,addenemysave:1,revhp:1,revac:1,rmc:1,cond:1,adddot:1,dotsave:1,rmdot:1,bfeet:1,bmode:1,bclearmap:1,bsettingsave:1,bresolve:1,bpendclear:1};
-    const TURN={bmove:1,bmovefilter:1,buse:1,ballroll:1,bclear:1,bmod:1,bperinst:1,bbonus:1,bapply:1,eapply:1,passturn:1,bhit:1,btgt:1};
+    const TURN={bmove:1,bmovefilter:1,buse:1,ballroll:1,bclear:1,bmod:1,bperinst:1,bbonus:1,bapply:1,eapply:1,passturn:1,bhit:1,btgt:1,emove:1,ehit:1,eroll:1,bgridopen:1};
     for(const k in d){if(HOST_ONLY[k]){toast("The DM runs the encounter");return;}}
     let needsTurn=false;for(const k in d){if(TURN[k])needsTurn=true;}
     if(needsTurn&&!mayAct){const c=curCombatant(b);toast(c?`Hang tight — it's ${c.name.split(" ")[0]}'s turn`:"Wait for your turn");return;}
@@ -3367,11 +3635,22 @@ document.addEventListener("click",e=>{
     const n=addPartyToBattle(b,picked);closeModal();render();toast(n?`${n} added to the encounter`:"No one to add");return;}
   if(d.addenemy){enemyModal();return;}
   if(d.addenemysave){const nm=($("#enName").value||"Enemy").trim()||"Enemy";
-    const hp=parseInt($("#enHP").value,10)||10;const ac=parseInt($("#enAC").value,10)||12;
-    let x=b.cols,y=1;for(let yy=1;yy<=b.rows;yy++){if(!b.combatants.find(c=>c.x===x&&c.y===yy)){y=yy;break;}}
-    const nc={id:uid("e"),side:"enemy",name:nm,token:nm[0].toUpperCase(),ac,maxHP:hp,hp,dmgTaken:0,revealHP:false,revealAC:false,initRoll:null,dexMod:0,conditions:[],dots:[],x,y};
-    b.combatants.push(nc);if(b.phase==="active")b.order.push(nc.id);
-    closeModal();render();toast(nm+" added");return;}
+    const hp=parseInt($("#enHP").value,10)||10;const ac=parseInt($("#enAC").value,10)||12;const dexMod=parseInt($("#enDex").value,10)||0;
+    const n=Math.max(1,Math.min(12,parseInt(($("#enN")||{}).value,10)||1));const moves=readEnemyMoves();
+    const base=MON.sel||{};
+    if($("#enHome")&&$("#enHome").checked){const bs=bestiary();const ex=bs.find(x=>x.name.toLowerCase()===nm.toLowerCase());
+      const entry={id:ex?ex.id:uid("mon"),name:nm,hp,ac,dexMod,moves,scores:base.scores||null,saves:base.saves||null,cr:base.cr!=null?base.cr:null,src:"home"};
+      if(ex)Object.assign(ex,entry);else bs.push(entry);}
+    for(let i=0;i<n;i++){
+      let x=b.cols,y=1;outer:for(let xx=b.cols;xx>=1;xx--)for(let yy=1;yy<=b.rows;yy++){if(!b.combatants.find(c=>c.x===xx&&c.y===yy)){x=xx;y=yy;break outer;}}
+      const label=n>1?`${nm} ${i+1}`:nm;
+      const nc={id:uid("e"),side:"enemy",name:label,token:nm[0].toUpperCase()+(n>1?String(i+1):""),ac,maxHP:hp,hp,dmgTaken:0,revealHP:false,revealAC:false,initRoll:null,dexMod,conditions:[],dots:[],x,y,
+        moves:JSON.parse(JSON.stringify(moves)),scores:base.scores||null,saves:base.saves||null,cr:base.cr!=null?base.cr:null};
+      b.combatants.push(nc);if(b.phase==="active"){nc.initRoll=rollDie(20);b.order.push(nc.id);}}
+    MON.sel=null;closeModal();render();toast(n>1?`${n}× ${nm} added`:nm+" added");return;}
+  if(d.enaddmove){const box=$("#enMoves");if(box){const i=box.children.length;box.insertAdjacentHTML("beforeend",enemyMoveRow({},i));}return;}
+  if(d.enrmmove!=null){const row=t.closest(".enmove");if(row)row.remove();return;}
+  if(d.monpick){monPick(d.monpick);return;}
   if(d.cell){if(!b.selId)return;const [x,y]=d.cell.split(",").map(Number);
     const c=b.combatants.find(c=>c.id===b.selId);if(!c)return;
     const occ=b.combatants.filter(o=>o.x===x&&o.y===y&&o.id!==c.id);
@@ -3408,7 +3687,8 @@ document.addEventListener("click",e=>{
     c.dots.push({id:uid("dot"),label,amount:amt});}closeModal();render();toast("DOT added");return;}
   if(d.rmdot){const [cid,did]=d.rmdot.split("|");const c=b.combatants.find(x=>x.id===cid);if(c)c.dots=(c.dots||[]).filter(x=>x.id!==did);render();return;}
   if(d.bmove){const c=curCombatant(b);if(!c)return;const ch=actorOf(c);if(!ch)return;const a=ch.abilities.find(x=>x.id===d.bmove);BACT=null;ensureBACT(c,a);render();return;}
-  if(d.bmovefilter){BFILTER=d.bmovefilter;render();return;}
+  if(d.bgridopen){if(BACT)BACT.gridOpen=true;render();return;}
+  if(d.bmovefilter){BFILTER=d.bmovefilter;if(BACT)BACT.gridOpen=true;render();return;}
   if(d.ballroll){const c=curCombatant(b);if(!c||!BACT)return;const ch=actorOf(c);if(!ch)return;const a=ch.abilities.find(x=>x.id===BACT.abilityId);if(!a)return;
     const die=+a.dmg.match(/(\d+)d(\d+)/)[2];BACT.rolls=BACT.rolls.map(r=>r.map(()=>rollDie(die)));BACT._bonusRoll=null;render();return;}
   if(d.bclear){if(BACT){BACT.rolls=BACT.rolls.map(r=>r.map(()=>0));BACT._bonusRoll=null;}render();return;}
@@ -3452,18 +3732,30 @@ document.addEventListener("click",e=>{
     const dmg=how==="full"?P.total:how==="half"?Math.floor(P.total/2):0;if(dmg)adjustHP(b,c,-dmg);t.done=how==="none"?"nothing":dmg+"";
     blog(b,`${c.name} takes ${dmg} from ${P.abilityName}.`);if(P.targets.every(x=>x.done))b.pending=null;render();return;}
   if(d.bpendclear){b.pending=null;render();return;}
-  if(d.eapply){const c=curCombatant(b);const v=parseInt(($("#eFlat")||{}).value,10)||0;const tid=(($("#eTargetSel")||{}).value)||(BACT&&BACT.targetId);
+  if(d.emove!=null){const c=curCombatant(b);if(!c)return;BACT={combatantId:c.id,moveId:d.emove||null,flat:0,targetId:BACT&&BACT.targetId,targetIds:null,rolls:null,hit:null};render();return;}
+  if(d.ehit){const c=curCombatant(b);if(!c||!BACT)return;const m=(c.moves||[]).find(x=>x.id===BACT.moveId);if(!m)return;
+    const tgt=b.combatants.find(x=>x.id===BACT.targetId);const adv=condAdvantage(c,tgt,isMeleeMove(m));
+    const r1=rollDie(20),r2=rollDie(20);const keep=adv.mode==="adv"?Math.max(r1,r2):adv.mode==="dis"?Math.min(r1,r2):r1;
+    const bonus=parseInt(String(m.attack).replace(/[^-\d]/g,""),10)||0;
+    BACT.hit={rolls:adv.mode==="none"?[r1]:[r1,r2],keep,mode:adv.mode,bonus,total:keep+bonus,nat20:keep===20,nat1:keep===1};
+    if(keep===20&&m.dmg){const dd=m.dmg.match(/(\d+)d(\d+)/);let ex=0;for(let i=0;i<+dd[1];i++)ex+=rollDie(+dd[2]);BACT.critExtra=ex;}
+    blog(b,`${c.name} rolls to hit${tgt?" "+tgt.name:""}: ${keep+bonus}${keep===20?" — critical!":keep===1?" — natural 1":""}`);render();return;}
+  if(d.eroll){const c=curCombatant(b);if(!c||!BACT)return;const m=(c.moves||[]).find(x=>x.id===BACT.moveId);if(!m||!m.dmg)return;
+    const dd=m.dmg.match(/(\d+)d(\d+)/);BACT.rolls=Array(+dd[1]).fill(0).map(()=>rollDie(+dd[2]));render();return;}
+  if(d.eapply){const c=curCombatant(b);const m=c&&(c.moves||[]).find(x=>x.id===(BACT&&BACT.moveId));
+    if(m&&m.save&&m.save.ability){const ids=(BACT.targetIds||[]);const tg=ids.map(id=>b.combatants.find(x=>x.id===id)).filter(Boolean);
+      if(!tg.length){toast("Pick at least one target");return;}
+      const total=BACT.total||0;
+      blog(b,`${c.name} uses ${m.name} (DC ${m.save.dc} ${m.save.ability}) on ${tg.length}.`);
+      tg.forEach(t=>{const sv=rollSaveFor(t,m.save.ability,m.save.dc);const dmg=sv.ok?Math.floor(total/2):total;adjustHP(b,t,-dmg);
+        blog(b,`${t.name} ${sv.auto?"auto-fails":(sv.ok?"saves ("+sv.total+")":"fails ("+sv.total+")")} — takes ${dmg}.`);});
+      advanceTurn(b,0);render();toast(`${m.name} resolved`);return;}
+    const v=m?(BACT.total||0):(parseInt(($("#eFlat")||{}).value,10)||0);
+    const tid=(($("#eTargetSel")||{}).value)||(BACT&&BACT.targetId);
     const tgt=b.combatants.find(x=>x.id===tid);if(!tgt){toast("Pick a target");return;}
+    if(m&&BACT.hit&&(BACT.hit.nat1||(!BACT.hit.nat20&&BACT.hit.total<tgt.ac))){blog(b,`${c.name} misses ${tgt.name} with ${m.name}.`);advanceTurn(b,0);render();toast("Miss");return;}
     adjustHP(b,tgt,-v);
-    blog(b,`${c?c.name:"Enemy"} hits ${tgt.name} for ${v}.`);advanceTurn(b,0);render();toast(`${v} to ${tgt.name}`);return;}
-  if(d.addnote){const txt=($("#noteText").value||"").trim();if(!txt&&!PENDING_PHOTO){toast("Write something first");return;}
-    if(!camp.lore)camp.lore=[];
-    const who=STATE.cloud?(STATE.user.name||"Player"):(STATE.ui.viewAs==="dm"?"DM":(STATE.roster[STATE.ui.viewAs]?STATE.roster[STATE.ui.viewAs].name:"Player"));
-    const id=uid("n");const note={id,author:who,ts:Date.now(),text:txt,hadPhoto:!!PENDING_PHOTO};camp.lore.push(note);
-    if(PENDING_PHOTO){PHOTOS[id]=PENDING_PHOTO;PENDING_PHOTO=null;}
-    if(STATE.cloud)Cloud.addLore(camp.id,note);
-    render();toast("Note added");return;}
-  if(d.delnote){if(STATE.cloud){try{SB.from("lore_notes").delete().eq("id",d.delnote);}catch(e){}}camp.lore=(camp.lore||[]).filter(n=>n.id!==d.delnote);delete PHOTOS[d.delnote];render();return;}
+    blog(b,`${c?c.name:"Enemy"} hits ${tgt.name} for ${v}${m&&m.dmgType?" "+m.dmgType:""}${m?" ("+m.name+")":""}.`);advanceTurn(b,0);render();toast(`${v} to ${tgt.name}`);return;}
 });
 document.addEventListener("change",e=>{
   if(e.target.id==="pUpload"){const f=e.target.files&&e.target.files[0];if(!f||!PORTRAIT)return;
@@ -3476,16 +3768,19 @@ document.addEventListener("change",e=>{
     const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=()=>{ // downscale so the shared room state stays light
         const MAX=1400;const s=Math.min(1,MAX/Math.max(img.width,img.height));const c=document.createElement("canvas");c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);
         c.getContext("2d").drawImage(img,0,0,c.width,c.height);b.bg=c.toDataURL("image/jpeg",.8);render();toast("Battle map set");};img.src=r.result;};r.readAsDataURL(f);return;}
-  if(e.target.id==="notePhoto"){const f=e.target.files&&e.target.files[0];if(!f)return;
-    const r=new FileReader();r.onload=()=>{PENDING_PHOTO=r.result;const pn=$("#photoName");if(pn)pn.textContent=f.name+" attached";};r.readAsDataURL(f);return;}
+  if(e.target.id==="notePhoto"){const f=e.target.files&&e.target.files[0];if(!f||!LORE_EDIT)return;const pn=$("#photoName");if(pn)pn.textContent="preparing…";
+    const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=async()=>{const MAX=1280;const sc=Math.min(1,MAX/Math.max(img.width,img.height));const c=document.createElement("canvas");c.width=Math.round(img.width*sc);c.height=Math.round(img.height*sc);c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+        const dataUrl=c.toDataURL("image/jpeg",.82);let url=null;
+        if(STATE.cloud&&Cloud.feat.lore2){const blob=await new Promise(res=>c.toBlob(res,"image/jpeg",.82));url=await Cloud.uploadImage(blob,curCamp().id);}
+        if(!LORE_EDIT)return;LORE_EDIT.image=url||dataUrl;if(pn)pn.textContent=url?f.name+" uploaded":f.name+" attached"+(STATE.cloud?" (stored inline — set up the handouts bucket for faster loads)":"");};img.src=r.result;};r.readAsDataURL(f);return;}
   if(e.target.id==="bAbSel"){const b=migrateBattle(ensureBattle(curCamp()));const c=curCombatant(b);if(!c)return;
     const ch=actorOf(c);if(!ch)return;const a=ch.abilities.find(x=>x.id===e.target.value);BACT=null;ensureBACT(c,a);render();return;}
-  if(e.target.id==="bTargetSel"){if(BACT)BACT.targetId=e.target.value;return;}
+  if(e.target.id==="bTargetSel"){if(BACT){BACT.targetId=e.target.value;BACT.hit=null;render();}return;}
   if(e.target.dataset&&e.target.dataset.condsel){const b=activeBattle();const camp=curCamp();if(!b)return;
     if(STATE.cloud&&!amDM(camp)){toast("The DM sets conditions");return;}
     const c=b.combatants.find(x=>x.id===e.target.dataset.condsel);const cd=e.target.value;if(!c||!cd)return;
     c.conditions=c.conditions||[];if(!c.conditions.includes(cd))c.conditions.push(cd);blog(b,`${c.name} is ${cd}.`);render();return;}
-  if(e.target.id==="eTargetSel"){if(BACT)BACT.targetId=e.target.value;return;}
+  if(e.target.id==="eTargetSel"){if(BACT){BACT.targetId=e.target.value;BACT.hit=null;render();}return;}
 });
 document.addEventListener("input",e=>{
   const cl=e.target.classList;if(!cl)return;
@@ -3497,8 +3792,47 @@ document.addEventListener("input",e=>{
     const inst=+e.target.dataset.binst,di=+e.target.dataset.bdie;const die=+a.dmg.match(/(\d+)d(\d+)/)[2];
     let v=parseInt(e.target.value,10);if(isNaN(v))v=0;v=Math.max(0,Math.min(die,v));BACT.rolls[inst][di]=v;liveBattle();return;}
   if(e.target.id==="eFlat"){if(BACT)BACT.flat=parseInt(e.target.value,10)||0;return;}
+  if(cl.contains("edie")){if(!BACT||!BACT.rolls)return;const i=+e.target.dataset.edie;let v=parseInt(e.target.value,10);if(isNaN(v))v=0;BACT.rolls[i]=v;
+    const b=activeBattle();const c=b&&curCombatant(b);const m=c&&(c.moves||[]).find(x=>x.id===BACT.moveId);if(!m)return;
+    const sum=BACT.rolls.reduce((x,y)=>x+y,0);BACT.total=sum+(m.flatPer||0)+(BACT.hit&&BACT.hit.nat20?(BACT.critExtra||0):0);const n=document.querySelector(".actionpanel .etot");if(n)n.textContent=BACT.total;return;}
+  if(e.target.id==="monQ"){clearTimeout(MONSEARCH_T);const q=e.target.value;MONSEARCH_T=setTimeout(()=>monSearch(q),160);return;}
 });
 
+/* lore + journal events */
+document.addEventListener("click",e=>{
+  const t=e.target.closest("[data-loref],[data-lorenew],[data-loreedit],[data-lorereveal],[data-loresave],[data-loreimgrm],[data-delnote],[data-lightbox],[data-jtab],[data-jadd],[data-jbuild],[data-jdel],[data-jedit],[data-jctxsave],[data-lbclose]");
+  if(!t)return;const d=t.dataset;const camp=curCamp();if(!camp)return;
+  const isDM=STATE.cloud?amDM(camp):(STATE.ui.viewAs==="dm");
+  if(d.loref){LOREF=d.loref;render();return;}
+  if(d.lorenew){if((d.lorenew==="dm"||d.lorenew==="handout")&&!isDM){toast("Only the DM writes those");return;}loreModal(d.lorenew,null);return;}
+  if(d.loreedit){const n=(camp.lore||[]).find(x=>x.id===d.loreedit);if(!n||!canEditNote(n,isDM))return;loreModal(n.kind||"note",n.id);return;}
+  if(d.lorereveal){if(!isDM)return;const n=(camp.lore||[]).find(x=>x.id===d.lorereveal);if(!n)return;n.visible=n.visible===false;if(STATE.cloud)Cloud.updLore(n);render();toast(n.visible?"Revealed to the party":"Hidden from the party");return;}
+  if(d.loreimgrm){if(LORE_EDIT){LORE_EDIT.image=null;const pn=$("#photoName");if(pn)pn.textContent="image removed";}return;}
+  if(d.loresave){if(!LORE_EDIT)return;const title=($("#lTitle")&&$("#lTitle").value||"").trim();const txt=($("#lText")&&$("#lText").value||"").trim();
+    if(!txt&&!LORE_EDIT.image&&!title){toast("Write something first");return;}
+    camp.lore=camp.lore||[];const kind=LORE_EDIT.kind;const vis=kind==="handout"?!!($("#lVis")&&$("#lVis").checked):true;
+    if(LORE_EDIT.id){const n=camp.lore.find(x=>x.id===LORE_EDIT.id);if(!n)return;n.title=title;n.text=txt;n.visible=vis;n.image=LORE_EDIT.image;if(STATE.cloud)Cloud.updLore(n);}
+    else{const id=uid("n");const note={id,author:whoAmI(isDM),author_id:STATE.cloud?ME():null,ts:Date.now(),text:txt,title,kind,visible:vis,image:LORE_EDIT.image,hadPhoto:false};camp.lore.push(note);if(STATE.cloud)Cloud.addLore(camp.id,note);}
+    LORE_EDIT=null;closeModal();render();toast(kind==="handout"?(vis?"Handout shared with the party":"Handout saved — reveal it when you're ready"):"Note saved");return;}
+  if(d.delnote){const n=(camp.lore||[]).find(x=>x.id===d.delnote);if(n&&!canEditNote(n,isDM)){toast("Only the author or the DM can delete that");return;}
+    if(STATE.cloud){try{SB.from("lore_notes").delete().eq("id",d.delnote);}catch(e){}}camp.lore=(camp.lore||[]).filter(n=>n.id!==d.delnote);delete PHOTOS[d.delnote];render();return;}
+  if(d.lightbox){const n=(camp.lore||[]).find(x=>x.id===d.lightbox);const src=n&&(n.image||PHOTOS[n.id]);if(!src)return;
+    openModal(`<div class="lightbox"><img src="${src}" alt=""><div class="acts"><button class="btn ghost" data-lbclose="1">Close</button></div></div>`);return;}
+  if(d.lbclose){closeModal();return;}
+  if(d.jtab){JTAB=d.jtab;render();return;}
+  if(d.jbuild){if(!isDM)return;STATE.ui.recapDraft=buildRecapDraft(camp);render();toast("Draft built — edit it, then save");return;}
+  if(d.jadd){const kind=d.jadd;if((kind==="recap"||kind==="context")&&!isDM){toast("Only the DM posts those");return;}
+    const id=kind==="story"?"#jStory":kind==="recap"?"#jRecap":"#jCtx";const txt=($(id)&&$(id).value||"").trim();if(!txt){toast("Write something first");return;}
+    if(kind==="recap"&&STATE.ui.recapEditId){const j=journalOf(camp).find(x=>x.id===STATE.ui.recapEditId);if(j){j.text=txt;if(STATE.cloud)Cloud.updJournal(j);}STATE.ui.recapEditId=null;}
+    else journalAdd(camp,kind,txt);
+    if(kind==="recap")STATE.ui.recapDraft="";render();toast(kind==="story"?"Story note added":kind==="recap"?"Recap posted":"Context added");return;}
+  if(d.jedit){if(!isDM)return;const j=journalOf(camp).find(x=>x.id===d.jedit);if(!j)return;
+    if(j.kind==="recap"){STATE.ui.recapDraft=j.text;STATE.ui.recapEditId=j.id;render();window.scrollTo({top:0,behavior:"smooth"});}
+    else{openModal(`<h2>Edit context note</h2><div class="field"><textarea id="jCtxEdit" style="min-height:100px">${esc(j.text)}</textarea></div><div class="acts"><button class="btn ghost" data-close="1">Cancel</button><button class="btn primary" data-jctxsave="${j.id}">Save</button></div>`);}return;}
+  if(d.jctxsave){const j=journalOf(camp).find(x=>x.id===d.jctxsave);if(!j)return;j.text=($("#jCtxEdit").value||"").trim();if(STATE.cloud)Cloud.updJournal(j);closeModal();render();return;}
+  if(d.jdel){const j=journalOf(camp).find(x=>x.id===d.jdel);if(!j)return;if(STATE.cloud&&!isDM&&j.author_id!==ME()){toast("Only the author or the DM can remove that");return;}
+    camp.journal=journalOf(camp).filter(x=>x.id!==d.jdel);if(STATE.cloud)Cloud.delJournal(d.jdel);render();return;}
+});
 /* builder + map + dice + trash events */
 let PENDING_PIN=null;
 function pinModal(){openModal(`<h2>Drop a pin</h2>
@@ -3682,6 +4016,7 @@ const Cloud={
     Cloud.subscribe();
     render();
     updateAcctBtn();
+    ddbSyncMine(false);  // D&D Beyond is the source of truth for level/stats
   },
   async leave(){
     try{ if(Cloud._chan){ SB.removeChannel(Cloud._chan); Cloud._chan=null; } }catch(e){}
@@ -3708,16 +4043,40 @@ const Cloud={
       STATE.campaigns={};
       (camps.data||[]).forEach(r=>{STATE.campaigns[r.id]=Cloud.mkCamp(r);Cloud._campHash[r.id]=hashStr(JSON.stringify(Cloud.campRow(STATE.campaigns[r.id])));});
       (mems.data||[]).forEach(m=>{const c=STATE.campaigns[m.campaign_id];if(c){c.members.push(m);if(m.character_id){c.party.push(m.character_id);c.ready[m.character_id]=m.ready;}}});
-      (lore.data||[]).forEach(n=>{const c=STATE.campaigns[n.campaign_id];if(c)c.lore.push({id:n.id,author:n.author_name,ts:new Date(n.created_at).getTime(),text:n.body,hadPhoto:false});});
+      (lore.data||[]).forEach(n=>{const c=STATE.campaigns[n.campaign_id];if(c)c.lore.push(Cloud.lrow(n));});
       (battles&&battles.data||[]).forEach(r=>{const c=STATE.campaigns[r.campaign_id];if(c&&r.state){c.rooms=c.rooms||{};c.rooms[r.id]=r.state;Cloud._battleHash[r.id]=hashStr(JSON.stringify(r.state));}});
+      await Cloud.detectFeatures(camps.data||[],lore.data||[]);
+      if(Cloud.feat.journal){try{const {data}=await SB.from("journal").select("*").order("created_at",{ascending:true});
+        (data||[]).forEach(j=>{const c=STATE.campaigns[j.campaign_id];if(c){c.journal=c.journal||[];c.journal.push(Cloud.jrow(j));}});}catch(e){}}
+      // re-hash campaigns now that bestiary is known
+      Object.values(STATE.campaigns).forEach(c=>{Cloud._campHash[c.id]=hashStr(JSON.stringify(Cloud.campRow(c)));});
     }catch(e){console.warn("loadAll failed",e);toast("Couldn't load your cloud data");}
+  },
+  feat:{bestiary:false,lore2:false,journal:false},
+  async detectFeatures(camps,lore){ // newer columns/tables exist only after the owner runs the upgrade SQL
+    const probe=async(tbl,col)=>{try{const {error}=await SB.from(tbl).select(col).limit(1);return !error;}catch(e){return false;}};
+    Cloud.feat.bestiary=camps.length?("bestiary" in camps[0]):await probe("campaigns","bestiary");
+    Cloud.feat.lore2=lore.length?("kind" in lore[0]):await probe("lore_notes","kind");
+    Cloud.feat.journal=await probe("journal","id");
+  },
+  jrow(j){return {id:j.id,kind:j.kind||"story",author:j.author_name,author_id:j.author_id,ts:new Date(j.created_at).getTime(),text:j.body||"",meta:j.meta||{}};},
+  lrow(n){return {id:n.id,author:n.author_name,author_id:n.author_id,ts:new Date(n.created_at).getTime(),text:n.body||"",title:n.title||"",kind:n.kind||"note",visible:n.visible!==false,image:n.image_url||null,hadPhoto:false};},
+  async addJournal(campId,j){if(!Cloud.feat.journal)return;try{await SB.from("journal").insert({id:j.id,campaign_id:campId,kind:j.kind,author_id:ME(),author_name:j.author,body:j.text,meta:j.meta||{}});}catch(e){}},
+  async updJournal(j){if(!Cloud.feat.journal)return;try{await SB.from("journal").update({body:j.text,meta:j.meta||{}}).eq("id",j.id);}catch(e){}},
+  async delJournal(id){if(!Cloud.feat.journal)return;try{await SB.from("journal").delete().eq("id",id);}catch(e){}},
+  async updLore(n){if(!Cloud.feat.lore2)return;try{await SB.from("lore_notes").update({body:n.text,title:n.title||"",kind:n.kind||"note",visible:n.visible!==false,image_url:n.image||null}).eq("id",n.id);}catch(e){}},
+  async uploadImage(file,prefix){ // → public URL in the handouts bucket, or null
+    if(!SB||!STATE.cloud)return null;
+    try{const ext=(file.type&&file.type.split("/")[1])||"jpg";const path=`${prefix}/${uid("img")}.${ext}`;
+      const {error}=await SB.storage.from("handouts").upload(path,file,{upsert:false,contentType:file.type||"image/jpeg"});if(error)throw error;
+      const {data}=SB.storage.from("handouts").getPublicUrl(path);return data&&data.publicUrl||null;}catch(e){console.warn("upload failed",e);return null;}
   },
   mkCamp(r){return {id:r.id,dm_id:r.dm_id,name:r.name,dm:PROF[r.dm_id]||"DM",invite_code:r.invite_code,
     settings:r.settings||{cooldowns:true},session:r.session||{live:false},
-    rooms:r.rooms||{},map:r.map||null,party:[],ready:{},members:[],lore:[],
+    rooms:r.rooms||{},map:r.map||null,bestiary:r.bestiary||[],journal:[],party:[],ready:{},members:[],lore:[],
     created:r.created_at?new Date(r.created_at).getTime():Date.now(),lastPlayed:Date.now()};},
-  campRow(c){return {id:c.id,dm_id:c.dm_id||ME(),name:c.name,invite_code:c.invite_code||null,settings:c.settings||{},
-    session:c.session||{},map:c.map||null};}, // battle lives in its own shared table now
+  campRow(c){const row={id:c.id,dm_id:c.dm_id||ME(),name:c.name,invite_code:c.invite_code||null,settings:c.settings||{},
+    session:c.session||{},map:c.map||null};if(Cloud.feat.bestiary)row.bestiary=c.bestiary||[];return row;}, // battle lives in its own shared table now
   async joinByCode(code,charId){const {data,error}=await SB.rpc("join_campaign",{p_code:code,p_char:charId});if(error)throw error;await Cloud.loadAll();return data;},
   async peekCode(code){const {data,error}=await SB.rpc("peek_campaign",{p_code:code});if(error)throw error;return (data&&data[0])||null;},
   charRow(ch){return {id:ch.id,owner_id:ch.owner_id||ME(),name:ch.name,data:ch};},
@@ -3744,7 +4103,9 @@ const Cloud={
     try{await SB.from("campaign_members").upsert({campaign_id:campId,user_id:ME(),character_id:charId,role,ready:false});}catch(e){toast("Join failed");}},
   async leaveCamp(campId,userId){try{await SB.from("campaign_members").delete().eq("campaign_id",campId).eq("user_id",userId);}catch(e){}},
   async setReady(campId,ready){try{await SB.from("campaign_members").update({ready}).eq("campaign_id",campId).eq("user_id",ME());}catch(e){}},
-  async addLore(campId,note){try{await SB.from("lore_notes").insert({id:note.id,campaign_id:campId,author_id:ME(),author_name:note.author,body:note.text});}catch(e){}},
+  async addLore(campId,note){try{const row={id:note.id,campaign_id:campId,author_id:ME(),author_name:note.author,body:note.text};
+    if(Cloud.feat.lore2){row.title=note.title||"";row.kind=note.kind||"note";row.visible=note.visible!==false;row.image_url=note.image||null;}
+    await SB.from("lore_notes").insert(row);}catch(e){}},
   async delCampaign(campId){try{await SB.from("campaigns").delete().eq("id",campId);}catch(e){}},
   async delCharacter(id){try{await SB.from("characters").delete().eq("id",id);delete Cloud._charHash[id];}catch(e){}},
   async reloadMembers(campId){const c=STATE.campaigns[campId];if(!c)return;
@@ -3765,7 +4126,7 @@ const Cloud={
           if(Cloud._campHash[r.id]===h&&STATE.campaigns[r.id])return;Cloud._campHash[r.id]=h;
           const existing=STATE.campaigns[r.id];const fresh=Cloud.mkCamp(r);
           const wasLive=existing&&existing.session&&existing.session.live;
-          if(existing){fresh.party=existing.party;fresh.ready=existing.ready;fresh.members=existing.members;fresh.lore=existing.lore;fresh.rooms=existing.rooms;}
+          if(existing){fresh.party=existing.party;fresh.ready=existing.ready;fresh.members=existing.members;fresh.lore=existing.lore;fresh.rooms=existing.rooms;fresh.journal=existing.journal;}
           else{await Cloud.reloadMembers(r.id);}
           STATE.campaigns[r.id]=fresh;
           // DM ended the session → pull every player back to the lobby
@@ -3794,8 +4155,14 @@ const Cloud={
           if(nowMine===r.id&&wasMine!==r.id){STATE.ui.tab="battle";STATE.ui.screen="play";
             toast(r.state.phase==="active"?"The DM pulled you into the fight — you're in the order!":"The DM pulled you into a fight — roll for initiative!");}}
         render();})
-      .on("postgres_changes",{event:"INSERT",schema:"public",table:"lore_notes"},p=>{
-        const n=p.new;const c=STATE.campaigns[n.campaign_id];if(c){if(!c.lore.find(x=>x.id===n.id)){c.lore.push({id:n.id,author:n.author_name,ts:new Date(n.created_at).getTime(),text:n.body,hadPhoto:false});render();}}})
+      .on("postgres_changes",{event:"*",schema:"public",table:"lore_notes"},p=>{
+        if(p.eventType==="DELETE"){const o=p.old;if(!o||!o.id)return;Object.values(STATE.campaigns).forEach(c=>{c.lore=(c.lore||[]).filter(x=>x.id!==o.id);});render();return;}
+        const n=p.new;const c=STATE.campaigns[n.campaign_id];if(!c)return;const row=Cloud.lrow(n);const i=c.lore.findIndex(x=>x.id===n.id);
+        if(i>=0)c.lore[i]=row;else c.lore.push(row);render();})
+      .on("postgres_changes",{event:"*",schema:"public",table:"journal"},p=>{
+        if(p.eventType==="DELETE"){const o=p.old;if(!o||!o.id)return;Object.values(STATE.campaigns).forEach(c=>{c.journal=(c.journal||[]).filter(x=>x.id!==o.id);});render();return;}
+        const j=p.new;const c=STATE.campaigns[j.campaign_id];if(!c)return;c.journal=c.journal||[];const row=Cloud.jrow(j);const i=c.journal.findIndex(x=>x.id===j.id);
+        if(i>=0)c.journal[i]=row;else c.journal.push(row);render();})
       .subscribe();
   },
 };
@@ -3900,9 +4267,10 @@ function updateAcctBtn(){const b=$("#acctBtn");if(!b)return;
 
 $("#acctBtn").addEventListener("click",()=>{ if(!SB){toast("Cloud unavailable — playing solo");return;} STATE.cloud?acctModal():authModal(); });
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-authmode],[data-authgo],[data-signout],[data-joincode],[data-dojoin],[data-newcharjoin],[data-copyinvite],[data-copycode],[data-forgot],[data-sendreset],[data-setpass],[data-ddbimport],[data-ddbfetch],[data-ddbcreate],[data-ddbedit]");if(!t)return;
+  const t=e.target.closest("[data-authmode],[data-authgo],[data-signout],[data-joincode],[data-dojoin],[data-newcharjoin],[data-copyinvite],[data-copycode],[data-forgot],[data-sendreset],[data-setpass],[data-ddbimport],[data-ddbfetch],[data-ddbcreate],[data-ddbedit],[data-ddbsync]");if(!t)return;
   const d=t.dataset;
   if(d.ddbimport!=null){ddbImportModal();return;}
+  if(d.ddbsync){const ch=STATE.roster[d.ddbsync];if(!ch)return;toast("Checking D&D Beyond…");ddbSyncChar(ch,true).then(r=>{render();toast(r?(r.leveled?`Level ${r.to} — refreshed`:"Up to date with D&D Beyond"):"Couldn't reach D&D Beyond (is the sheet Public?)");});return;}
   if(d.ddbfetch!=null){doDdbFetch();return;}
   if(d.ddbcreate!=null){ddbCreate(d.ddbcreate,false);return;}
   if(d.ddbedit!=null){ddbCreate("",true);return;}
