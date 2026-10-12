@@ -3052,10 +3052,11 @@ function ddbMergeInto(ch,fresh){
   ch.ddbSynced=Date.now();ch.ddbId=ch.ddbId||fresh.ddbId;
   return {leveled:ch.level!==prev,from:prev,to:ch.level};
 }
-const DDB_SYNC_MS=10*60*1000;
+const DDB_SYNC_MS=2*60*1000;   // re-check D&D Beyond every 2 minutes
+const DDB_MIN_GAP=45*1000;     // …and never more often than every 45 s per character
 async function ddbSyncChar(ch,force){
   if(!ch||!ch.ddbId)return null;
-  if(!force&&ch.ddbSynced&&Date.now()-ch.ddbSynced<DDB_SYNC_MS)return null;
+  if(!force&&ch.ddbSynced&&Date.now()-ch.ddbSynced<DDB_MIN_GAP)return null;
   try{const data=await fetchDDB(String(ch.ddbId));const fresh=ddbToChar(data);const r=ddbMergeInto(ch,fresh);
     if(r.leveled)toast(`${ch.name.split(" ")[0]} is now level ${r.to} — stats refreshed from D&D Beyond`);
     return r;}catch(e){ch.ddbSynced=Date.now();return null;} // don't hammer DDB on failure
@@ -3066,6 +3067,7 @@ async function ddbSyncMine(force){
   if(changed)render();return changed;
 }
 setInterval(()=>{ddbSyncMine(false);},DDB_SYNC_MS);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")ddbSyncMine(false);}); // coming back to the tab re-checks
 function ddbImportModal(){
   openModal(`<h2>Import from D&D Beyond</h2>
     <div class="banner">Set the character to <b>Public</b> on D&D Beyond (character → Edit → Home → Character Privacy), then paste its link or ID.</div>
@@ -3510,7 +3512,7 @@ document.addEventListener("click",e=>{
     if(STATE.ui.viewAs!=="dm"&&!camp.party.includes(STATE.ui.viewAs))STATE.ui.viewAs="dm";journalAdd(camp,"auto","Session started.");render();toast("Session started — the night begins");ddbSyncMine(false);return;}
   if(d.endsession){const camp=curCamp();if(STATE.cloud&&!amDM(camp)){toast("Only the host can end the session");return;}journalAdd(camp,"auto","Session ended.");camp.session.live=false;go("lobby");toast("Session ended");return;}
   if(d.enterplay){STATE.ui.screen="play";STATE.ui.tab="sheet";render();return;}
-  if(d.tab){STATE.ui.tab=d.tab;render();return;}
+  if(d.tab){STATE.ui.tab=d.tab;render();if(d.tab==="sheet")ddbSyncMine(false);return;}
   if(d.filter){const ch=viewedChar();if(ch){ch._filter=ch._filter||{};ch._filter.active=d.filter;render();}return;}
   if(d.abilsort){const ch=viewedChar();if(ch){ch._filter=ch._filter||{active:"all"};const cur=ch._filter.sort||"none";ch._filter.sort=cur==="none"?"asc":cur==="asc"?"desc":"none";render();}return;}
   if(d.tocalc){STATE.ui.tab="calc";STATE.ui.calcAbility=d.tocalc;render();return;}
