@@ -1333,24 +1333,6 @@ function screenCharacters(){
     grid.appendChild(s);
   });
   wrap.appendChild(grid);
-  // prebuilt party — the four full character sheets ported from the originals
-  const haveNames=new Set(Object.values(STATE.roster).map(c=>c.name));
-  const pre=Object.values(SEED_ROSTER).filter(c=>!haveNames.has(c.name));
-  if(pre.length){
-    wrap.appendChild(el("div","seclabel2","Prebuilt party — full sheets"));
-    wrap.appendChild(el("p","comphint","The four original characters with every move ported in. Add one to your roster to use it — each move set is complete (Aster 35, Vernig 134, Valin 10, Blane 6)."));
-    const pg=el("div","slots");
-    pre.forEach(ch=>{const n=(ch.abilities||[]).length;
-      const card=el("div","charcard");
-      card.innerHTML=`${avatarHTML(ch,"lg")}
-        <div class="ci"><div class="cn">${esc(ch.name)}</div>
-          <div class="cc">${esc(ch.cls)}${ch.subtitle?" · "+esc(ch.subtitle):""}</div>
-          <div class="cstats"><span>AC ${effAC(ch).ac}</span><span>HP ${ch.maxHP}</span><span>${n} moves</span></div></div>
-        <div class="crow"><button class="btn sm primary" data-addseed="${ch.id}">Add to my roster</button></div>`;
-      pg.appendChild(card);
-    });
-    wrap.appendChild(pg);
-  }
   return wrap;
 }
 
