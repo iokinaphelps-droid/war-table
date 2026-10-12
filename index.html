@@ -627,6 +627,9 @@ body.tableview #screen{max-width:none;padding:14px 18px}
 .npcwhere{font-size:12px;color:var(--faint);margin-top:3px} .npcnotes{font-size:13px;margin-top:5px;white-space:pre-wrap} .npcsecret{font-size:12px;color:var(--c-control);margin-top:5px;border-top:1px dashed var(--line);padding-top:5px}
 .npcacts{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px} .npcacts .btn{padding:2px 8px;font-size:11px}
 .recappush .eyebrow{color:var(--gold)}
+.srchres{display:flex;flex-direction:column;gap:5px;max-height:55vh;overflow:auto} .srchhit{display:flex;gap:10px;align-items:flex-start;text-align:left;background:var(--bg3);border:1px solid var(--line);border-radius:10px;padding:8px 10px;color:var(--fg);cursor:pointer} .srchhit:hover{border-color:var(--accent)} .srchhit .st small{display:block;color:var(--muted);font-size:12px;margin-top:2px} .srchhit mark{background:color-mix(in srgb,var(--gold) 40%,transparent);color:inherit;border-radius:3px}
+.flash{animation:flash 2.2s ease-out} @keyframes flash{0%{box-shadow:0 0 0 3px var(--gold)}100%{box-shadow:0 0 0 0 transparent}}
+.dmscreen{max-width:720px} .reftable{width:100%;border-collapse:collapse;font-size:13.5px;max-height:60vh;display:block;overflow:auto} .reftable td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top} .reftable td:first-child{font-weight:700;white-space:nowrap;width:1%;color:var(--gold)}
 .thp{color:var(--c-support);font-size:11px;margin-left:4px} .defrow{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px}
 .defchip{font-size:10px;padding:1px 6px;border-radius:5px;border:1px solid var(--line2);color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .defchip.immune{color:var(--ok)} .defchip.vuln{color:var(--crit)}
@@ -856,6 +859,8 @@ body.tableview #screen{max-width:none;padding:14px 18px}
   <div class="ctx" id="ctx"></div>
   <div class="spacer"></div>
   <div class="viewas" id="viewas" hidden></div>
+  <button class="iconbtn" id="searchBtn" title="Search the campaign" aria-label="Search" hidden>⌕</button>
+  <button class="iconbtn" id="dmScreenBtn" title="DM screen" aria-label="DM screen" hidden>📜</button>
   <button class="iconbtn" id="diceBtn" title="Dice roller" aria-label="Dice roller">🎲</button>
   <button class="iconbtn" id="acctBtn" title="Account" aria-label="Account">☁</button>
   <button class="iconbtn" id="themeBtn" title="Toggle theme" aria-label="Toggle theme">◐</button>
@@ -1329,6 +1334,7 @@ function render(){
       }
     } else va.hidden=true;
   }
+  {const sb=$("#searchBtn"),db=$("#dmScreenBtn");const inCamp=!!camp&&(ui.screen==="play"||ui.screen==="lobby");if(sb)sb.hidden=!inCamp;if(db)db.hidden=!(inCamp&&(STATE.cloud?amDM(camp):ui.viewAs==="dm"));}
   const scr=$("#screen");scr.innerHTML="";
   document.body.classList.toggle("tableview",!!ui.tableView&&!!camp);
   if(ui.tableView&&camp){scr.appendChild(screenTable(camp));$("#foot").innerHTML="";save();if(STATE.cloud){Cloud.syncRooms();Cloud.afterRender();}return;}
@@ -3037,7 +3043,7 @@ function loreView(isDM){
   if(LOREF==="npc"||LOREF==="all"){const people=camp.lore.filter(n=>n.kind==="npc"&&canSeeNote(n,isDM));
     if(people.length){const pg=el("div","npcgrid");
       people.slice().reverse().forEach(n=>{const m=npcMeta(n);const img=n.image||PHOTOS[n.id];
-        pg.innerHTML+=`<div class="npccard att-${esc(m.attitude||"unknown")}">${img?`<div class="npcimg" style="background-image:url('${img}')" data-lightbox="${n.id}"></div>`:`<div class="npcimg noimg">${esc((n.title||"?")[0])}</div>`}
+        pg.innerHTML+=`<div class="npccard att-${esc(m.attitude||"unknown")}" data-noteid="${n.id}">${img?`<div class="npcimg" style="background-image:url('${img}')" data-lightbox="${n.id}"></div>`:`<div class="npcimg noimg">${esc((n.title||"?")[0])}</div>`}
           <div class="npcbody"><div class="npcname">${esc(n.title||"Unnamed")}${n.visible===false?' <span class="ktag">hidden</span>':""}</div><div class="npcatt">${esc(m.attitude||"unknown")}${m.role?" · "+esc(m.role):""}</div>${m.where?`<div class="npcwhere">Met: ${esc(m.where)}</div>`:""}${m.notes?`<div class="npcnotes">${esc(m.notes)}</div>`:""}${isDM&&m.secret?`<div class="npcsecret">🔒 ${esc(m.secret)}</div>`:""}
           ${isDM?`<div class="npcacts"><button class="btn sm ghost" data-npcedit="${n.id}">Edit</button><button class="btn sm ghost" data-lorereveal="${n.id}">${n.visible===false?"Reveal":"Hide"}</button><button class="btn sm ghost" data-delnote="${n.id}">✕</button></div>`:""}</div></div>`;});
       w.appendChild(pg);}
@@ -3047,7 +3053,7 @@ function loreView(isDM){
   const vis=camp.lore.filter(n=>canSeeNote(n,isDM)&&n.kind!=="npc").filter(n=>LOREF==="all"||(n.kind||"note")===LOREF);
   if(!vis.length)list.appendChild(el("div","empty",isDM?"Nothing here yet. Handouts are what the party sees — DM notes stay yours until you reveal them.":"No notes yet. Jot what happened, clues, names — the party's story builds up here."));
   vis.slice().reverse().forEach(n=>{
-    const nd=el("div","note kind-"+(n.kind||"note"));const img=n.image||PHOTOS[n.id];const kind=n.kind||"note";
+    const nd=el("div","note kind-"+(n.kind||"note"));nd.dataset.noteid=n.id;const img=n.image||PHOTOS[n.id];const kind=n.kind||"note";
     const tag=kind==="handout"?`<span class="ktag handout">Handout${n.visible===false?" · hidden":""}</span>`:kind==="dm"?`<span class="ktag dm">DM only</span>`:`<span class="ktag">Note</span>`;
     nd.innerHTML=`<div class="meta">${tag}<span class="au">${esc(n.author)}</span><span class="ts">${new Date(n.ts).toLocaleString()}</span><span style="flex:1"></span>
         ${isDM&&kind==="handout"?`<button class="btn sm ${n.visible===false?"gold":"ghost"}" data-lorereveal="${n.id}" style="padding:2px 8px;font-size:11px">${n.visible===false?"Reveal to party":"Hide"}</button>`:""}
@@ -3073,6 +3079,39 @@ function loreModal(kind,noteId){
     <div class="acts"><button class="btn ghost" data-close="1">Cancel</button><button class="btn primary" data-loresave="1">${n?"Save":"Add"}</button></div>`);
   setTimeout(()=>{const t=$("#lTitle");if(t)t.focus();},30);
 }
+/* ============================ search across the campaign ============================ */
+function searchCampaign(camp,q,isDM){q=(q||"").trim().toLowerCase();if(q.length<2||!camp)return [];const hits=[];const sn=(t,n)=>{t=String(t||"");const i=t.toLowerCase().indexOf(q);if(i<0)return esc(t.slice(0,n||90));const a=Math.max(0,i-30);return esc(t.slice(a,i))+"<mark>"+esc(t.slice(i,i+q.length))+"</mark>"+esc(t.slice(i+q.length,i+q.length+60));};
+  (camp.lore||[]).filter(n=>canSeeNote(n,isDM)).forEach(n=>{if(n.kind==="npc"){const m=npcMeta(n);const blob=[n.title,m.role,m.where,m.notes,isDM?m.secret:""].join(" ");if(blob.toLowerCase().includes(q))hits.push({kind:"People",title:n.title,snip:sn([m.role,m.where,m.notes].filter(Boolean).join(" · ")),go:{tab:"lore",loref:"npc",id:n.id}});}
+    else{const blob=[n.title,n.text].join(" ");if(blob.toLowerCase().includes(q))hits.push({kind:n.kind==="handout"?"Handout":n.kind==="dm"?"DM note":"Note",title:n.title||(n.text||"").slice(0,40),snip:sn(n.text),go:{tab:"lore",loref:"all",id:n.id}});}});
+  (camp.journal||[]).forEach(j=>{if((j.text||"").toLowerCase().includes(q))hits.push({kind:j.kind==="auto"?"Log":j.kind==="story"?"Story":j.kind==="recap"?"Recap":j.kind==="context"?"Context":"Downtime",title:j.author+" · "+new Date(j.ts).toLocaleDateString(),snip:sn(j.text),go:{tab:"journal",jtab:j.kind==="auto"?"log":j.kind==="story"?"story":j.kind==="downtime"?"calendar":"recap",id:j.id}});});
+  (camp.bestiary||[]).forEach(m=>{if((m.name||"").toLowerCase().includes(q))hits.push({kind:"Bestiary",title:m.name,snip:esc(`HP ${m.hp} · AC ${m.ac} · ${(m.moves||[]).length} attacks`),go:null});});
+  (camp.party||[]).map(id=>STATE.roster[id]).filter(Boolean).forEach(ch=>{if(ch.name.toLowerCase().includes(q))hits.push({kind:"Character",title:ch.name,snip:esc(ch.cls),go:{tab:"sheet",viewAs:ch.id}});
+    (ch.abilities||[]).forEach(a=>{if((a.name||"").toLowerCase().includes(q))hits.push({kind:"Move",title:a.name,snip:esc(ch.name.split(" ")[0]+" · "+(a.source||"")),go:{readmore:a.name}});});});
+  return hits.slice(0,40);}
+function searchModal(){const camp=curCamp();if(!camp)return;
+  openModal(`<h2>Search the campaign</h2><div class="field"><input id="srchQ" placeholder="an NPC, a clue, a spell, a place…" autocomplete="off"></div><div id="srchRes" class="srchres"><div class="empty" style="padding:6px">Notes, people, journal, bestiary, moves.</div></div><div class="acts"><button class="btn ghost" data-close="1">Close</button></div>`);
+  setTimeout(()=>{const n=$("#srchQ");if(n)n.focus();},30);}
+function renderSearch(q){const camp=curCamp();const box=$("#srchRes");if(!box||!camp)return;const isDM=STATE.cloud?amDM(camp):(STATE.ui.viewAs==="dm");const hits=searchCampaign(camp,q,isDM);
+  box.innerHTML=hits.length?hits.map((h,i)=>`<button class="srchhit" data-srchgo="${i}"><span class="ktag">${esc(h.kind)}</span><span class="st"><b>${esc(h.title)}</b><small>${h.snip}</small></span></button>`).join(""):`<div class="empty" style="padding:6px">${q.trim().length<2?"Type at least two letters.":"Nothing matches."}</div>`;renderSearch._hits=hits;}
+function flashEl(sel){setTimeout(()=>{const n=document.querySelector(sel);if(n){n.scrollIntoView({behavior:"smooth",block:"center"});n.classList.add("flash");setTimeout(()=>n.classList.remove("flash"),2200);}},120);}
+/* ============================ DM screen: quick-reference + house rules ============================ */
+let DMSEC="conditions";
+const DM_REF={
+  actions:{t:"Actions in combat",rows:[["Attack","One melee or ranged attack (more with Extra Attack)."],["Cast a spell","Casting time 1 action; one bonus-action spell per turn means only a cantrip as the action."],["Dash","Extra movement equal to your speed."],["Disengage","Your movement doesn't provoke opportunity attacks."],["Dodge","Attacks against you have disadvantage; DEX saves at advantage. Ends if incapacitated or speed 0."],["Help","Give an ally advantage on their next check or attack against a creature within 5 ft of you."],["Hide","Stealth check vs passive Perception."],["Ready","Choose a trigger and a reaction; readied spells need concentration."],["Search","Perception or Investigation."],["Use an object","Interact with a second object this turn."],["Grapple / Shove","Athletics vs target's Athletics or Acrobatics; shove = prone or 5 ft away."],["Opportunity attack","Reaction when a hostile you can see leaves your reach (not on Disengage, teleport, or forced movement)."]]},
+  conditions:{t:"Conditions",rows:Object.entries(CONDS).map(([k,v])=>[k,v.text])},
+  cover:{t:"Cover & vision",rows:[["Half cover","+2 AC and DEX saves (low wall, furniture, a creature)."],["Three-quarters cover","+5 AC and DEX saves (arrow slit, thick tree)."],["Total cover","Can't be targeted directly."],["Lightly obscured","Disadvantage on Perception checks relying on sight (dim light, patchy fog)."],["Heavily obscured","Effectively blinded (darkness, dense fog)."],["Darkvision","See in dim light as bright and darkness as dim (shades of grey)."],["Unseen attacker","Advantage to attack a target that can't see you; disadvantage against targets you can't see."]]},
+  exhaustion:{t:"Exhaustion",rows:[["1","Disadvantage on ability checks."],["2","Speed halved."],["3","Disadvantage on attack rolls and saving throws."],["4","Hit point maximum halved."],["5","Speed reduced to 0."],["6","Death."],["Recovery","A long rest with food and drink removes one level."]]},
+  travel:{t:"Travel & rest",rows:[["Fast pace","30 miles/day (4 mph); −5 passive Perception."],["Normal pace","24 miles/day (3 mph)."],["Slow pace","18 miles/day (2 mph); can stealth."],["Forced march","Beyond 8 hours: CON save DC 10 +1 per extra hour or gain exhaustion."],["Short rest","1+ hour; spend hit dice (d + CON each)."],["Long rest","8 hours (6 sleeping); regain all HP, half total hit dice; once per 24 h."],["Jump (long)","STR score in feet with a 10-ft run-up; half from standing."],["Jump (high)","3 + STR mod feet with a run-up."],["Carrying","STR × 15 lb; push/drag/lift STR × 30."],["Falling","1d6 bludgeoning per 10 ft, max 20d6; prone on landing."],["Suffocating","Hold breath 1 + CON mod minutes (min 30 s), then CON mod rounds."]]},
+  dcs:{t:"Difficulty classes",rows:[["Very easy","5"],["Easy","10"],["Medium","15"],["Hard","20"],["Very hard","25"],["Nearly impossible","30"],["Group check","Half the group succeeds = success."],["Passive check","10 + modifiers (+5 advantage / −5 disadvantage)."],["Contest","Opposed checks; tie = situation unchanged."]]},
+  healing:{t:"Dying & healing",rows:[["0 HP","Unconscious; death saves on your turns: 10+ success, 9− failure; nat 20 = 1 HP, nat 1 = two failures."],["Three successes","Stable (unconscious; 1 HP after 1d4 hours)."],["Three failures","Dead."],["Damage while at 0","One failure (two on a crit); instant death if damage ≥ max HP."],["Stabilize","Medicine DC 10, or a healer's kit."],["Temp HP","Doesn't stack; take the higher; lost first; not healing."],["Potion of healing","2d4+2 (action to drink, bonus action is a common house rule)."]]},
+  skills:{t:"Skills by ability",rows:[["STR","Athletics"],["DEX","Acrobatics, Sleight of Hand, Stealth"],["INT","Arcana, History, Investigation, Nature, Religion"],["WIS","Animal Handling, Insight, Medicine, Perception, Survival"],["CHA","Deception, Intimidation, Performance, Persuasion"],["Tools","Thieves' tools (DEX), herbalism (INT/WIS), instruments (CHA), vehicles (DEX/WIS)."]]},
+  house:{t:"House rules",rows:[]},
+};
+function dmScreen(){const camp=curCamp();if(!camp)return;const sec=DM_REF[DMSEC]||DM_REF.conditions;
+  const tabs=Object.entries(DM_REF).map(([k,v])=>`<button class="chip ${DMSEC===k?"on":""}" data-dmsec="${k}">${esc(v.t)}</button>`).join("");
+  let body;if(DMSEC==="house")body=`<div class="banner">Your table's rulings. Players don't see this — it's your screen.</div><textarea id="hrText" style="min-height:220px;width:100%">${esc((camp.settings&&camp.settings.houseRules)||"")}</textarea>`;
+  else body=`<table class="reftable">${sec.rows.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td></tr>`).join("")}</table>`;
+  openModal(`<div class="dmscreen"><h2>DM screen</h2><div class="chiprow" style="margin-bottom:10px">${tabs}</div>${body}<div class="acts"><button class="btn ghost" data-close="1">Close</button></div></div>`);}
 /* ============================ campaign calendar & downtime ============================ */
 const DEFAULT_MONTHS=["Frostfall","Thawmoon","Seedtide","Greenrise","Highsun","Longday","Emberwane","Harvestmoon","Fallingleaf","Dimming","Coldeve","Deepnight"];
 const DOWNTIME_KINDS=["Training","Crafting","Research","Carousing","Working","Recuperating","Travelling","Pit fighting","Other"];
@@ -3094,7 +3133,7 @@ function calendarView(camp,isDM){
   w.appendChild(comp);
   const list=el("div","notes");const rows=J.filter(j=>j.kind==="downtime").slice().reverse();
   if(!rows.length)list.appendChild(el("div","empty","No downtime logged yet. Between adventures, log what each character spent their days on."));
-  rows.forEach(j=>{const m=j.meta||{};const ch=STATE.roster[m.charId];const nd=el("div","note dtnote");const can=isDM||!STATE.cloud||j.author_id===ME();
+  rows.forEach(j=>{const m=j.meta||{};const ch=STATE.roster[m.charId];const nd=el("div","note dtnote");nd.dataset.jid=j.id;const can=isDM||!STATE.cloud||j.author_id===ME();
     nd.innerHTML=`<div class="meta"><span class="ktag">${esc(m.activity||"Downtime")}</span><span class="au">${ch?esc(ch.name):esc(j.author)}</span><span class="ts">${esc(m.date||"")}${m.days?` · ${m.days} day${m.days===1?"":"s"}`:""}</span><span style="flex:1"></span>${can?`<button class="btn sm ghost" data-jdel="${j.id}" style="padding:2px 8px;font-size:11px">✕</button>`:""}</div><div class="body">${esc(j.text)}</div>`;list.appendChild(nd);});
   w.appendChild(list);return w;
 }
@@ -3143,7 +3182,7 @@ function journalView(isDM){
     const box=el("div","jlog");
     if(!log.length)box.innerHTML=`<div class="empty">Nothing logged yet. Attacks, kills, saves, rests, and encounters land here automatically as you play.</div>`;
     let lastDay="";log.forEach(j=>{const day=new Date(j.ts).toDateString();if(day!==lastDay){lastDay=day;box.innerHTML+=`<div class="jday">${day}</div>`;}
-      box.innerHTML+=`<div class="jl"><span class="t">${new Date(j.ts).toLocaleTimeString([],{hour:"numeric",minute:"2-digit"})}</span><span class="x">${esc(j.text)}</span>${j.meta&&j.meta.room?`<span class="r">${esc(j.meta.room)}</span>`:""}${isDM?`<button class="iconbtn" data-jdel="${j.id}" style="width:22px;height:22px;font-size:10px">✕</button>`:""}</div>`;});
+      box.innerHTML+=`<div class="jl" data-jid="${j.id}"><span class="t">${new Date(j.ts).toLocaleTimeString([],{hour:"numeric",minute:"2-digit"})}</span><span class="x">${esc(j.text)}</span>${j.meta&&j.meta.room?`<span class="r">${esc(j.meta.room)}</span>`:""}${isDM?`<button class="iconbtn" data-jdel="${j.id}" style="width:22px;height:22px;font-size:10px">✕</button>`:""}</div>`;});
     w.appendChild(box);return w;
   }
   if(JTAB==="story"){
@@ -3153,7 +3192,7 @@ function journalView(isDM){
     w.appendChild(comp);
     const list=el("div","notes");const notes=J.filter(j=>j.kind==="story").slice().reverse();
     if(!notes.length)list.appendChild(el("div","empty","No story notes yet. Every player can add their own take — the DM weaves them into the recap."));
-    notes.forEach(j=>{const nd=el("div","note");const mine=!STATE.cloud||j.author_id===ME()||isDM;
+    notes.forEach(j=>{const nd=el("div","note");nd.dataset.jid=j.id;const mine=!STATE.cloud||j.author_id===ME()||isDM;
       nd.innerHTML=`<div class="meta"><span class="au">${esc(j.author)}</span><span class="ts">${fmt(j.ts)}</span><span style="flex:1"></span>${mine?`<button class="btn sm ghost" data-jdel="${j.id}" style="padding:2px 8px;font-size:11px">✕</button>`:""}</div><div class="body">${esc(j.text)}</div>`;list.appendChild(nd);});
     w.appendChild(list);return w;
   }
@@ -3173,7 +3212,7 @@ function journalView(isDM){
   const list=el("div","notes");
   if(!recaps.length&&!ctx.length)list.appendChild(el("div","empty",isDM?"No recap yet. Build one from the party's story notes after the session.":"The DM hasn't posted a recap yet. Add your story notes so they have something to work from."));
   const merged=recaps.concat(ctx).sort((a,b)=>b.ts-a.ts);
-  merged.forEach(j=>{const nd=el("div","note "+(j.kind==="recap"?"recapnote":"ctxnote"));
+  merged.forEach(j=>{const nd=el("div","note "+(j.kind==="recap"?"recapnote":"ctxnote"));nd.dataset.jid=j.id;
     nd.innerHTML=`<div class="meta"><span class="ktag ${j.kind==="recap"?"handout":""}">${j.kind==="recap"?"Session recap":"DM context"}</span><span class="au">${esc(j.author)}</span><span class="ts">${fmt(j.ts)}</span><span style="flex:1"></span>${isDM?`<button class="btn sm ghost" data-jedit="${j.id}" style="padding:2px 8px;font-size:11px">Edit</button><button class="btn sm ghost" data-jdel="${j.id}" style="padding:2px 8px;font-size:11px">✕</button>`:""}</div><div class="body">${esc(j.text)}</div>`;list.appendChild(nd);});
   w.appendChild(list);
   return w;
@@ -4824,6 +4863,15 @@ document.addEventListener("input",e=>{
 
 /* appearance — opens the Profile tab's theme picker */
 $("#themeBtn").addEventListener("click",()=>{go("profile");});
+$("#searchBtn").addEventListener("click",searchModal);
+$("#dmScreenBtn").addEventListener("click",()=>dmScreen());
+document.addEventListener("input",e=>{if(e.target.id==="srchQ")renderSearch(e.target.value);if(e.target.id==="hrText"){const camp=curCamp();if(camp){camp.settings.houseRules=e.target.value;clearTimeout(e.target._t);e.target._t=setTimeout(()=>{save();if(STATE.cloud)Cloud.afterRender();},600);}}});
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-srchgo],[data-dmsec]");if(!t)return;
+  if(t.dataset.dmsec){DMSEC=t.dataset.dmsec;dmScreen();return;}
+  const h=(renderSearch._hits||[])[+t.dataset.srchgo];if(!h)return;closeModal();if(!h.go)return;
+  if(h.go.readmore){readMoreModal(h.go.readmore);return;}
+  STATE.ui.screen="play";if(h.go.tab)STATE.ui.tab=h.go.tab;if(h.go.loref)LOREF=h.go.loref;if(h.go.jtab)JTAB=h.go.jtab;if(h.go.viewAs&&(!STATE.cloud||STATE.roster[h.go.viewAs].owner_id===ME()))STATE.ui.viewAs=h.go.viewAs;
+  render();if(h.go.id)flashEl(`[data-noteid="${h.go.id}"],[data-jid="${h.go.id}"]`);});
 
 /* ============================ cloud (Supabase) ============================ */
 const SB_URL="https://tocngduvalglawxycaal.supabase.co";
