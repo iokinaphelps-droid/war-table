@@ -595,6 +595,8 @@ select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px
 .jl{display:flex;gap:10px;align-items:baseline;padding:5px 8px;border-radius:8px;background:var(--bg2);border:1px solid var(--line)}
 .jl .t{font-family:var(--f-mono);font-size:11px;color:var(--faint);flex:none} .jl .x{flex:1} .jl .r{font-size:10.5px;color:var(--faint);font-family:var(--f-mono)}
 .recapnote{border-color:color-mix(in srgb,var(--gold) 40%,var(--line))} .ctxnote{border-style:dashed}
+.fbbox{display:flex;flex-direction:column;gap:10px;margin-bottom:24px}
+.fbf{display:grid;grid-template-columns:70px 1fr;gap:8px;font-size:13.5px;padding:4px 0;border-top:1px solid var(--line)} .fbf .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);padding-top:3px} .fbf .v{white-space:pre-wrap}
 .prefrow{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted);margin-top:8px;background:var(--bg3);border:1px solid var(--line);border-radius:10px;padding:6px 8px}
 .prefrow img{width:40px;height:40px;object-fit:cover;border-radius:7px}
 .movepick{display:flex;flex-direction:column;gap:8px;margin-bottom:10px} .movepick .movebtn{cursor:default}
@@ -1390,7 +1392,23 @@ function screenProfile(){
     grid.appendChild(card);
   });
   wrap.appendChild(grid);
+  // party feedback (from wontonvtt.app/feedback.html) — any signed-in user can read
+  if(STATE.cloud){
+    wrap.appendChild(el("div","seclabel2","Party feedback"));
+    const fb=el("div","fbbox");fb.id="fbbox";
+    fb.innerHTML=`<div class="authnote">Responses from the feedback form at <b>${esc(location.origin)}/feedback.html</b>. <button class="btn sm ghost" data-copyinvite="${esc(location.origin+"/feedback.html")}">Copy form link</button> <button class="btn sm ghost" data-fbload="1">Load responses</button></div>`;
+    wrap.appendChild(fb);
+  }
   return wrap;
+}
+async function loadFeedback(){
+  const box=$("#fbbox");if(!box||!SB)return;box.innerHTML=`<div class="empty">Loading…</div>`;
+  try{const {data,error}=await SB.from("feedback").select("*").order("created_at",{ascending:false}).limit(100);if(error)throw error;
+    if(!data||!data.length){box.innerHTML=`<div class="empty">No responses yet. Share ${esc(location.origin)}/feedback.html with the party.</div>`;return;}
+    const f=(k,v)=>v?`<div class="fbf"><span class="k">${k}</span><span class="v">${esc(v)}</span></div>`:"";
+    box.innerHTML=`<div class="authnote">${data.length} response${data.length===1?"":"s"} · <button class="btn sm ghost" data-fbload="1">Refresh</button></div>`+data.map(r=>`<div class="note fbnote"><div class="meta"><span class="au">${esc(r.name)}${r.character?` <small>· ${esc(r.character)}</small>`:""}</span>${r.rating?`<span class="ktag handout">${"★".repeat(r.rating)}</span>`:""}<span class="ts">${new Date(r.created_at).toLocaleString()}</span><span style="flex:1"></span><small style="color:var(--faint)">${esc(r.device||"")}</small></div>
+      ${f("Likes",r.likes)}${f("Dislikes",r.dislikes)}${f("Change",r.changes)}${f("Add",r.additions)}${f("Bugs",r.bugs)}${r.tried?`<div class="fbf"><span class="k">Tried</span><span class="v" style="color:var(--faint)">${esc(r.tried)}</span></div>`:""}</div>`).join("");
+  }catch(e){box.innerHTML=`<div class="empty">Couldn't load feedback${/relation|does not exist|permission/i.test(e.message||"")?" — run supabase/feedback.sql in Supabase first":""}.</div>`;}
 }
 
 /* ============================ screen: campaigns ============================ */
@@ -3495,12 +3513,13 @@ function confirmModal(msg,onYes){
 
 /* ============================ event wiring ============================ */
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-nav],[data-open],[data-del],[data-newcamp],[data-join],[data-leave],[data-ready],[data-startsession],[data-endsession],[data-enterplay],[data-tab],[data-filter],[data-tocalc],[data-use],[data-spend],[data-rollinst],[data-rollall],[data-clearrolls],[data-modtoggle],[data-perinst],[data-bonus],[data-rest],[data-cooldowns],[data-dmview],[data-awardinsp],[data-spendinsp],[data-hpedit],[data-hp],[data-hpsave],[data-close],[data-scrim],[data-createcamp],[data-newchar],[data-dmnewchar],[data-setskin],[data-openacct],[data-abilsort],[data-autoconds],[data-autosaves]");
+  const t=e.target.closest("[data-nav],[data-open],[data-del],[data-newcamp],[data-join],[data-leave],[data-ready],[data-startsession],[data-endsession],[data-enterplay],[data-tab],[data-filter],[data-tocalc],[data-use],[data-spend],[data-rollinst],[data-rollall],[data-clearrolls],[data-modtoggle],[data-perinst],[data-bonus],[data-rest],[data-cooldowns],[data-dmview],[data-awardinsp],[data-spendinsp],[data-hpedit],[data-hp],[data-hpsave],[data-close],[data-scrim],[data-createcamp],[data-newchar],[data-dmnewchar],[data-setskin],[data-openacct],[data-abilsort],[data-autoconds],[data-autosaves],[data-fbload]");
   if(!t)return;
   const d=t.dataset;
   if(d.scrim&&e.target!==t)return; // clicked inside modal
   if(d.nav){if(d.nav==="lobby")go("lobby");else go(d.nav);return;}
   if(d.setskin){setSkin(d.setskin);return;}
+  if(d.fbload){loadFeedback();return;}
   if(d.openacct){if(!SB){toast("Cloud unavailable — playing solo");return;}STATE.cloud?acctModal():authModal();return;}
   if(d.open){STATE.ui.campId=d.open;go("lobby");return;}
   if(d.newcamp){newCampaignModal();return;}

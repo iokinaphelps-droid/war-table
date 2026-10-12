@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>War Table — Feedback</title>
+<meta name="description" content="Tell Turtle what you like, what you don't, and what to build next.">
+<style>
+:root{--bg:#0f0d13;--bg2:#17141d;--bg3:#1f1b27;--line:#2b2634;--line2:#3a3345;--fg:#efe9dc;--muted:#a79f92;--faint:#6f6860;--accent:#c9a24a;--ok:#6fbf73;--crit:#d8595a;--f-display:"Cormorant Garamond",Georgia,serif;--f-ui:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-size:16px;line-height:1.5}
+.wrap{max-width:640px;margin:0 auto;padding:28px 16px 60px}
+h1{font-family:var(--f-display);font-weight:600;font-size:34px;margin:0 0 4px;letter-spacing:.01em}
+.sub{color:var(--muted);margin:0 0 22px}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:6px}
+.card{background:var(--bg2);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:14px}
+label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:0 0 6px}
+input,textarea,select{width:100%;background:var(--bg3);border:1px solid var(--line2);border-radius:10px;padding:11px 12px;color:var(--fg);font:inherit;font-size:16px}
+textarea{min-height:96px;resize:vertical}
+.field{margin-bottom:14px}.field:last-child{margin-bottom:0}
+.hint{font-size:12.5px;color:var(--faint);margin-top:5px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:480px){.row{grid-template-columns:1fr}}
+.stars{display:flex;gap:6px}.stars button{flex:1;background:var(--bg3);border:1px solid var(--line2);border-radius:10px;padding:10px 0;color:var(--muted);font-size:18px;cursor:pointer}
+.stars button.on{background:color-mix(in srgb,var(--accent) 22%,var(--bg3));border-color:var(--accent);color:var(--accent)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}.chips button{background:var(--bg3);border:1px solid var(--line2);border-radius:999px;padding:6px 12px;color:var(--muted);font-size:13px;cursor:pointer}
+.chips button.on{border-color:var(--accent);color:var(--fg);background:color-mix(in srgb,var(--accent) 16%,var(--bg3))}
+.btn{display:inline-block;width:100%;background:var(--accent);color:#1a1408;border:none;border-radius:12px;padding:14px;font-weight:700;font-size:16px;cursor:pointer;font-family:inherit}
+.btn[disabled]{opacity:.6;cursor:default}
+.ok{background:color-mix(in srgb,var(--ok) 14%,var(--bg2));border-color:color-mix(in srgb,var(--ok) 45%,var(--line))}
+.err{color:var(--crit);font-size:13.5px;margin-top:10px;min-height:1em}
+.foot{font-size:12px;color:var(--faint);text-align:center;margin-top:18px}
+a{color:var(--accent)}
+</style></head><body>
+<div class="wrap">
+  <div class="eyebrow">wontonvtt.app</div>
+  <h1>How's War Table playing?</h1>
+  <p class="sub">Two minutes, no account needed. Be blunt — the honest stuff is what gets built.</p>
+  <form id="f" autocomplete="off">
+    <div class="card">
+      <div class="row">
+        <div class="field"><label>Your name</label><input name="name" required placeholder="So Turtle knows who's talking"></div>
+        <div class="field"><label>You play as</label><input name="character" placeholder="Character name, or “DM”"></div>
+      </div>
+      <div class="field"><label>Where did you use it?</label>
+        <div class="chips" data-multi="device"><button type="button" data-v="Phone">Phone</button><button type="button" data-v="Tablet">Tablet</button><button type="button" data-v="Laptop / desktop">Laptop / desktop</button></div></div>
+      <div class="field"><label>Overall, so far</label>
+        <div class="stars" id="stars"><button type="button" data-v="1">★</button><button type="button" data-v="2">★★</button><button type="button" data-v="3">★★★</button><button type="button" data-v="4">★★★★</button><button type="button" data-v="5">★★★★★</button></div></div>
+    </div>
+    <div class="card">
+      <div class="field"><label>What do you like?</label><textarea name="likes" placeholder="The bits that felt good, that you'd miss if they vanished."></textarea></div>
+      <div class="field"><label>What don't you like?</label><textarea name="dislikes" placeholder="Anything confusing, slow, annoying, or in the way."></textarea></div>
+    </div>
+    <div class="card">
+      <div class="field"><label>What would you change?</label><textarea name="changes" placeholder="Something that exists but should work differently."></textarea></div>
+      <div class="field"><label>What would you add?</label><textarea name="additions" placeholder="Something that doesn't exist yet and should."></textarea></div>
+      <div class="field"><label>Did anything break?</label><textarea name="bugs" placeholder="What you were doing → what you expected → what happened. Screenshots to Turtle directly."></textarea>
+        <div class="hint">Which parts did you try?</div>
+        <div class="chips" data-multi="tried" style="margin-top:6px"><button type="button" data-v="Sign up / join">Sign up / join</button><button type="button" data-v="Character sheet">Character sheet</button><button type="button" data-v="Builder / import">Builder / import</button><button type="button" data-v="Portrait">Portrait</button><button type="button" data-v="Battle">Battle</button><button type="button" data-v="Map">Map</button><button type="button" data-v="Lore / handouts">Lore / handouts</button><button type="button" data-v="Journal">Journal</button></div></div>
+    </div>
+    <button class="btn" id="go" type="submit">Send to Turtle</button>
+    <div class="err" id="err"></div>
+  </form>
+  <div class="card ok" id="done" hidden><b>Got it — thank you.</b> Your notes went straight to Turtle. Feel free to send another after the next session.</div>
+  <div class="foot">Back to <a href="/">War Table</a></div>
+</div>
+<script>
+const SB_URL="https://tocngduvalglawxycaal.supabase.co";
+const SB_KEY="sb_publishable_G65-RPLlw3Zq9VcSi7DagA_2a6fG5Ge";
+const picks={device:new Set(),tried:new Set()};let rating=null;
+document.querySelectorAll("[data-multi]").forEach(g=>{const k=g.dataset.multi;g.querySelectorAll("button").forEach(b=>b.onclick=()=>{const v=b.dataset.v;if(picks[k].has(v)){picks[k].delete(v);b.classList.remove("on");}else{picks[k].add(v);b.classList.add("on");}});});
+document.querySelectorAll("#stars button").forEach(b=>b.onclick=()=>{rating=+b.dataset.v;document.querySelectorAll("#stars button").forEach(x=>x.classList.toggle("on",+x.dataset.v<=rating));});
+document.getElementById("f").onsubmit=async e=>{
+  e.preventDefault();const f=e.target;const err=document.getElementById("err");err.textContent="";
+  const v=n=>(f[n].value||"").trim();
+  if(!v("name")){err.textContent="Add your name so Turtle knows who it's from.";return;}
+  if(!v("likes")&&!v("dislikes")&&!v("changes")&&!v("additions")&&!v("bugs")){err.textContent="Write at least one thing — even one line helps.";return;}
+  const row={name:v("name"),character:v("character"),device:[...picks.device].join(", "),rating,likes:v("likes"),dislikes:v("dislikes"),changes:v("changes"),additions:v("additions"),bugs:v("bugs"),tried:[...picks.tried].join(", "),ua:navigator.userAgent.slice(0,160)};
+  const btn=document.getElementById("go");btn.disabled=true;btn.textContent="Sending…";
+  try{const r=await fetch(SB_URL+"/rest/v1/feedback",{method:"POST",headers:{"Content-Type":"application/json",apikey:SB_KEY,Authorization:"Bearer "+SB_KEY,Prefer:"return=minimal"},body:JSON.stringify(row)});
+    if(!r.ok)throw new Error((await r.text()).slice(0,200)||("HTTP "+r.status));
+    f.hidden=true;document.getElementById("done").hidden=false;window.scrollTo({top:0,behavior:"smooth"});}
+  catch(ex){err.textContent="Couldn't send ("+ex.message+"). Screenshot this page and text it to Turtle instead.";btn.disabled=false;btn.textContent="Send to Turtle";}
+};
+</script>
+</body></html>
