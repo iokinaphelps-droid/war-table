@@ -3311,7 +3311,7 @@ function wizLoadRaces(wiz){
       return o;};
     races.forEach(r=>{if(!r)return;const mine=subs.filter(s=>s&&s.race&&s.race.index===r.index);
       if(mine.length)mine.forEach(s=>{out[s.name]=conv(r,s);});else out[r.name]=conv(r,null);});
-    if(Object.keys(out).length>=8)RACES=out;
+    if(Object.keys(out).length>=8){const merged=Object.assign({},out);Object.entries(SRD.races).forEach(([n,r])=>{if(!merged[n])merged[n]=Object.assign({base:n.split(" ").pop()},r);});RACES=merged;}
   })().catch(()=>{wizLoadRaces._failed=true;}).finally(()=>{wizLoadRaces._busy=false;if(STATE.ui.wiz)render();});
 }
 function wizLoadClass(wiz,clsName){
