@@ -603,6 +603,18 @@ select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px
 .spellsec{margin-top:12px} .splvl{margin-top:8px} .splvl>small{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);margin-bottom:4px}
 .mcrow{margin-top:8px}
 .invsec{margin:18px 0 6px}
+body.tableview #bar,body.tableview .foot{display:none}
+body.tableview #screen{max-width:none;padding:14px 18px}
+.tablewrap{display:flex;flex-direction:column;gap:12px;min-height:calc(100vh - 28px)}
+.tabletop{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.tt-title{font-family:var(--f-display);font-weight:600;font-size:clamp(20px,2.6vw,32px);display:flex;align-items:center;gap:10px} .tt-title .rune{color:var(--accent)} .tt-room{color:var(--muted);font-weight:400}
+.tt-round{font-family:var(--f-mono);font-size:15px;color:var(--gold)}
+.tablestrip .initchip{padding:8px 12px;font-size:16px} .tablestrip .initchip .tk{width:34px;height:34px;font-size:15px} .tablestrip .initchip .in small{font-size:12px}
+.tt-turn{font-size:clamp(18px,2.4vw,28px);display:flex;align-items:center;gap:10px}
+.tablewrap .boardwrap{flex:1} .tablewrap .board2{max-height:70vh;margin:0 auto}
+.tablewrap .board2 .tok{font-size:clamp(12px,1.6vw,20px);max-width:80px}
+.tt-log{margin-top:0;font-size:14px}
+.mapstrip{margin-bottom:10px}
 .coinrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0 10px}
 .coin{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--faint);font-family:var(--f-mono)} .coin input{width:56px;padding:5px 6px;font-size:13px;text-align:right}
 .cointot{margin-left:auto;font-family:var(--f-mono);font-size:12px;color:var(--gold)}
@@ -1290,6 +1302,8 @@ function render(){
     } else va.hidden=true;
   }
   const scr=$("#screen");scr.innerHTML="";
+  document.body.classList.toggle("tableview",!!ui.tableView&&!!camp);
+  if(ui.tableView&&camp){scr.appendChild(screenTable(camp));$("#foot").innerHTML="";save();if(STATE.cloud){Cloud.syncRooms();Cloud.afterRender();}return;}
   if(ui.screen==="characters")scr.appendChild(screenCharacters());
   else if(ui.screen==="campaigns")scr.appendChild(screenCampaigns());
   else if(ui.screen==="lobby")scr.appendChild(screenLobby());
@@ -1585,6 +1599,27 @@ function screenPlay(){
   if(railChar){const lay=el("div","playwrap");lay.appendChild(statusRail(railChar));lay.appendChild(main);wrap.appendChild(lay);}
   else wrap.appendChild(main);
   return wrap;
+}
+/* ---- table view: a TV or laptop at the table — big board, big initiative, no sheets ---- */
+function screenTable(camp){
+  const w=el("div","tablewrap");const isDM=STATE.cloud?amDM(camp):(STATE.ui.viewAs==="dm");
+  const rooms=ensureRooms(camp);const ids=Object.keys(rooms);
+  const rid=(STATE.ui.roomId&&rooms[STATE.ui.roomId])?STATE.ui.roomId:ids[0];const b=rid?migrateBattle(rooms[rid]):null;
+  let top=`<div class="tabletop"><div class="tt-title"><svg class="rune" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2l2.6 5.6L21 8.4l-4.5 4.3L17.8 19 12 15.8 6.2 19l1.3-6.3L3 8.4l6.4-.8z"/></svg> ${esc(camp.name)}${b?` <span class="tt-room">· ${esc(b.name||"Encounter")}</span>`:""}</div>
+    ${ids.length>1?`<div class="roombar" style="margin:0">${ids.map(r=>`<button class="roompill ${r===rid?"on":""}" data-roomsel="${r}">${esc(rooms[r].name||"Encounter")}</button>`).join("")}</div>`:""}
+    <span style="flex:1"></span>${b&&b.phase==="active"?`<span class="tt-round">Round ${b.round}</span>`:""}<button class="btn sm ghost" data-tableview="off">✕ Exit table view</button></div>`;
+  w.innerHTML=top;
+  if(!b){w.appendChild(el("div","stub",`<h3>No encounter running</h3><p>When the DM starts one it appears here, big enough for the whole table.</p>`));return w;}
+  if(b.phase==="active"){const cur=curCombatant(b);
+    const strip=el("div","initstrip tablestrip");
+    strip.innerHTML=b.order.map((id,i)=>{const c=b.combatants.find(x=>x.id===id);if(!c)return "";const en=c.side==="enemy";const show=isDM||!en||c.revealHP;
+      return `<div class="initchip ${i===b.turnIdx?"cur":""} ${c.hp<=0?"down":""}"><span class="o">${i+1}</span><span class="tk" style="${tokenBG(c)}">${esc(c.token)}</span><span class="in">${esc(c.name)}<small>${show?`${c.hp}/${c.maxHP} HP`:(en?`dealt ${c.dmgTaken}`:"")}${(c.conditions||[]).length?" · "+c.conditions.join(", "):""}</small></span></div>`;}).join("");
+    w.appendChild(strip);
+    if(cur)w.appendChild(el("div","tt-turn",`<span class="token sm" style="${tokenBG(cur)}">${esc(cur.token)}</span> <b>${esc(cur.name)}</b>'s turn`));
+  } else w.appendChild(el("div","tt-turn","Rolling for initiative…"));
+  w.appendChild(boardHTML(b,isDM,null));
+  if(b.log&&b.log.length){const lp=el("div","logpanel tt-log");lp.innerHTML=b.log.slice(0,5).map(x=>`<div class="le">${esc(x)}</div>`).join("");w.appendChild(lp);}
+  return w;
 }
 /* ---- persistent player status rail (Elden Ring status sheet) ---- */
 function statusRail(ch){
@@ -2152,6 +2187,7 @@ function roomBattleWith(camp,cid){const rooms=ensureRooms(camp);
 function ensureBattle(camp){const cr=curRoom(camp,STATE.cloud?amDM(camp):(STATE.ui.viewAs==="dm"));return cr?cr.b:newBattleObj("room_tmp","Encounter");} // legacy shim
 function startRoom(camp,charIds,name){
   const id="room_"+Math.random().toString(36).slice(2,7);const b=newBattleObj(id,name);ensureRooms(camp);
+  const m=camp.map;if(m&&m.bg&&camp.settings&&camp.settings.useMapAsBoard!==false){b.bg=m.bg;b.cols=Math.max(6,m.cols||12);b.rows=Math.max(5,m.rows||8);}
   (charIds||[]).forEach((cid,i)=>{const ch=STATE.roster[cid];if(!ch)return;const {ac}=effAC(ch);
     b.combatants.push({id:uid("c"),side:"party",charId:cid,name:ch.name,token:ch.token,color:ch.color,
       ac,maxHP:ch.maxHP,hp:ch.hp??ch.maxHP,dmgTaken:0,revealHP:true,revealAC:true,
@@ -2384,7 +2420,8 @@ function battleActive(b,isDM,w){
       <button class="btn sm" data-addplayer="1">+ Player</button>
       <button class="btn sm" data-addenemy="1">+ Enemy</button>
       <button class="btn sm ghost" data-reroll="1">Re-roll init</button>
-      <button class="btn sm ghost" data-endbtl="1">End</button>`:``)+
+      <button class="btn sm ghost" data-endbtl="1">End</button>
+      <button class="btn sm ghost" data-tableview="on" title="Big board + initiative for a TV or laptop">📺 Table view</button>`:`<button class="btn sm ghost" data-tableview="on" title="Big board + initiative for a TV or laptop">📺</button>`)+
     `<span class="rc">Round ${b.round}${cur?` · ${esc(cur.name.split(" ")[0])}'s turn`:""}</span>`;
   w.appendChild(bar);
   const strip=el("div","initstrip");
@@ -2639,6 +2676,7 @@ function roomModal(){
   openModal(`<h2>Start an encounter</h2>
     <div class="banner">Pick who's in this fight. They'll be pulled onto the board and prompted to roll initiative. Start a second encounter to split the party into another room.</div>
     <div class="field"><label>Encounter name</label><input id="roomName" placeholder="e.g. The bridge ambush"></div>
+    ${camp.map&&camp.map.bg?`<label style="display:flex;gap:7px;align-items:center;font-size:13px;margin:-2px 0 8px"><input type="checkbox" id="roomUseMap" ${camp.settings&&camp.settings.useMapAsBoard===false?"":"checked"}> Fight on the campaign map (its image becomes the battlefield)</label>`:""}
     <div class="seclabel2" style="margin:10px 0 7px">Who's in it</div>
     <div class="roommems">${rows||'<div class="empty">No party members yet — have the party join from the lobby.</div>'}</div>
     <div class="acts" style="margin-top:14px"><button class="btn ghost" data-close="1">Cancel</button><button class="btn primary" data-newroomsave="1">Start encounter</button></div>`);
@@ -2982,7 +3020,14 @@ function ensureMap(camp){
 function mapKey(x,y){return x+","+y;}
 function mapView(isDM){
   const camp=curCamp();const m=ensureMap(camp);const w=el("div");
-  const img=MAPIMG[camp.id];
+  const img=m.bg||MAPIMG[camp.id];
+  const b=activeBattle();
+  if(b&&b.phase==="active"){ // a fight is on — the map carries the initiative strip so a glance tells you where the table is
+    const cur=curCombatant(b);const strip=el("div","initstrip mapstrip");
+    strip.innerHTML=`<span class="rc" style="font-family:var(--f-mono);font-size:12px;color:var(--muted);align-self:center;margin-right:6px">⚔ ${esc(b.name||"Encounter")} · R${b.round}</span>`+b.order.map((id,i)=>{const c=b.combatants.find(x=>x.id===id);if(!c)return "";
+      return `<div class="initchip ${i===b.turnIdx?"cur":""} ${c.hp<=0?"down":""}"><span class="o">${i+1}</span><span class="tk" style="${tokenBG(c)}">${esc(c.token)}</span><span class="in">${esc(c.name.split(" ")[0])}<small>${initTotal(c)}</small></span></div>`;}).join("")+
+      `<button class="btn sm gold" data-tab="battle" style="align-self:center;margin-left:6px">Go to battle →</button>`;
+    w.appendChild(strip);}
   if(isDM){
     const tools=[["reveal","Reveal"],["hide","Hide"],["pin","Pin"],["move","Move party"]];
     const tb=el("div","maptools");
@@ -3866,13 +3911,14 @@ function confirmModal(msg,onYes){
 
 /* ============================ event wiring ============================ */
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-nav],[data-open],[data-del],[data-newcamp],[data-join],[data-leave],[data-ready],[data-startsession],[data-endsession],[data-enterplay],[data-tab],[data-filter],[data-tocalc],[data-use],[data-spend],[data-rollinst],[data-rollall],[data-clearrolls],[data-modtoggle],[data-perinst],[data-bonus],[data-rest],[data-cooldowns],[data-dmview],[data-awardinsp],[data-spendinsp],[data-hpedit],[data-hp],[data-hpsave],[data-close],[data-scrim],[data-createcamp],[data-newchar],[data-dmnewchar],[data-setskin],[data-openacct],[data-abilsort],[data-autoconds],[data-autosaves],[data-fbload]");
+  const t=e.target.closest("[data-nav],[data-open],[data-del],[data-newcamp],[data-join],[data-leave],[data-ready],[data-startsession],[data-endsession],[data-enterplay],[data-tab],[data-filter],[data-tocalc],[data-use],[data-spend],[data-rollinst],[data-rollall],[data-clearrolls],[data-modtoggle],[data-perinst],[data-bonus],[data-rest],[data-cooldowns],[data-dmview],[data-awardinsp],[data-spendinsp],[data-hpedit],[data-hp],[data-hpsave],[data-close],[data-scrim],[data-createcamp],[data-newchar],[data-dmnewchar],[data-setskin],[data-openacct],[data-abilsort],[data-autoconds],[data-autosaves],[data-fbload],[data-tableview]");
   if(!t)return;
   const d=t.dataset;
   if(d.scrim&&e.target!==t)return; // clicked inside modal
   if(d.nav){if(d.nav==="lobby")go("lobby");else go(d.nav);return;}
   if(d.setskin){setSkin(d.setskin);return;}
   if(d.fbload){loadFeedback();return;}
+  if(d.tableview){STATE.ui.tableView=d.tableview==="on";try{history.replaceState(null,"",location.pathname+(STATE.ui.tableView?"#table":""));}catch(e){}render();return;}
   if(d.openacct){if(!SB){toast("Cloud unavailable — playing solo");return;}STATE.cloud?acctModal():authModal();return;}
   if(d.open){STATE.ui.campId=d.open;go("lobby");return;}
   if(d.newcamp){newCampaignModal();return;}
@@ -3989,6 +4035,7 @@ document.addEventListener("click",e=>{
     const picked=[...document.querySelectorAll("[data-roommember]:checked")].map(x=>x.getAttribute("data-roommember"));
     if(picked.length===0){toast("Pick at least one hero for the encounter");return;}
     const nm=($("#roomName")&&$("#roomName").value||"").trim()||"Encounter";
+    const um=$("#roomUseMap");if(um){camp.settings=camp.settings||{};camp.settings.useMapAsBoard=um.checked;}
     startRoom(camp,picked,nm);closeModal();render();toast(`Encounter started — ${picked.length} pulled in to roll`);return;}
   const b=activeBattle();if(!b)return;
   const mayAct=b?canAct(b,isDM):false;
@@ -4326,7 +4373,8 @@ document.addEventListener("input",e=>{
 });
 document.addEventListener("change",e=>{
   if(e.target.id==="mapUpload"){const f=e.target.files&&e.target.files[0];if(!f)return;
-    const r=new FileReader();r.onload=()=>{MAPIMG[curCamp().id]=r.result;render();};r.readAsDataURL(f);return;}
+    const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=()=>{const MAX=1400;const sc=Math.min(1,MAX/Math.max(img.width,img.height));const c=document.createElement("canvas");c.width=Math.round(img.width*sc);c.height=Math.round(img.height*sc);c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+        const m=ensureMap(curCamp());m.bg=c.toDataURL("image/jpeg",.8);render();toast("Campaign map set — encounters will use it as the battlefield");};img.src=r.result;};r.readAsDataURL(f);return;}
   const bf=e.target.closest&&e.target.closest("[data-bf]");
   if(bf&&STATE.ui.draft){const num=bf.getAttribute("inputmode")==="numeric";let v=bf.value;if(num){v=parseInt(v,10);if(isNaN(v))v=0;}setPath(STATE.ui.draft,bf.dataset.bf,v);}
 });
@@ -4741,6 +4789,7 @@ async function boot(){
   const jm=h.match(/[#&]join=([A-Za-z0-9]+)/);
   if(jm)PENDING_JOIN=jm[1].toUpperCase();
   RECOVERING=/type=recovery/.test(h);
+  if(/#table/.test(h)){STATE.ui.tableView=true;STATE.ui.screen=STATE.ui.campId?"play":STATE.ui.screen;}
   if(jm&&!RECOVERING){try{history.replaceState(null,"",location.pathname);}catch(e){}}
   if(SB){
     SB.auth.onAuthStateChange((ev,sess)=>{
