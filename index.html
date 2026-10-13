@@ -1492,7 +1492,7 @@ function spellUsesLabel(ch,a){
   if(!si)return "At will";
   return si.kind==="pact"?`${si.cur}/${si.max} Pact Slots`:`${si.cur}/${si.max} ${ordLevel(si.level)} slots`;}
 /* ============================ diagnostics: breadcrumbs, error capture, one-tap bug report ============================ */
-const BUILD_ID="20261013.51e451f";
+const BUILD_ID="20261013.588901c";
 const DIAG={crumbs:[],errors:[],lastSync:null,online:navigator.onLine};
 function crumb(line){DIAG.crumbs.push(new Date().toTimeString().slice(0,8)+" "+line);if(DIAG.crumbs.length>40)DIAG.crumbs.shift();}
 document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("button,[data-nav],[data-tab],.chip,.tok,.tile,.movebtn,a");if(!t)return;const ds=t.dataset||{};const k=Object.keys(ds).find(x=>x!=="v")||"";crumb((k?k+"="+String(ds[k]).slice(0,30):"")+" "+(t.textContent||"").trim().replace(/\s+/g," ").slice(0,28));},true);
