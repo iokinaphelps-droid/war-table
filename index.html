@@ -1320,7 +1320,7 @@ function effAC(ch){
 
 /* ============================ render: shell ============================ */
 function render(){
-  const ui=STATE.ui;
+  const ui=STATE.ui;aiSnapshotUI();
   // top bar context + view switcher
   const camp=curCamp();
   const ctx=$("#ctx"),va=$("#viewas");
@@ -3329,6 +3329,11 @@ function aiFinishEncounter(camp,b,won){
 }
 /* ---- the Story tab ---- */
 let AI_BUSY=false;
+// Survives re-renders: what the player is typing, where the thread is scrolled, which character is speaking.
+const AI_UI={draft:"",sel:null,as:null,scroll:null,atBottom:true,count:-1,focus:false};
+function aiSnapshotUI(){const t=$("#aiInput");if(t){AI_UI.draft=t.value;AI_UI.sel=[t.selectionStart,t.selectionEnd];AI_UI.focus=document.activeElement===t;}
+  const a=$("#aiAs");if(a)AI_UI.as=a.value;
+  const l=$("#storyList");if(l){AI_UI.scroll=l.scrollTop;AI_UI.atBottom=l.scrollHeight-l.scrollTop-l.clientHeight<40;}}
 function storyView(camp,isDM){
   const ai=aiOf(camp)||{};const w=el("div","storywrap");
   if(!ai.on){w.appendChild(el("div","stub",`<h3>No AI Dungeon Master here</h3><p>This campaign is run by a human. Create a new campaign and tick <b>AI Dungeon Master</b> to play with one.</p>`));return w;}
@@ -3349,10 +3354,15 @@ function storyView(camp,isDM){
   const comp=el("div","storycomposer");
   const mine=camp.party.map(id=>STATE.roster[id]).filter(ch=>ch&&(!STATE.cloud||isDM||(ch.owner_id||ME())===ME()));
   comp.innerHTML=`<div style="display:flex;gap:8px;align-items:flex-end"><div style="flex:1"><div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap">${mine.length>1?`<select class="sel" id="aiAs">${mine.map(ch=>`<option value="${ch.id}">${esc(ch.name)}</option>`).join("")}</select>`:""}<button class="chip" data-aiquick="I look around carefully.">Look around</button><button class="chip" data-aiquick="I talk to them.">Talk</button><button class="chip" data-aiquick="I attack!">Attack</button><button class="chip" data-aiquick="We take a short rest.">Rest</button><button class="chip" data-aiquick="What do I know about this?">Recall</button></div>
-    <textarea id="aiInput" rows="2" placeholder="What do you do? (Shift+Enter for a new line)"></textarea></div><button class="btn primary" data-aisend="1" ${AI_BUSY?"disabled":""}>Send</button></div>
+    <textarea id="aiInput" rows="2" placeholder="What do you do? (Shift+Enter for a new line)">${esc(AI_UI.draft)}</textarea></div><button class="btn primary" data-aisend="1" ${AI_BUSY?"disabled":""}>Send</button></div>
     <div class="authnote">The DM reads everyone's messages. Rolls you make in the Dice tab can be pasted here, or use the 🎲 prompts above.</div>`;
   w.appendChild(comp);
-  setTimeout(()=>{const l=$("#storyList");if(l)l.scrollTop=l.scrollHeight;},30);
+  const sel=comp.querySelector("#aiAs");if(sel&&AI_UI.as&&mine.some(c=>c.id===AI_UI.as))sel.value=AI_UI.as;
+  const ta=comp.querySelector("#aiInput");ta.addEventListener("input",()=>{AI_UI.draft=ta.value;});
+  const n=thread.length+(AI_BUSY?1:0);const grew=n!==AI_UI.count;AI_UI.count=n;if(grew){AI_UI.atBottom=true;AI_UI.scroll=null;}
+  requestAnimationFrame(()=>{const l=$("#storyList");if(!l)return;
+    l.scrollTo({top:(grew||AI_UI.atBottom||AI_UI.scroll==null)?l.scrollHeight:AI_UI.scroll,behavior:"instant"});
+    if(AI_UI.focus){const t=$("#aiInput");if(t){t.focus({preventScroll:true});if(AI_UI.sel)try{t.setSelectionRange(AI_UI.sel[0],AI_UI.sel[1]);}catch(e){}}}},0);
   return w;
 }
 function aiMarkdown(t){return esc(t).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/\*(.+?)\*/g,"<i>$1</i>").replace(/\n{2,}/g,"</p><p>").replace(/\n/g,"<br>").replace(/^/,"<p>").replace(/$/,"</p>");}
@@ -4867,10 +4877,10 @@ document.addEventListener("click",e=>{
     openModal(`<div class="lightbox"><img src="${src}" alt=""><div class="acts"><button class="btn ghost" data-lbclose="1">Close</button></div></div>`);return;}
   if(d.lbclose){closeModal();return;}
   if(d.aibegin){if(!aiOwner(camp))return;aiRespond(camp,"[system] The table is seated. First, write the full campaign bible with the bible command (premise, three-act spine, the threat and its clock, 2–3 factions, 6–10 named NPCs with wants and secrets, hidden truths, likely endings, drift 0). Then narrate the opening scene: establish place, mood, and a hook, introduce the party in situ, and end on a choice.");return;}
-  if(d.aiquick){const t=$("#aiInput");if(t){t.value=d.aiquick;t.focus();}return;}
+  if(d.aiquick){const t=$("#aiInput");if(t){t.value=d.aiquick;AI_UI.draft=t.value;t.focus();}return;}
   if(d.aisend){const t=$("#aiInput");const txt=(t&&t.value||"").trim();if(!txt){toast("Say what you do");return;}if(AI_BUSY){toast("The DM is still writing");return;}
     const who=$("#aiAs")?STATE.roster[$("#aiAs").value]:camp.party.map(id=>STATE.roster[id]).find(ch=>ch&&(!STATE.cloud||(ch.owner_id||ME())===ME()));
-    aiPost(camp,"player",txt,{charId:who?who.id:null},who?who.name:null);t.value="";render();aiRespond(camp);return;}
+    aiPost(camp,"player",txt,{charId:who?who.id:null},who?who.name:null);t.value="";AI_UI.draft="";AI_UI.sel=null;AI_UI.atBottom=true;render();aiRespond(camp);return;}
   if(d.airoll){const ai=aiOf(camp);const r=(ai.pendingRolls||[]).find(x=>x.id===d.airoll);if(!r)return;
     const ch=camp.party.map(id=>STATE.roster[id]).find(c=>c&&c.name.toLowerCase().startsWith(String(r.who||"").toLowerCase().split(" ")[0]));
     let mod=0,how="";if(ch){const ck=String(r.check||"");const sk=ALL_SKILLS.find(s=>s.toLowerCase()===ck.toLowerCase());const ab=ABIL6.find(a=>ck.toLowerCase().startsWith(a));
