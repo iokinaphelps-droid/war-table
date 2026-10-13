@@ -38,6 +38,17 @@ Gold **DM card** in the lobby; Start works with an empty party. DM-owned PCs/NPC
 - **Reactions:** `reactionModal` → `data-reactgo` sets `BACT.react` (opportunity attack = first melee weapon ability; any reaction ability); `turnActionPanel` renders the reactor's own panel above the waiting notice; attack / save-based / heal / apply flows end with "reaction used" instead of `advanceTurn`. Hellish Rebuke works as a save-based reaction.
 - Tests: `scratchpad/pw/smite.py`, `combat.py`, `aimap.py`, `draft.py` (+ the earlier suite).
 
+## Table tools & table-side mode (v26)
+- **Research basis:** per-VTT user praise/complaints (Roll20, Foundry, Owlbear, FG, DDB Maps, AboveVTT, Alchemy, Talespire, Shard, Kanka/WA). Users reward zero-friction join, one-click monsters, working fog, portable data, rule toggles; unfilled niches: downtime/economy, factions, travel/weather, in-person phone play. War Table already had fog, calendar, passives, dice, prepared limits, attunement cap.
+- **Table chat (💬):** journal kind `chat`, `meta {from,to:user|"dm"|null,secret,roll,check}`; `chatRows` filters visibility client-side (RLS lets members read all journal rows — whispers are UI-private like NPC secrets); unread badge via localStorage `wt_chatseen_*`; dice drawer posts rolls (table / whisper DM / secret). **Ask for a check:** `askCheckModal` → `meta.check {skill|ability,dc,group,showDC,targets,results}`; targets roll with `skillBonus(ch,name)` (ch.skills is a list of proficient names); group verdict ≥ half. Also on the DM battle panel.
+- **Spell preparation:** `prepClassOf/prepLimit/spellPrepared/preparedCount`; `a.prepared===false` hides it from the battle grid; toggle on sheet cards; "Prepared" filter.
+- **Encounter budget:** `CR_XP`, `XP_THRESH`, `encounterBudget` (DMG 2014 multipliers by count and party size); shown in the opponent picker and the DM battle bar; `endRoom` logs XP of slain foes.
+- **DM screen:** `loot` (DMG-style individual/hoard by CR tier, post as handout) and `tables` (`BUILTIN_TABLES` + `settings.tables`; results to the DM log). **Calendar:** travel (`TRAVEL_PACE`, advances date, logs) + weather roll (`calendar.weather`).
+- **Lore kinds** `faction` (meta `{rep,notes,secret}`, ±, rep bar) and `shop` (meta `{where,notes,items[{name,price,stock,note}]}`; `payGold` breaks coins; buying adds to the bag and logs).
+- **Export/import:** `downloadJSON`, `exportCharacter`, `exportCampaign`, `importFile` (`.wartable.json` with `wartable:"character"|"campaign"` or a whole save); ⬇ on sheet header, campaign cards and the Profile export modal.
+- **Table-side mode:** `settings.tableSide` (new-campaign checkbox) → `isLive()` always true, `tableHost` gives every member board/battle authority, `canAct` lets anyone run foes; `tableSidePlay(chId)` makes/reuses a personal `solo` table-side campaign from a character card. Target-less attacks: `data-blogdmg` "Call it" logs the number, spends resources, ends the turn.
+- Tests: `tabletools.py`, `tableside.py`.
+
 ## Builder (v19–v20)
 `newWiz/wizSteps/wizStep/wizFinalize/wizMergeInto`. dnd5eapi.co via `D5E.get` (cached; 301 to `/api/2014/`). Races+subraces merged with extras. Multiclass (`wiz.extra[]`), PHB slot table, per-class spell limits. ASIs or feats (`FEATS`). Gear → AC/attacks/inventory. Level-up via `ch.build` + `wizMergeInto`. Offline fallback. Spells import `upcast` / `healUp` tables.
 
@@ -75,6 +86,7 @@ Lore kinds `note/handout/dm/npc`. Journal kinds `auto/story/recap/context/downti
 - **v23** — AI DM live (env mapping fix). Story tab keeps drafts/scroll. AI `map` + `move` commands, wall tiles.
 - **v24** — Scaling resources: slot picker on cast, upcast tables, riders (Divine Smite), pools (Lay on Hands), Ki/Sorcery Points, editor scaling fields, half-caster slot fix.
 - **v25** — Combat deep-dive: class kits for every SRD class, items in battle, standard actions, player-rolled saves + DM call-for-save, mechanical reactions.
+- **v26** — Table tools: chat/whispers/checks, spell preparation, encounter budget + XP, treasure & random tables, travel & weather, factions, shops, file export/import, table-side mode. Player Guide updated (fighting, between fights, table-side, DM extras).
 
 ---
 
@@ -84,6 +96,6 @@ Lore kinds `note/handout/dm/npc`. Journal kinds `auto/story/recap/context/downti
 - Subclass features beyond the handful wired (Champion, Life, Lore, Devotion, Fiend, Moon) are text-only; metamagic is a point spend + log, not per-spell automation.
 
 ## Next (prioritized)
-1. First real session; relay feedback. Update the Player Guide with items / saves / reactions / smite.
+1. First real session; relay feedback.
 2. AI DM polish: round-robin "waiting on X" mode, streaming replies, scene images, auto recaps, XP milestones.
 3. Spectator link; offline action queue; drag-to-measure; theme fidelity.
