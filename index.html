@@ -546,6 +546,7 @@ select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px
 .board2 .tile:hover{background:rgba(255,255,255,.05)}
 .board2 .tile.inreach{background:color-mix(in srgb,var(--accent) 16%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 35%,transparent)}
 .board2 .tile.tgt{cursor:crosshair}
+.scaleblk{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 10px;border:1px solid var(--line);border-radius:10px;margin:8px 0;background:color-mix(in srgb,var(--accent) 7%,transparent)}.scaleblk .lab{flex:1;font-size:13px}.scaleblk .lab small{display:block;color:var(--muted);font-size:11.5px}.scaleblk .stepper{display:flex;align-items:center;gap:6px}.scaleblk .stepper b{min-width:34px;text-align:center}.scaleblk .val{color:var(--accent)}
 .board2 .tile.wall{background:rgba(0,0,0,.55);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);cursor:not-allowed}
 .board2.hasimgwall .tile.wall{background:rgba(0,0,0,.35)}
 .board2 .tok{touch-action:none;position:absolute;width:calc(100% / var(--cols) * .82);aspect-ratio:1;max-width:56px;transform:translate(-50%,-50%);border-radius:9px;display:grid;place-items:center;
@@ -1280,7 +1281,7 @@ function casterType(ch){const c=(ch.cls||"").toLowerCase();
 function ensureSlots(ch){
   if(ch.slots)return ch.slots;
   const t=casterType(ch);ch.slots={};
-  if(t==="full"||t==="half"){let lvl=ch.level||1;if(t==="half")lvl=Math.max(1,Math.floor(lvl/2));
+  if(t==="full"||t==="half"){let lvl=ch.level||1;if(t==="half")lvl=lvl<2?0:Math.ceil(lvl/2); // half casters (paladin/ranger) start at 2nd and round up
     (FULL_SLOTS[Math.min(20,lvl)]||[]).forEach((n,i)=>{ch.slots[i+1]={max:n,cur:n};});}
   return ch.slots;}
 function isLeveledSpell(a){return !!(a&&!a.passive&&a.level>=1&&/level/i.test(a.source||""));} // "1st-level" etc.
@@ -1298,6 +1299,69 @@ function spendSpell(ch,a){ // returns false only when cooldowns enforced and not
   const slots=ensureSlots(ch);
   for(let L=a.level;L<=9;L++){if(slots[L]&&slots[L].cur>0){slots[L].cur--;return true;}}
   return false;}
+/* ---- scaling: upcast tables, slot/point-scaled abilities (Divine Smite), pools (Lay on Hands) ----
+   a.upcast   = {"1":"3d6","2":"4d6",...}  dice by slot level (from the SRD)
+   a.upcastPer= "1d6"                       +dice per slot level above the spell's level
+   a.scale    = {res:"slot"|<chargeKey>, base:"2d8", per:"1d8", min:1, max:5, pool:true}
+   a.rider    = true                        applied after a hit, doesn't end the turn (smites) */
+/* class kits with scaling resources (SRD) */
+function classKit(ch){ // adds (or upgrades in place) Divine Smite / Lay on Hands etc. for the class
+  ch.abilities=ch.abilities||[];ch.charges=ch.charges||{};
+  const find=n=>ch.abilities.find(a=>(a.name||"").toLowerCase()===n.toLowerCase());
+  const put=(name,o)=>{const ex=find(name);if(ex){const keepText=ex.text&&ex.text.length>(o.text||"").length?ex.text:o.text;Object.assign(ex,o,{id:ex.id,name:ex.name,text:keepText,ddb:ex.ddb});}else ch.abilities.push(ab(o));};
+  const lvOf=re=>{const parts=String(ch.cls||"").split("/");for(const p of parts){if(re.test(p)){const m=p.match(/(\d+)/);return m?+m[1]:(ch.level||1);}}return 0;};
+  const pool=(key,label,max,recharge)=>{if(!ch.charges[key])ch.charges[key]={label,max,cur:max,recharge};else{ch.charges[key].max=max;ch.charges[key].cur=Math.min(ch.charges[key].cur,max);}};
+  const pal=lvOf(/paladin/i);
+  if(pal>=1){pool("lay","Lay on Hands",pal*5,"long");
+    put("Lay on Hands",{name:"Lay on Hands",type:"support",source:"Paladin",level:1,action:"Action",dmg:null,attack:null,scale:{res:"lay",pool:true,min:1,max:pal*5},text:"Touch a creature and restore HP from your pool (5 × paladin level, refills on a long rest). Spend 5 to cure one disease or poison instead."});}
+  if(pal>=2)put("Divine Smite",{name:"Divine Smite",type:"damage",source:"Paladin",level:2,action:"On hit",rider:true,dmg:"2d8",dmgType:"radiant",attack:null,instances:1,flatPer:0,
+    scale:{res:"slot",base:"2d8",per:"1d8",min:1,max:4},bonus:{toggle:"Target is undead or fiend",why:"+1d8 radiant",dice:"1d8"},
+    text:"When you hit with a melee weapon attack, expend a spell slot: 2d8 radiant, +1d8 per slot level above 1st (max 5d8). +1d8 against undead or fiends."});
+  const monk=lvOf(/monk/i);if(monk>=2)pool("ki","Ki",monk,"short");
+  const sorc=lvOf(/sorcerer/i);if(sorc>=2)pool("sp","Sorcery Points",sorc,"long");
+  return ch;}
+function parseDice(d){const m=String(d||"").match(/(\d+)\s*d\s*(\d+)(?:\s*\+\s*(\d+))?/);return m?{n:+m[1],die:+m[2],flat:m[3]?+m[3]:0}:null;}
+function addDice(base,per,k){const b=parseDice(base),p=parseDice(per);if(!b)return base;if(!p||k<=0)return base;
+  if(p.die!==b.die)return base;return (b.n+k*p.n)+"d"+b.die+(b.flat?"+"+b.flat:"");}
+function scaleInfo(ch,a){ // null, or {kind:'slot'|'charge', min, max, def, label, dice(n), pool, res}
+  if(!ch||!a||a.passive)return null;const pact=casterType(ch)==="pact";
+  if(a.scale&&a.scale.res){const s=a.scale;
+    if(s.res==="slot"){if(pact){const c=ch.charges&&ch.charges.pact;if(!c)return null;const lv=pactSlotLevel(ch);return {kind:"pact",min:lv,max:lv,def:lv,label:"Pact slot",dice:n=>addDice(s.base||a.dmg,s.per,Math.min(n,s.max||9)-(s.min||1))};}
+      const slots=ensureSlots(ch);const lv=Object.keys(slots).map(Number).filter(L=>slots[L].max>0);if(!lv.length)return null;
+      const min=Math.max(s.min||1,Math.min(...lv)),max=Math.min(s.max||9,Math.max(...lv));if(max<min)return null;
+      return {kind:"slot",min,max,def:min,label:"Slot level",dice:n=>addDice(s.base||a.dmg,s.per,n-(s.min||1))};}
+    const c=ch.charges&&ch.charges[s.res];if(!c)return null;
+    return {kind:"charge",res:s.res,min:s.min||1,max:Math.max(1,Math.min(s.max||c.max,c.max)),def:s.min||1,label:c.label,pool:!!s.pool,dice:n=>s.per?addDice(s.base||a.dmg,s.per,n-(s.min||1)):(s.base||a.dmg)};}
+  if(!isLeveledSpell(a)||pact)return null;
+  const slots=ensureSlots(ch);const lv=Object.keys(slots).map(Number).filter(L=>L>=a.level&&slots[L].max>0);if(lv.length<2)return null;
+  if(a.upcast&&a.dmg){const keys=Object.keys(a.upcast).map(Number);return {kind:"slot",min:lv[0],max:lv[lv.length-1],def:lv[0],label:"Cast at",
+    dice:n=>{const k=Math.max(...keys.filter(x=>x<=n));return a.upcast[String(k)]||a.dmg;}};}
+  if(a.upcastPer&&a.dmg)return {kind:"slot",min:lv[0],max:lv[lv.length-1],def:lv[0],label:"Cast at",dice:n=>addDice(a.dmg,a.upcastPer,n-a.level)};
+  return null;}
+function pactSlotLevel(ch){const L=(ch.classes||[]).find(c=>/warlock/i.test(c.cls||c.name||""));const n=L?L.level:(ch.level||1);return n>=9?5:n>=7?4:n>=5?3:n>=3?2:1;}
+function effAbility(ch,a,st){ // the ability as it will be used at the chosen level/points
+  const si=scaleInfo(ch,a);if(!si)return a;
+  const n=st&&st.lvl!=null?Math.max(si.min,Math.min(si.max,st.lvl)):si.def;
+  const o=Object.assign({},a,{_lvl:n,_scale:si});
+  if(si.pool){o.poolAmt=n;return o;}
+  const d=si.dice?parseDice(si.dice(n)):null;
+  if(d){if(a.instances>1&&a.flatPer&&/missile/i.test(a.name)){o.instances=d.n;}else{o.dmg=d.n+"d"+d.die;if(d.flat)o.flatPer=d.flat;}}
+  return o;}
+function scaleBlock(ch,a,st,attr){ // stepper UI shared by the sheet calculator and the battle panel
+  const si=a._scale||scaleInfo(ch,a);if(!si)return "";const n=a._lvl!=null?a._lvl:si.def;
+  let avail="";if(si.kind==="slot"){const sl=ensureSlots(ch)[n];avail=sl?`${sl.cur}/${sl.max} ${ordLevel(n)} slots`:"";}
+  else if(si.kind==="pact"){const c=ch.charges.pact;avail=`${c.cur}/${c.max} pact slots`;}
+  else{const c=ch.charges[si.res];avail=`${c.cur}/${c.max} ${c.label}`;}
+  const dice=si.pool?`${n} ${/hp|hit/i.test(a.text||"")||a.type==="support"?"HP":"points"}`:(a.instances>1?a.instances+" × ":"")+a.dmg+(a.flatPer?"+"+a.flatPer:"");
+  return `<div class="scaleblk"><div class="lab">${esc(si.label)}<small>${esc(avail)}</small></div>
+    <div class="stepper"><button class="btn sm ghost" data-${attr}="-1" ${n<=si.min?"disabled":""}>−</button><b class="mono">${si.kind==="slot"||si.kind==="pact"?ordLevel(n):n}</b><button class="btn sm ghost" data-${attr}="1" ${n>=si.max?"disabled":""}>+</button></div>
+    <span class="val mono">${esc(dice)}</span></div>`;}
+function spendScaled(ch,a){ // spend exactly what the chosen level/points cost; false if unavailable
+  const camp=curCamp();if(camp&&camp.settings&&camp.settings.cooldowns===false)return true;
+  const si=a._scale;if(!si)return spendSpell(ch,a);const n=a._lvl;
+  if(si.kind==="slot"){const sl=ensureSlots(ch)[n];if(!sl||sl.cur<=0)return false;sl.cur--;return true;}
+  if(si.kind==="pact")return spendCharge(ch,"pact");
+  return spendCharge(ch,si.res,n);}
 function spellUsesLabel(ch,a){
   if(a.charge&&ch.charges&&ch.charges[a.charge]){const c=ch.charges[a.charge];return `${c.cur}/${c.max} ${c.label}`;}
   const si=slotInfo(ch,a);
@@ -1986,8 +2050,12 @@ function abilitySection(ch){
     if(a.save)line+=li("Save",`${a.save.ability} ${a.save.dc}`);
     if(a.dmg&&a.instances>1)line+=li("Damage",`${a.instances}×${a.dmg}${a.flatPer?"+"+a.flatPer:""}`);
     else if(a.dmg)line+=li("Damage",`${a.dmg}${a.flatPer?"+"+a.flatPer:""}`);
+    const sc=scaleInfo(ch,a);
+    if(sc&&!sc.pool&&sc.dice)line+=li("Scales",sc.kind==="charge"?`+${esc(a.scale.per||"")} per ${esc(sc.label)}`:`${esc(sc.dice(sc.max))} at ${ordLevel(sc.max)}`);
     let foot="";
-    if(a.charge&&ch.charges[a.charge]){
+    if(sc&&sc.pool){const c=ch.charges[sc.res];
+      foot=`<div class="cfoot"><div class="pips"><span class="lab">${c.cur}/${c.max} ${esc(c.label)}</span></div><div style="display:flex;gap:6px;align-items:center"><input class="bdie" inputmode="numeric" id="pool-${a.id}" value="${Math.min(5,c.cur)}" style="width:54px"><button class="btn sm" data-poolspend="${a.id}">Spend</button></div></div>`;
+    } else if(a.charge&&ch.charges[a.charge]){
       const c=ch.charges[a.charge];let pips="";
       for(let i=0;i<c.max;i++)pips+=`<span class="pip ${i<c.cur?"full":""}"></span>`;
       foot=`<div class="cfoot"><div class="pips">${pips}<span class="lab">${c.cur}/${c.max} ${esc(c.label)}</span></div>`+
@@ -2014,7 +2082,7 @@ function calcView(ch){
   const rollable=ch.abilities.filter(a=>a.dmg&&!a.passive);
   if(!STATE.ui.calcAbility||!rollable.find(a=>a.id===STATE.ui.calcAbility))
     STATE.ui.calcAbility=rollable[0]?rollable[0].id:null;
-  const a=rollable.find(x=>x.id===STATE.ui.calcAbility);
+  const a0=rollable.find(x=>x.id===STATE.ui.calcAbility);const a=a0?calcAb(ch,a0):null;
   const pick=el("div","calcpick");
   pick.innerHTML=`<select id="abSel">`+rollable.map(x=>
     `<option value="${x.id}" ${x.id===STATE.ui.calcAbility?"selected":""}>${esc(x.name)} — ${x.instances>1?x.instances+"×":""}${x.dmg}${x.flatPer?"+"+x.flatPer:""}</option>`).join("")+`</select>`;
@@ -2057,6 +2125,7 @@ function calcView(ch){
       <span class="val">${md.display}</span>
       <button class="sw ${md.on?"on":""}" data-modtoggle="${md.key}" aria-label="toggle"></button></div>`;
   });
+  mh+=scaleBlock(ch,a,st,"clvl");
   // special: +10 spell dmg per-instance ruling
   if(a.type==="damage"&&(ch.modifiers||[]).find(x=>x.kind==="spelldmg-flat"&&x.active)&&a.instances>1){
     mh+=`<div class="modrow"><div class="lab">+10 applies per beam/ray<small>DM ruling: on = ×${a.instances} instances, off = once</small></div>
@@ -2079,11 +2148,15 @@ function calcView(ch){
     <div class="breakdown">${br}<div class="br tot"><span>Total</span><b>${res.total}</b></div></div>
     ${res.bonusDmg?`<div class="calcnote">Includes ${res.bonusDmg} from the conditional bonus die.</div>`:""}`;
   right.appendChild(tot);
-  if(a.charge&&ch.charges[a.charge]){
+  if(a.charge&&ch.charges[a.charge]&&!a._scale){
     const c=ch.charges[a.charge];
     right.appendChild(el("div",null,`<div style="margin-top:12px;display:flex;gap:9px;align-items:center;flex-wrap:wrap">
       <button class="btn primary sm" data-spend="${a.id}" ${curCamp().settings.cooldowns&&c.cur<=0?"disabled":""}>Log it ${curCamp().settings.cooldowns?`(spend 1 ${esc(c.label)})`:""}</button>
       <span style="font-size:12px;color:var(--muted)" class="mono">${c.cur}/${c.max} left</span></div>`));
+  }else if(a._scale||isLeveledSpell(a)){
+    right.appendChild(el("div",null,`<div style="margin-top:12px;display:flex;gap:9px;align-items:center;flex-wrap:wrap">
+      <button class="btn primary sm" data-spend="${a.id}">Log it — ${a._scale?(a._scale.kind==="charge"?`spend ${a._lvl} ${esc(ch.charges[a._scale.res].label)}`:`use a ${ordLevel(a._lvl)} slot`):"spend a slot"}</button>
+      <span style="font-size:12px;color:var(--muted)" class="mono">${esc(spellUsesLabel(ch,a))}</span></div>`));
   }
   grid.appendChild(right);
   w.appendChild(grid);
@@ -2092,11 +2165,13 @@ function calcView(ch){
 function instLabel(a){return /beam/i.test(a.why?.reason||"")||a.name==="Eldritch Blast"?"Beam":/ray/i.test(a.name)?"Ray":"Attack";}
 // per-ability transient calc state
 const CALC={};
+function calcAb(ch,a){const st=CALC[a.id]||{};return effAbility(ch,a,st);}
 function calcState(a){
   const m=a.dmg?a.dmg.match(/(\d+)d(\d+)/):null;const count=m?+m[1]:0;
   if(!CALC[a.id]||CALC[a.id].count!==count||CALC[a.id].inst!==a.instances){
+    const keep=CALC[a.id]||{};
     CALC[a.id]={count,inst:a.instances,rolls:Array.from({length:a.instances},()=>Array(count).fill(0)),
-      perInstance:false,bonusOn:false,modOff:{}};
+      perInstance:false,bonusOn:false,modOff:{},lvl:keep.lvl};
   }
   return CALC[a.id];
 }
@@ -2518,7 +2593,7 @@ function advanceTurn(b,guard){
   enterTurn(b,true,guard);
 }
 /* ---- action economy: action / bonus / reaction per turn ---- */
-function actionKind(a){const t=String((a&&a.action)||"").toLowerCase();if(/bonus|^ba$|^b$/.test(t))return "bonus";if(/reaction|^r$|^re$/.test(t))return "reaction";if(/^—$|^-$|^$/.test(t))return "none";return "action";}
+function actionKind(a){const t=String((a&&a.action)||"").toLowerCase();if(/on hit|rider|^free$|^trigger/.test(t))return "none";if(/bonus|^ba$|^b$/.test(t))return "bonus";if(/reaction|^r$|^re$/.test(t))return "reaction";if(/^—$|^-$|^$/.test(t))return "none";return "action";}
 function ensureUsed(c){if(!c.used)c.used={action:false,bonus:false,reaction:false};return c.used;}
 function markUsed(b,c,a){const k=actionKind(a);if(k==="none")return "";const u=ensureUsed(c);const was=u[k];u[k]=true;return was?` (second ${k} this turn — DM's call)`:"";}
 function economyHTML(c){const u=ensureUsed(c);const pip=(k,l)=>`<span class="ecpip ${u[k]?"used":""}" title="${l}${u[k]?" used":" available"}">${l}</span>`;return `<div class="economy">${pip("action","Action")}${pip("bonus","Bonus")}${pip("reaction","Reaction")}</div>`;}
@@ -2689,12 +2764,14 @@ function turnActionPanel(b,isDM){
   wrap.innerHTML=h;return wrap;
 }
 function ensureBACT(c,a){
-  const m=a&&a.dmg?a.dmg.match(/(\d+)d(\d+)/):null;const count=m?+m[1]:0;
+  const m=a&&a.dmg?a.dmg.match(/(\d+)d(\d+)/):null;const count=m?+m[1]:0;const inst=a?a.instances:1;
   if(!BACT||BACT.combatantId!==c.id||BACT.abilityId!==(a?a.id:null))
-    BACT={combatantId:c.id,abilityId:a?a.id:null,rolls:Array.from({length:a?a.instances:1},()=>Array(count).fill(0)),
+    BACT={combatantId:c.id,abilityId:a?a.id:null,rolls:Array.from({length:inst},()=>Array(count).fill(0)),
       perInstance:false,bonusOn:false,modOff:{},_bonusRoll:null,targetId:(BACT&&BACT.combatantId===c.id)?BACT.targetId:null};
+  else if(BACT.rolls.length!==inst||(BACT.rolls[0]||[]).length!==count){BACT.rolls=Array.from({length:inst},()=>Array(count).fill(0));BACT._bonusRoll=null;}
   return BACT;
 }
+function bactAb(ch,a){return effAbility(ch,a,BACT&&BACT.abilityId===a.id?BACT:null);}
 function partyActionForm(b,c,isDM){
   const ch=actorOf(c);
   if(!ch)return `<div class="awaiting">This combatant has no sheet to act from — resolve it at the table and press Skip.</div>`;
@@ -2707,6 +2784,7 @@ function partyActionForm(b,c,isDM){
   let a=null;
   if(BACT&&BACT.combatantId===c.id&&BACT.abilityId)a=shown.find(x=>x.id===BACT.abilityId)||null;
   if(!a)a=shown.find(x=>x.dmg)||shown[0];
+  a=bactAb(ch,a);
   const st=ensureBACT(c,a);
   const phone=window.innerWidth<700;const gridOpen=!phone||st.gridOpen;
   let html=`<label style="font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)">${gridOpen?"Choose a move":"Your move"}</label>`;
@@ -2721,7 +2799,7 @@ function partyActionForm(b,c,isDM){
     shown.map(x=>{const sel=x.id===a.id;
       const uses=spellUsesLabel(ch,x);                                        // D&D terms: At will / x/y slots
       const kind=x.source||(x.level===0?"Cantrip":x.level>0?ordLevel(x.level)+" spell":"Feature");
-      const dice=x.dmg?((x.instances>1?x.instances+" × ":"")+x.dmg+(x.flatPer?" + "+x.flatPer:"")+(x.dmgType?" "+x.dmgType:"")):"no attack roll";
+      const dice=x.rider?"on hit · "+x.dmg+(x.dmgType?" "+x.dmgType:""):x.dmg?((x.instances>1?x.instances+" × ":"")+x.dmg+(x.flatPer?" + "+x.flatPer:"")+(x.dmgType?" "+x.dmgType:"")):(x.scale&&x.scale.pool)?"spend points":"no attack roll";
       return `<button class="movebtn ${sel?"on":""}" data-bmove="${x.id}" style="--mt:var(--c-${x.type})">
         <span class="mtype">${esc(x.type)}</span><span class="mname">${esc(x.name)}</span>
         <span class="mmeta">${esc(dice)}</span>
@@ -2729,10 +2807,16 @@ function partyActionForm(b,c,isDM){
   // a move with no damage roll: just declare it
   html+=`<div style="display:flex;justify-content:flex-end;margin:4px 0 -4px"><button class="btn sm ghost" data-readmore="${esc(a.name)}">ⓘ Full text</button></div>`;
   if(!a.dmg){
+    if(a._scale&&a._scale.pool){const allies=b.combatants.filter(x=>x.side==="party");if(!st.targetId||!allies.find(x=>x.id===st.targetId))st.targetId=c.id;
+      html+=`<div class="useblk">${a.text?`<p class="usetext">${esc(a.text)}</p>`:""}${scaleBlock(ch,a,st,"blvl")}
+        <div class="field"><label>Who</label><select id="bTargetSel">${allies.map(x=>`<option value="${x.id}" ${x.id===st.targetId?"selected":""}>${esc(x.name)} · ${x.hp}/${x.maxHP} HP</option>`).join("")}</select></div>
+        <button class="btn primary" data-bpool="${a.id}">${a.type==="support"?"Heal":"Spend"} ${a._lvl} ${a.type==="support"?"HP":esc(ch.charges[a._scale.res].label)}${actionKind(a)==="bonus"?"":" &amp; end turn"}</button></div>`;
+      return html;}
     html+=`<div class="useblk">${a.text?`<p class="usetext">${esc(a.text)}</p>`:'<p class="usetext">No dice to roll — declare it and the DM resolves the effect.</p>'}
       <button class="btn primary" data-buse="${a.id}">Use ${esc(a.name)} &amp; end turn</button></div>`;
     return html;
   }
+  html+=scaleBlock(ch,a,st,"blvl");
   const m=a.dmg.match(/(\d+)d(\d+)/);const count=+m[1],die=+m[2];
   html+=`<div class="brolls">`;
   for(let inst=0;inst<a.instances;inst++){let inputs="";
@@ -2771,7 +2855,7 @@ function partyActionForm(b,c,isDM){
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn sm" data-bhit="1">🎲 Roll to hit</button>${hit}</div></div>`;
   }
   html+=`<div class="total" style="margin-top:4px"><div class="grand"><span class="cap">${esc(a.dmgType||"damage")}</span><span class="n btot">${res.total}</span></div></div>`;
-  html+=`<div style="margin-top:12px"><button class="btn primary" data-bapply="1">Apply ${res.total} &amp; end turn</button></div>`;
+  html+=`<div style="margin-top:12px"><button class="btn primary" data-bapply="1">${a.rider?`Add ${res.total} ${esc(a.dmgType||"")} to the hit`:`Apply ${res.total} &amp; end turn`}</button></div>${a.rider?`<div class="authnote" style="margin-top:6px">Rider: lands on top of an attack you already hit with. Your turn keeps going.</div>`:""}`;
   return html;
 }
 /* saving-throw modifier for any combatant */
@@ -3827,9 +3911,9 @@ function ddbToChar(d){
   const allSpells=[].concat(...(d.classSpells||[]).map(cs=>cs.spells||[]),...Object.values(d.spells||{}).map(v=>v||[]).flat());
   allSpells.forEach(s=>{const def=s.definition||{};if(!def.name)return;const dmgDie=(def.modifiers||[]).find(m=>m.die&&m.die.diceString);abilities.push(ab({name:def.name,type:dmgDie?"damage":"utility",source:"Spell",level:def.level||0,dmg:dmgDie?dmgDie.die.diceString:null,text:stripHtml(def.description).slice(0,240)}));});
   abilities.forEach(a=>a.ddb=true);
-  return {id:uid("ch"),name:d.name||"Imported Hero",player:d.username||"",cls,subtitle,level:totalLevel,
+  return classKit({id:uid("ch"),name:d.name||"Imported Hero",player:d.username||"",cls,subtitle,level:totalLevel,
     color:"#7a4fd0",token:((d.name||"?")[0]||"?").toUpperCase(),scores,saveProf,prof,baseAC:ac,maxHP,hp:curHP,speed,
-    spellAbility,spellDC,spellAtk,passives,charges:{},abilities,modifiers:[],ddbId:d.id,_acNote:acNote};
+    spellAbility,spellDC,spellAtk,passives,charges:{},abilities,modifiers:[],ddbId:d.id,_acNote:acNote});
 }
 async function fetchDDB(idOrUrl){
   // proxy is a DigitalOcean Function mounted at /api
@@ -3856,7 +3940,7 @@ const DDB_MIN_GAP=45*1000;     // …and never more often than every 45 s per ch
 async function ddbSyncChar(ch,force){
   if(!ch||!ch.ddbId)return null;
   if(!force&&ch.ddbSynced&&Date.now()-ch.ddbSynced<DDB_MIN_GAP)return null;
-  try{const data=await fetchDDB(String(ch.ddbId));const fresh=ddbToChar(data);const r=ddbMergeInto(ch,fresh);
+  try{const data=await fetchDDB(String(ch.ddbId));const fresh=ddbToChar(data);const r=ddbMergeInto(ch,fresh);classKit(ch);
     if(r.leveled)toast(`${ch.name.split(" ")[0]} is now level ${r.to} — stats refreshed from D&D Beyond`);
     return r;}catch(e){ch.ddbSynced=Date.now();return null;} // don't hammer DDB on failure
 }
@@ -4183,10 +4267,10 @@ function wizToChar(wiz,detail){
     (wiz.weapons||[]).forEach(i=>{const w=GEAR.weapons.find(x=>x.index===i);if(w)inventory.push({id:uid("it"),name:w.name,qty:1,weight:w.weight||0,note:w.dmg+" "+w.dtype,equipped:true,attuned:false,gen:true});});}
   const clsLabel=classes.map(c=>c.cls+" "+c.level).join(" / ");
   const subNames=(d.subclassNames||{});const subtitle=[wiz.race].concat(classes.map(c=>c.subclass&&subNames[c.subclass]).filter(Boolean)).concat([wiz.bg]).filter(Boolean).join(" · ");
-  return {id:uid("ch"),name:wiz.name||"New Hero",player:wiz.player||"",cls:clsLabel,subtitle,level:total,color:wiz.color||"#7a4fd0",
+  return classKit({id:uid("ch"),name:wiz.name||"New Hero",player:wiz.player||"",cls:clsLabel,subtitle,level:total,color:wiz.color||"#7a4fd0",
     token:((wiz.name||"?")[0]||"?").toUpperCase(),scores,saveProf,prof,baseAC:ac,maxHP,hp:maxHP,speed,
     spellAbility:spellAb?spellAb.toUpperCase():"—",spellDC,spellAtk,passives,charges,slots:Object.keys(slots).length?slots:null,abilities,modifiers:[],role:wiz.role||"",
-    appearance:wiz.appearance,portrait:wiz.portrait,portraitSeed:wiz.portraitSeed,_acNote:acNote,skills,npc:!!wiz.npc,build:wizBuildOf(wiz),inventory,coins:{pp:0,gp:0,ep:0,sp:0,cp:0}};
+    appearance:wiz.appearance,portrait:wiz.portrait,portraitSeed:wiz.portraitSeed,_acNote:acNote,skills,npc:!!wiz.npc,build:wizBuildOf(wiz),inventory,coins:{pp:0,gp:0,ep:0,sp:0,cp:0}});
 }
 /* ---- pull feature + spell text from the SRD, then build ---- */
 async function wizFinalize(wiz){
@@ -4211,7 +4295,8 @@ async function wizFinalize(wiz){
       const L=sp.level||0;const o={name:sp.name,level:L,source:L===0?"Cantrip":ordLevel(L)+"-level",action:(sp.casting_time||"1 action").replace("1 action","Action").replace("1 bonus action","Bonus").replace("1 reaction","Reaction")};
       let dice=null;const dmgs=Array.isArray(sp.damage)?sp.damage:(sp.damage?[sp.damage]:[]);const dm=dmgs.find(x=>x.damage_at_slot_level||x.damage_at_character_level);
       if(dm){const at=dm.damage_at_slot_level||dm.damage_at_character_level||{};const key=dm.damage_at_slot_level?String(L||1):String([1,5,11,17].filter(x=>x<=total).pop()||1);
-        dice=at[key]||Object.values(at)[0]||null;const dt=dm.damage_type&&dm.damage_type.name;if(dt)o.dmgType=dt.toLowerCase();}
+        dice=at[key]||Object.values(at)[0]||null;const dt=dm.damage_type&&dm.damage_type.name;if(dt)o.dmgType=dt.toLowerCase();
+        if(dm.damage_at_slot_level&&L>0){const tbl={};Object.entries(dm.damage_at_slot_level).forEach(([k,v])=>{if(parseDice(v))tbl[k]=String(v).match(/\d+d\d+(?:\s*\+\s*\d+)?/)[0];});if(Object.keys(tbl).length>1)o.upcast=tbl;}}
       if(dice){const mm=String(dice).match(/(\d+)d(\d+)(?:\s*\+\s*(\d+))?/);if(mm){if(/missile/i.test(sp.name)&&+mm[1]>1){o.dmg="1d"+mm[2];o.instances=+mm[1];o.flatPer=1;}else{o.dmg=mm[1]+"d"+mm[2];if(mm[3])o.flatPer=+mm[3];}}}
       const heal=sp.heal_at_slot_level;if(heal&&!dice){const hv=heal[String(L||1)]||Object.values(heal)[0];if(hv)o.text="Heals "+hv.replace("MOD","+ spellcasting mod")+". ";}
       if(sp.dc&&sp.dc.dc_type)o.save={ability:(sp.dc.dc_type.name||"").toUpperCase().slice(0,3),dc};
@@ -4470,6 +4555,16 @@ function abilityModal(idx){
     <div class="bfield"><label>Description</label><input id="aText" value="${esc(a.text||"")}"></div>
     <div class="bgrid"><div class="bfield"><label>"Extra dice" note — dice</label><input id="aWhyD" value="${esc(a.why?a.why.dice:"")}"></div>
       <div class="bfield"><label>"Extra dice" note — why</label><input id="aWhyR" value="${esc(a.why?a.why.reason:"")}"></div></div>
+    <details ${a.scale||a.rider||a.upcastPer?"open":""}><summary style="cursor:pointer;font-size:13px;color:var(--muted)">Scaling (smites, upcasting, point pools)</summary>
+    <div class="bgrid" style="margin-top:8px">
+      <div class="bfield"><label>Scales with</label><select id="aScRes"><option value="">— nothing —</option><option value="slot" ${a.scale&&a.scale.res==="slot"?"selected":""}>Spell slot level</option>${Object.entries(d.charges).map(([k,c])=>`<option value="${k}" ${a.scale&&a.scale.res===k?"selected":""}>${esc(c.label)} (points)</option>`).join("")}</select></div>
+      <div class="bfield"><label>Extra dice per level / point</label><input id="aScPer" placeholder="1d8" value="${esc(a.scale?a.scale.per||"":a.upcastPer||"")}"></div>
+      <div class="bfield"><label>Min level / points</label><input id="aScMin" inputmode="numeric" value="${a.scale?a.scale.min||1:""}"></div>
+      <div class="bfield"><label>Max level / points</label><input id="aScMax" inputmode="numeric" value="${a.scale?a.scale.max||"":""}"></div>
+    </div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:6px">
+      <label style="display:flex;gap:7px;align-items:center;font-size:13px"><input type="checkbox" id="aRider" ${a.rider?"checked":""}> Rider — adds to a hit, doesn't end the turn (Divine Smite)</label>
+      <label style="display:flex;gap:7px;align-items:center;font-size:13px"><input type="checkbox" id="aPool" ${a.scale&&a.scale.pool?"checked":""}> Point pool — spend N, effect is N (Lay on Hands)</label></div></details>
     <div class="acts"><button class="btn ghost" data-close="1">Cancel</button><button class="btn primary" data-absave="${idx!=null?idx:"new"}">Save ability</button></div></div>`);
 }
 function readAbilityModal(){
@@ -4481,6 +4576,10 @@ function readAbilityModal(){
   const sa=g("aSaveAb"),sd=parseInt(g("aSaveDC"),10);
   if(sa&&!isNaN(sd))o.save={ability:sa,dc:sd};else o.save=null;
   const wd=g("aWhyD"),wr=g("aWhyR");if(wd||wr)o.why={dice:wd,reason:wr};
+  const res=g("aScRes"),per=(g("aScPer")||"").trim(),mn=parseInt(g("aScMin"),10),mx=parseInt(g("aScMax"),10);
+  if(res){o.scale={res,base:o.dmg||null,per:per||null,min:isNaN(mn)?1:mn,max:isNaN(mx)?undefined:mx,pool:$("#aPool").checked};if(res==="slot"&&!o.scale.min)o.scale.min=o.level||1;}
+  else if(per&&o.level>0)o.upcastPer=per;
+  if($("#aRider").checked){o.rider=true;if(!/on hit/i.test(o.action))o.action="On hit";}
   return o;
 }
 function modifierModal(idx){
@@ -4504,7 +4603,7 @@ function chargeModal(){
 /* ============================ actions ============================ */
 function go(screen){STATE.ui.screen=screen;render();}
 function spendCharge(ch,res,n=1){const c=ch.charges[res];if(!c)return false;
-  if(curCamp().settings.cooldowns){if(c.cur<n)return false;c.cur-=n;}return true;}
+  if(curCamp().settings.cooldowns||n>1){if(c.cur<n)return false;c.cur-=n;}return true;}
 function refreshCharge(ch,res,n=1){const c=ch.charges[res];if(!c)return;c.cur=Math.min(c.max,c.cur+n);}
 function doRest(kind){
   const camp=curCamp();
@@ -4543,7 +4642,7 @@ function confirmModal(msg,onYes){
 
 /* ============================ event wiring ============================ */
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-nav],[data-open],[data-del],[data-newcamp],[data-join],[data-leave],[data-ready],[data-startsession],[data-endsession],[data-enterplay],[data-tab],[data-filter],[data-tocalc],[data-use],[data-spend],[data-rollinst],[data-rollall],[data-clearrolls],[data-modtoggle],[data-perinst],[data-bonus],[data-rest],[data-cooldowns],[data-dmview],[data-awardinsp],[data-spendinsp],[data-hpedit],[data-hp],[data-hpsave],[data-close],[data-scrim],[data-createcamp],[data-newchar],[data-dmnewchar],[data-setskin],[data-openacct],[data-abilsort],[data-autoconds],[data-autosaves],[data-fbload],[data-tableview]");
+  const t=e.target.closest("[data-nav],[data-open],[data-del],[data-newcamp],[data-join],[data-leave],[data-ready],[data-startsession],[data-endsession],[data-enterplay],[data-tab],[data-filter],[data-tocalc],[data-use],[data-spend],[data-clvl],[data-poolspend],[data-blvl],[data-bpool],[data-rollinst],[data-rollall],[data-clearrolls],[data-modtoggle],[data-perinst],[data-bonus],[data-rest],[data-cooldowns],[data-dmview],[data-awardinsp],[data-spendinsp],[data-hpedit],[data-hp],[data-hpsave],[data-close],[data-scrim],[data-createcamp],[data-newchar],[data-dmnewchar],[data-setskin],[data-openacct],[data-abilsort],[data-autoconds],[data-autosaves],[data-fbload],[data-tableview]");
   if(!t)return;
   const d=t.dataset;
   if(d.scrim&&e.target!==t)return; // clicked inside modal
@@ -4597,23 +4696,29 @@ document.addEventListener("click",e=>{
     if(a.charge){if(!spendCharge(ch,a.charge)){toast("No charges left");return;}}
     if(a.refreshes){refreshCharge(ch,a.refreshes);toast(a.name+" — refreshed "+(ch.charges[a.refreshes]?.label||""));}
     else toast(a.name+" used");render();return;}
-  if(d.spend){const ch=viewedChar();const a=ch.abilities.find(x=>x.id===d.spend);
+  if(d.poolspend){const ch=viewedChar();const a=ch.abilities.find(x=>x.id===d.poolspend);const sc=a&&scaleInfo(ch,a);if(!sc)return;const inp=$("#pool-"+a.id);const n=Math.max(1,parseInt(inp&&inp.value,10)||1);
+    if(!spendCharge(ch,sc.res,n)){toast("Only "+ch.charges[sc.res].cur+" "+ch.charges[sc.res].label+" left");return;}toast(`${a.name} — spent ${n} ${ch.charges[sc.res].label}`);render();return;}
+  if(d.clvl){const ch=viewedChar();const a0=ch.abilities.find(x=>x.id===STATE.ui.calcAbility);const si=scaleInfo(ch,a0);if(!si)return;const st=CALC[a0.id]||(CALC[a0.id]={});
+    st.lvl=Math.max(si.min,Math.min(si.max,(st.lvl!=null?st.lvl:si.def)+(+d.clvl)));render();return;}
+  if(d.spend){const ch=viewedChar();const a=calcAb(ch,ch.abilities.find(x=>x.id===d.spend));
+    if(a._scale){if(!spendScaled(ch,a)){toast("Not enough left for that");return;}toast(`Logged — ${a.name}${a._scale.kind==="charge"?" ("+a._lvl+" "+ch.charges[a._scale.res].label+")":" ("+ordLevel(a._lvl)+" slot)"}`);render();return;}
+    if(!a.charge&&isLeveledSpell(a)){if(!spendSpell(ch,a)){toast("No slots left");return;}toast("Logged — "+a.name);render();return;}
     if(a.charge&&!spendCharge(ch,a.charge)){toast("No charges left");return;}
     if(a.refreshes)refreshCharge(ch,a.refreshes);
     toast("Logged — "+a.name);render();return;}
-  if(d.rollinst!=null){const ch=viewedChar();const a=ch.abilities.find(x=>x.id===STATE.ui.calcAbility);const st=calcState(a);
+  if(d.rollinst!=null){const ch=viewedChar();const a=calcAb(ch,ch.abilities.find(x=>x.id===STATE.ui.calcAbility));const st=calcState(a);
     const mm=a.dmg.match(/(\d+)d(\d+)/);const die=+mm[2];
     st.rolls[+d.rollinst]=st.rolls[+d.rollinst].map(()=>rollDie(die));render();return;}
-  if(d.rollall){const ch=viewedChar();const a=ch.abilities.find(x=>x.id===STATE.ui.calcAbility);const st=calcState(a);
+  if(d.rollall){const ch=viewedChar();const a=calcAb(ch,ch.abilities.find(x=>x.id===STATE.ui.calcAbility));const st=calcState(a);
     const mm=a.dmg.match(/(\d+)d(\d+)/);const die=+mm[2];
     st.rolls=st.rolls.map(r=>r.map(()=>rollDie(die)));st._bonusRoll=null;render();return;}
-  if(d.clearrolls){const ch=viewedChar();const a=ch.abilities.find(x=>x.id===STATE.ui.calcAbility);const st=calcState(a);
+  if(d.clearrolls){const ch=viewedChar();const a=calcAb(ch,ch.abilities.find(x=>x.id===STATE.ui.calcAbility));const st=calcState(a);
     st.rolls=st.rolls.map(r=>r.map(()=>0));st._bonusRoll=null;render();return;}
-  if(d.modtoggle){const ch=viewedChar();const a=ch.abilities.find(x=>x.id===STATE.ui.calcAbility);const st=calcState(a);
+  if(d.modtoggle){const ch=viewedChar();const a=calcAb(ch,ch.abilities.find(x=>x.id===STATE.ui.calcAbility));const st=calcState(a);
     st.modOff[d.modtoggle]=!st.modOff[d.modtoggle];render();return;}
-  if(d.perinst){const ch=viewedChar();const a=ch.abilities.find(x=>x.id===STATE.ui.calcAbility);const st=calcState(a);
+  if(d.perinst){const ch=viewedChar();const a=calcAb(ch,ch.abilities.find(x=>x.id===STATE.ui.calcAbility));const st=calcState(a);
     st.perInstance=!st.perInstance;render();return;}
-  if(d.bonus){const ch=viewedChar();const a=ch.abilities.find(x=>x.id===STATE.ui.calcAbility);const st=calcState(a);
+  if(d.bonus){const ch=viewedChar();const a=calcAb(ch,ch.abilities.find(x=>x.id===STATE.ui.calcAbility));const st=calcState(a);
     st.bonusOn=!st.bonusOn;st._bonusRoll=null;render();return;}
   if(d.rest){doRest(d.rest);return;}
   if(d.cooldowns){const camp=curCamp();camp.settings.cooldowns=!camp.settings.cooldowns;render();
@@ -4659,7 +4764,7 @@ function liveCalc(ch,a,st){
 
 /* battle + lore events */
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-newroom],[data-newroomsave],[data-roomsel],[data-roomend],[data-addplayer],[data-addplayersave],[data-endbtl],[data-addenemy],[data-addenemysave],[data-nextturn],[data-cell],[data-selbtl],[data-dmgc],[data-revhp],[data-revac],[data-rmc],[data-brollinit],[data-rollallinit],[data-begincombat],[data-reroll],[data-reup],[data-redn],[data-passturn],[data-bmove],[data-bmovefilter],[data-buse],[data-ballroll],[data-bclear],[data-bmod],[data-bperinst],[data-bbonus],[data-bapply],[data-eapply],[data-cond],[data-adddot],[data-dotsave],[data-rmdot],[data-bfeet],[data-bmode],[data-bclearmap],[data-bsettingsave],[data-bzoom],[data-undo],[data-defs],[data-react],[data-reactpick],[data-fxadd],[data-fxsave],[data-fxrm],[data-defsave],[data-concroll],[data-concdrop],[data-conckeep],[data-aoeshape],[data-aoeplace],[data-aoeclear],[data-enaddmove],[data-enrmmove],[data-monpick],[data-emove],[data-ehit],[data-eroll],[data-bgridopen],[data-bhit],[data-btgt],[data-bsaveroll],[data-bresolve],[data-bpendclear]");
+  const t=e.target.closest("[data-newroom],[data-newroomsave],[data-roomsel],[data-roomend],[data-addplayer],[data-addplayersave],[data-endbtl],[data-addenemy],[data-addenemysave],[data-nextturn],[data-cell],[data-selbtl],[data-dmgc],[data-revhp],[data-revac],[data-rmc],[data-brollinit],[data-rollallinit],[data-begincombat],[data-reroll],[data-reup],[data-redn],[data-passturn],[data-bmove],[data-bmovefilter],[data-buse],[data-ballroll],[data-blvl],[data-bpool],[data-bclear],[data-bmod],[data-bperinst],[data-bbonus],[data-bapply],[data-eapply],[data-cond],[data-adddot],[data-dotsave],[data-rmdot],[data-bfeet],[data-bmode],[data-bclearmap],[data-bsettingsave],[data-bzoom],[data-undo],[data-defs],[data-react],[data-reactpick],[data-fxadd],[data-fxsave],[data-fxrm],[data-defsave],[data-concroll],[data-concdrop],[data-conckeep],[data-aoeshape],[data-aoeplace],[data-aoeclear],[data-enaddmove],[data-enrmmove],[data-monpick],[data-emove],[data-ehit],[data-eroll],[data-bgridopen],[data-bhit],[data-btgt],[data-bsaveroll],[data-bresolve],[data-bpendclear]");
   if(!t)return;const d=t.dataset;const camp=curCamp();
   const isDM=STATE.cloud?amDM(camp):(STATE.ui.viewAs==="dm"); // host authority (DM keeps it even while viewing a PC)
   // room management (DM) — resolved before we need a battle
@@ -4768,7 +4873,16 @@ document.addEventListener("click",e=>{
   if(d.bmove){const c=curCombatant(b);if(!c)return;const ch=actorOf(c);if(!ch)return;const a=ch.abilities.find(x=>x.id===d.bmove);BACT=null;ensureBACT(c,a);render();return;}
   if(d.bgridopen){if(BACT)BACT.gridOpen=true;render();return;}
   if(d.bmovefilter){BFILTER=d.bmovefilter;if(BACT)BACT.gridOpen=true;render();return;}
-  if(d.ballroll){const c=curCombatant(b);if(!c||!BACT)return;const ch=actorOf(c);if(!ch)return;const a=ch.abilities.find(x=>x.id===BACT.abilityId);if(!a)return;
+  if(d.blvl){const c=curCombatant(b);if(!c||!BACT)return;const ch=actorOf(c);const a0=ch&&ch.abilities.find(x=>x.id===BACT.abilityId);const si=a0&&scaleInfo(ch,a0);if(!si)return;
+    BACT.lvl=Math.max(si.min,Math.min(si.max,(BACT.lvl!=null?BACT.lvl:si.def)+(+d.blvl)));render();return;}
+  if(d.bpool){const c=curCombatant(b);if(!c||!BACT)return;const ch=actorOf(c);const a=ch&&bactAb(ch,ch.abilities.find(x=>x.id===d.bpool));if(!a||!a._scale)return;
+    const tgt=b.combatants.find(x=>x.id===BACT.targetId)||c;const n=a._lvl;
+    if(!spendScaled(ch,a)){toast("Not enough "+ch.charges[a._scale.res].label+" left");return;}
+    if(a.type==="support"){const note=adjustHP(b,tgt,n,{});blog(b,`${c.name} uses ${a.name} — ${tgt.name} regains ${n} HP${note||""}.`);}
+    else blog(b,`${c.name} uses ${a.name} (${n} ${ch.charges[a._scale.res].label}).`);
+    const econ=markUsed(b,c,a);if(actionKind(a)==="bonus"||actionKind(a)==="reaction"){render();toast(`${a.name} — your action is still open`);return;}
+    advanceTurn(b,0);render();toast(a.name+" used");return;}
+  if(d.ballroll){const c=curCombatant(b);if(!c||!BACT)return;const ch=actorOf(c);if(!ch)return;const a=bactAb(ch,ch.abilities.find(x=>x.id===BACT.abilityId));if(!a)return;
     const die=+a.dmg.match(/(\d+)d(\d+)/)[2];BACT.rolls=BACT.rolls.map(r=>r.map(()=>rollDie(die)));BACT._bonusRoll=null;render();return;}
   if(d.bclear){if(BACT){BACT.rolls=BACT.rolls.map(r=>r.map(()=>0));BACT._bonusRoll=null;}render();return;}
   if(d.bmod){if(BACT){BACT.modOff[d.bmod]=!BACT.modOff[d.bmod];}render();return;}
@@ -4792,12 +4906,17 @@ document.addEventListener("click",e=>{
     if(BACT.aoe.placing){const bd=document.querySelector(".board2");if(bd)bd.scrollIntoView({behavior:"smooth",block:"center"});}return;}
   if(d.aoeclear){if(!BACT||!BACT.aoe)return;BACT.aoe.cx=null;BACT.aoe.placing=false;render();return;}
   if(d.btgt){if(!BACT)return;BACT.targetIds=BACT.targetIds||[];const i=BACT.targetIds.indexOf(d.btgt);if(i>=0)BACT.targetIds.splice(i,1);else BACT.targetIds.push(d.btgt);render();return;}
-  if(d.bapply){const c=curCombatant(b);if(!c||!BACT)return;const ch=actorOf(c);if(!ch)return;const a=ch.abilities.find(x=>x.id===BACT.abilityId);
+  if(d.bapply){const c=curCombatant(b);if(!c||!BACT)return;const ch=actorOf(c);if(!ch)return;const a=bactAb(ch,ch.abilities.find(x=>x.id===BACT.abilityId));
     const res=computeTotal(ch,a,BACT);
+    if(a.rider){const tgt=b.combatants.find(x=>x.id===BACT.targetId);if(!tgt){toast("Pick a target");return;}
+      if(!spendScaled(ch,a)){toast(a._scale&&a._scale.kind==="slot"?"No "+ordLevel(a._lvl)+"-level slots left":"Nothing left to spend");return;}
+      const note=adjustHP(b,tgt,-res.total,{type:a.dmgType});
+      blog(b,`${c.name} adds ${a.name}${a._scale?" ("+(a._scale.kind==="charge"?a._lvl+" "+ch.charges[a._scale.res].label:ordLevel(a._lvl)+" slot")+")":""} — ${res.total}${a.dmgType?" "+a.dmgType:""} to ${tgt.name}${note||""}.`);
+      BACT.rolls=BACT.rolls.map(r=>r.map(()=>0));BACT._bonusRoll=null;render();toast(`${res.total} ${a.dmgType||""} added to ${tgt.name}`);return;}
     if(a.save&&a.save.ability){ // save-based, many targets
       const ids=(BACT.targetIds||[]);const tg=ids.map(id=>b.combatants.find(x=>x.id===id)).filter(Boolean);
       if(!tg.length){toast("Pick at least one target");return;}
-      if(!spendSpell(ch,a)){const si=slotInfo(ch,a);toast("No "+(si&&si.kind==="pact"?"pact slots":ordLevel(a.level)+"-level slots")+" left");return;}
+      if(!spendScaled(ch,a)){const si=slotInfo(ch,a);toast("No "+(a._scale?ordLevel(a._lvl):si&&si.kind==="pact"?"pact slots":ordLevel(a.level)+"-level")+" slots left");return;}
       if(autoSaves()){
         blog(b,`${c.name} casts ${a.name} (DC ${a.save.dc} ${a.save.ability}) on ${tg.length}.`);
         tg.forEach(t=>{const sv=rollSaveFor(t,a.save.ability,a.save.dc);const dmg=sv.ok?Math.floor(res.total/2):res.total;
@@ -4810,13 +4929,13 @@ document.addEventListener("click",e=>{
       blog(b,`${c.name} casts ${a.name} on ${tg.map(t=>t.name).join(", ")} — DC ${a.save.dc} ${a.save.ability}. DM resolves.`);
       advanceTurn(b,0);render();toast(`${a.name} cast — the DM resolves the saves`);return;}
     const tgt=b.combatants.find(x=>x.id===BACT.targetId);if(!tgt){toast("Pick a target");return;}
-    if(!spendSpell(ch,a)){const si=slotInfo(ch,a);toast("No "+(si&&si.kind==="pact"?"pact slots":ordLevel(a.level)+"-level slots")+" left");return;}
+    if(!spendScaled(ch,a)){const si=slotInfo(ch,a);toast("No "+(a._scale?ordLevel(a._lvl):si&&si.kind==="pact"?"pact slots":ordLevel(a.level)+"-level")+" slots left");return;}
     let total=res.total;const H=BACT.hit;
     if(H&&H.nat20){ // critical hit (5e): roll all the damage dice again and add them
       const die=+a.dmg.match(/d(\d+)/)[1];let extra=0;BACT.rolls.forEach(r=>r.forEach(()=>{extra+=rollDie(die);}));total+=extra;}
     const note=adjustHP(b,tgt,-total,{type:a.dmgType});const econ=markUsed(b,c,a);
     if(/concentration/i.test(a.text||"")){c.conditions=c.conditions||[];if(!c.conditions.includes("Concentrating"))c.conditions.push("Concentrating");addEffect(b,a.name,parseRounds(a.text),tgt.id,c.id,true);}
-    blog(b,`${c.name} hits ${tgt.name} for ${total}${a.dmgType?" "+a.dmgType:""}${H&&H.nat20?" (critical!)":""}${note||""}${econ}.`);
+    blog(b,`${c.name} hits ${tgt.name} with ${a.name}${a._scale&&a._scale.kind!=="charge"?" ("+ordLevel(a._lvl)+")":""} for ${total}${a.dmgType?" "+a.dmgType:""}${H&&H.nat20?" (critical!)":""}${note||""}${econ}.`);
     if(actionKind(a)==="bonus"){render();toast(`${total} to ${tgt.name} — bonus action; your action is still open`);return;}
     advanceTurn(b,0);render();toast(`${total} to ${tgt.name}`);return;}
   if(d.bsaveroll){const P=b.pending;if(!P)return;const t=P.targets.find(x=>x.id===d.bsaveroll);const c=b.combatants.find(x=>x.id===d.bsaveroll);if(!t||!c)return;
@@ -5513,6 +5632,7 @@ async function afterEnterExtras(){
 async function boot(){
   load();
   dedupeRoster();
+  try{Object.values(STATE.roster||{}).forEach(ch=>{if(ch&&ch.cls&&!ch.npc)classKit(ch);});}catch(e){}
   if(STATE.ui&&!STATE.ui.skin)STATE.ui.skin=(STATE.ui.theme==="light")?"scroll":"erdtree"; // migrate old theme choice
   applySkin(STATE.ui&&STATE.ui.skin?STATE.ui.skin:"erdtree");
   // parse invite + recovery from URL
