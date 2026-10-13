@@ -546,6 +546,11 @@ select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px
 .board2 .tile:hover{background:rgba(255,255,255,.05)}
 .board2 .tile.inreach{background:color-mix(in srgb,var(--accent) 16%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 35%,transparent)}
 .board2 .tile.tgt{cursor:crosshair}
+.iconbtn{position:relative}.iconbtn .badge{position:absolute;top:-4px;right:-4px;background:var(--crit);color:#fff;font-size:10px;font-weight:700;border-radius:999px;min-width:16px;height:16px;line-height:16px;text-align:center;padding:0 4px}
+.chatlist{max-height:52vh;overflow:auto;display:flex;flex-direction:column;gap:8px;padding:4px 0;scroll-behavior:auto}.cmsg{border:1px solid var(--line);border-radius:12px;padding:8px 10px;background:var(--bg3)}.cmsg.mine{border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}.cmsg.whisper{background:color-mix(in srgb,var(--c-control,#8a6fd0) 14%,var(--bg3));border-color:color-mix(in srgb,var(--c-control,#8a6fd0) 45%,var(--line))}.cmsg.secret{background:color-mix(in srgb,var(--crit) 10%,var(--bg3))}.cmsg .cau{font-size:11px;color:var(--muted);display:flex;gap:6px;align-items:center;margin-bottom:3px}.cmsg .cau b{color:var(--fg)}.cmsg .cbody{font-size:14px;white-space:pre-wrap}.cmsg .croll{font-family:ui-monospace,monospace;font-size:13px}.cmsg .croll b{font-size:18px;color:var(--accent)}.checkrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;font-size:13px}.checkrow .ok{color:var(--ok)}.checkrow .bad{color:var(--crit)}
+.chatcomp{display:flex;gap:6px;align-items:flex-end;margin-top:8px}.chatcomp textarea{flex:1;min-height:40px}
+.tag.prep{cursor:pointer;border:1px solid var(--line2);background:transparent;color:var(--faint)}.tag.prep.on{color:var(--c-support);border-color:var(--c-support)}.card.unprep{opacity:.6}
+.repbar{position:relative;height:6px;border-radius:3px;margin:6px 0;background:linear-gradient(90deg,var(--crit),var(--faint) 50%,var(--ok))}.repbar i{position:absolute;top:-3px;width:12px;height:12px;border-radius:50%;background:var(--fg);border:2px solid var(--bg2);transform:translateX(-50%)}
 .stdacts{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px}.stdacts .chip[disabled]{opacity:.4}
 .saveblk{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px;padding-top:8px;border-top:1px dashed var(--line)}.saveblk .lab{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;margin-right:4px}
 .scaleblk{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 10px;border:1px solid var(--line);border-radius:10px;margin:8px 0;background:color-mix(in srgb,var(--accent) 7%,transparent)}.scaleblk .lab{flex:1;font-size:13px}.scaleblk .lab small{display:block;color:var(--muted);font-size:11.5px}.scaleblk .stepper{display:flex;align-items:center;gap:6px}.scaleblk .stepper b{min-width:34px;text-align:center}.scaleblk .val{color:var(--accent)}
@@ -876,6 +881,7 @@ body.tableview #screen{max-width:none;padding:14px 18px}
   <div class="viewas" id="viewas" hidden></div>
   <button class="iconbtn" id="searchBtn" title="Search the campaign" aria-label="Search" hidden>⌕</button>
   <button class="iconbtn" id="dmScreenBtn" title="DM screen" aria-label="DM screen" hidden>📜</button>
+  <button class="iconbtn" id="chatBtn" title="Table chat — whispers, rolls, checks" aria-label="Table chat" hidden>💬<span class="badge" id="chatBadge" hidden></span></button>
   <button class="iconbtn" id="diceBtn" title="Dice roller" aria-label="Dice roller">🎲</button>
   <button class="iconbtn" id="acctBtn" title="Account" aria-label="Account">☁</button>
   <button class="iconbtn" id="themeBtn" title="Toggle theme" aria-label="Toggle theme">◐</button>
@@ -1459,7 +1465,7 @@ function render(){
     ctx.innerHTML=(ui.screen==="builder"&&camp)?`<span>›</span><b>${esc(camp.name)}</b>`:"";va.hidden=true;}
   else if(camp){
     ctx.innerHTML=`<span>›</span><b>${esc(camp.name)}</b>`+
-      (camp.session.live?` <span class="pill live"><span class="dot"></span>Live</span>`:` <span class="pill"><span class="dot"></span>In lobby</span>`);
+      (tableSide(camp)?` <span class="pill live"><span class="dot"></span>Table side</span>`:camp.session.live?` <span class="pill live"><span class="dot"></span>Live</span>`:` <span class="pill"><span class="dot"></span>In lobby</span>`);
     if(ui.screen==="play"){
       if(STATE.cloud&&!amDM(camp)){ // players are locked to their own character
         const mine=myCharId(camp);if(mine&&STATE.roster[mine])ui.viewAs=mine;
@@ -1475,7 +1481,9 @@ function render(){
       }
     } else va.hidden=true;
   }
-  {const sb=$("#searchBtn"),db=$("#dmScreenBtn");const inCamp=!!camp&&(ui.screen==="play"||ui.screen==="lobby");if(sb)sb.hidden=!inCamp;if(db)db.hidden=!(inCamp&&(STATE.cloud?amDM(camp):ui.viewAs==="dm"));}
+  {const sb=$("#searchBtn"),db=$("#dmScreenBtn"),cb=$("#chatBtn");const inCamp=!!camp&&(ui.screen==="play"||ui.screen==="lobby");if(sb)sb.hidden=!inCamp;if(db)db.hidden=!(inCamp&&(STATE.cloud?amDM(camp):ui.viewAs==="dm"));
+    if(cb){cb.hidden=!inCamp;if(inCamp){const n=chatUnread(camp);const bd=$("#chatBadge");bd.hidden=!n;bd.textContent=n>9?"9+":n;}}
+    if(inCamp&&CHAT_OPEN)chatRefresh(camp);}
   const scr=$("#screen");scr.innerHTML="";
   document.body.classList.toggle("tableview",!!ui.tableView&&!!camp);
   if(ui.tableView&&camp){scr.appendChild(screenTable(camp));$("#foot").innerHTML="";save();if(STATE.cloud){Cloud.syncRooms();Cloud.afterRender();}return;}
@@ -1539,7 +1547,7 @@ function screenCharacters(){
       <div class="ci"><div class="cn">${esc(ch.name)} ${isNPC(ch)?'<span class="rolechip npc">NPC</span>':role?`<span class="rolechip">${esc(role)}</span>`:""}</div>
         <div class="cc">${esc(ch.cls)}${ch.subtitle?" · "+esc(ch.subtitle):""}</div>
         <div class="cstats"><span>AC ${effAC(ch).ac}</span><span>HP ${ch.hp??ch.maxHP}/${ch.maxHP}</span><span>Spd ${ch.speed}</span></div></div>
-      <div class="crow"><button class="btn sm primary" data-joinwith="${ch.id}">Join a campaign →</button>
+      <div class="crow"><button class="btn sm primary" data-joinwith="${ch.id}">Join a campaign →</button><button class="btn sm" data-tableside="${ch.id}" title="Play from your phone while the DM runs the game at the table">🎲 Table side</button>
         <button class="btn sm ghost" data-portrait="${ch.id}">🖼</button>
         <button class="btn sm ghost" data-buildedit="${ch.id}">Edit</button></div>`;
     grid.appendChild(s);
@@ -1641,6 +1649,7 @@ function screenCampaigns(){
       ${(STATE.cloud&&amDM(c)&&c.invite_code)?`<div class="slotinvite"><span class="k">Invite code</span><span class="code">${esc(c.invite_code)}</span><button class="btn sm ghost" data-copycode="${esc(c.invite_code)}">Copy</button><button class="btn sm ghost" data-copyinvite="${esc(location.origin+location.pathname+"#join="+c.invite_code)}">Link</button></div>`:""}
       <div class="row">
         <button class="btn primary sm" data-open="${c.id}">Enter lobby →</button>
+        <button class="btn ghost sm" data-campexport="${c.id}" title="Download this campaign as a file">⬇</button>
         <button class="btn ghost sm" data-del="${c.id}">Delete</button>
       </div>`;
     slots.appendChild(s);
@@ -1713,7 +1722,10 @@ function screenLobby(){
   // start box — host (DM) controls; players see status
   const readyCount=camp.party.filter(id=>camp.ready[id]).length;
   const start=el("div","startbox");
-  if(camp.session.live){
+  if(tableSide(camp)){
+    start.innerHTML=`<div class="note"><b>Table-side mode.</b> The DM runs the game at the table; everyone here uses the app for sheets, dice, items and a shared initiative tracker that any of you can drive. No start button — it's always open.</div>
+      <button class="btn primary" data-enterplay="1">Enter play →</button>`;
+  }else if(camp.session.live){
     start.innerHTML=`<div class="note"><b>Session is live.</b> ${isHost?"Jump in, or end the night.":"The host has started — drop in."}</div>
       <button class="btn primary" data-enterplay="1">Enter play →</button>
       ${isHost?`<button class="btn ghost" data-endsession="1">End session</button>`:""}`;
@@ -1754,7 +1766,7 @@ function screenLobby(){
 const PLAY_TABS=[["sheet","Sheet"],["calc","Dice & Damage"],["map","Map"],["battle","Battle"],["lore","Lore"],["journal","Journal"]];
 function screenPlay(){
   const camp=curCamp();const wrap=el("div");
-  if(!camp.session.live){
+  if(!isLive(camp)){
     wrap.appendChild(el("div","stub",
       `<svg class="big" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
        <h3>The session hasn't started</h3><p>Head back to the lobby and have the DM press <b>Start session</b>.</p>
@@ -1763,6 +1775,7 @@ function screenPlay(){
   }
   const viewingDM=STATE.ui.viewAs==="dm";          // which seat the view switch is on
   const host=STATE.cloud?amDM(camp):viewingDM;      // board/battle authority (DM keeps it even while playing a PC)
+  const tableHost=host||tableSide(camp);            // table-side: every member drives the tracker
   const railChar=viewingDM?null:viewedChar();
   const main=el("div","playmain");
   // tabs
@@ -1777,8 +1790,8 @@ function screenPlay(){
   const tab=STATE.ui.tab;
   if(tab==="sheet")body.appendChild(viewingDM?dmConsole():sheetView(viewedChar()));
   else if(tab==="calc")body.appendChild(viewingDM?dmCalcNote():calcView(viewedChar()));
-  else if(tab==="map")body.appendChild(mapView(host));
-  else if(tab==="battle")body.appendChild(battleRouter(host));
+  else if(tab==="map")body.appendChild(mapView(tableHost));
+  else if(tab==="battle")body.appendChild(battleRouter(tableHost));
   else if(tab==="lore")body.appendChild(loreView(host));
   else if(tab==="journal")body.appendChild(journalView(host));
   else if(tab==="story")body.appendChild(storyView(camp,host));
@@ -1842,7 +1855,7 @@ function sheetView(ch){
   w.appendChild(el("div","sheethead",
     `${avatarHTML(ch,"lg")}
      <div class="who"><h1>${esc(ch.name)}${isNPC(ch)?' <span class="rolechip npc">NPC</span>':""}</h1><div class="cl">${esc(ch.cls)} · ${esc(ch.subtitle||"")}</div></div>
-     <div style="margin-left:auto;display:flex;gap:7px;flex-wrap:wrap">${ch.build?`<button class="btn sm gold" data-levelup="${ch.id}">▲ Level up</button>`:""}<button class="btn sm ghost" data-printsheet="${ch.id}" title="Print / save as PDF">🖨</button>${ch.ddbId?`<button class="btn sm ghost" data-ddbsync="${ch.id}" title="${ch.ddbSynced?"Last checked "+new Date(ch.ddbSynced).toLocaleTimeString():"Not checked yet"}">⟳ D&amp;D Beyond</button>`:""}<button class="btn sm ghost" data-portrait="${ch.id}">🖼 Portrait</button><button class="btn sm ghost" data-buildedit="${ch.id}">Edit sheet</button></div>`));
+     <div style="margin-left:auto;display:flex;gap:7px;flex-wrap:wrap">${ch.build?`<button class="btn sm gold" data-levelup="${ch.id}">▲ Level up</button>`:""}<button class="btn sm ghost" data-printsheet="${ch.id}" title="Print / save as PDF">🖨</button><button class="btn sm ghost" data-chexport="${ch.id}" title="Download as a file">⬇</button>${ch.ddbId?`<button class="btn sm ghost" data-ddbsync="${ch.id}" title="${ch.ddbSynced?"Last checked "+new Date(ch.ddbSynced).toLocaleTimeString():"Not checked yet"}">⟳ D&amp;D Beyond</button>`:""}<button class="btn sm ghost" data-portrait="${ch.id}">🖼 Portrait</button><button class="btn sm ghost" data-buildedit="${ch.id}">Edit sheet</button></div>`));
   // vitals
   const dc=ch.spellDC?`${ch.spellDC}`:"—";
   const atk=ch.spellAtk?`+${ch.spellAtk}`:"—";
@@ -2094,13 +2107,21 @@ function readCompFields(){
   if(c.hp==null||c.hp>c.maxHP)c.hp=c.maxHP;
 }
 
+/* ---- spell preparation (prepared casters pick their list each day) ---- */
+function prepClassOf(ch){const parts=String(ch.cls||"").split("/");for(const p of parts){for(const k in PREPARED_CLASSES){if(new RegExp(k,"i").test(p)){const m=p.match(/(\d+)/);return {cls:k,level:m?+m[1]:(ch.level||1),ability:PREPARED_CLASSES[k]};}}}return null;}
+function prepLimit(ch){const pc=prepClassOf(ch);if(!pc||!ch.scores)return null;return Math.max(1,modN(ch.scores[pc.ability]||10)+(pc.cls==="Paladin"?Math.floor(pc.level/2):pc.level));}
+function isSpellLike(a){return !!(a&&!a.passive&&isLeveledSpell(a));}
+function spellPrepared(a){return !(a&&a.prepared===false);}
+function preparedCount(ch){return (ch.abilities||[]).filter(a=>isSpellLike(a)&&spellPrepared(a)&&!a.always).length;}
 /* ---- ability section + filters ---- */
 function abilitySection(ch){
   const sec=el("div");
   const f=ch._filter||(ch._filter={active:"all",sort:"none"});
   if(!f.sort)f.sort="none";
   const filters=el("div","filters");
-  const defs=[["all","All"],["new","New this level"],["dm","DM-granted"]];
+  const lim=prepLimit(ch);
+  if(lim!=null&&(ch.abilities||[]).some(isSpellLike)){const n=preparedCount(ch);sec.appendChild(el("div","banner",`<b>Prepared spells: ${n} / ${lim}</b> — ${prepClassOf(ch).cls}s choose their list after a long rest. Toggle <i>prepared</i> on each spell; unprepared ones stay off your battle panel.${n>lim?' <b style="color:var(--crit)">Over the limit.</b>':""}`));}
+  const defs=[["all","All"],["new","New this level"],["dm","DM-granted"]].concat(lim!=null?[["prep","Prepared"]]:[]);
   let fh=defs.map(([k,l])=>`<button class="chip ${k==="dm"?"flag":""} ${f.active===k?"on":""}" data-filter="${k}">${l}</button>`).join("");
   fh+=`<span class="sp"></span>`;
   fh+=TYPES.map(t=>`<button class="chip ${f.active==="type:"+t?"on":""}" data-filter="type:${t}" style="--_c:var(--c-${t})">${t[0].toUpperCase()+t.slice(1)}</button>`).join("");
@@ -2113,6 +2134,7 @@ function abilitySection(ch){
   const matches=a=>{const isNew=a.level===ch.level;
     if(f.active==="new")return isNew;
     if(f.active==="dm")return!!a.dmGranted;
+    if(f.active==="prep")return isSpellLike(a)&&spellPrepared(a);
     if(f.active.startsWith("type:"))return a.type===f.active.slice(5);
     return true;};
   const usable=a=>!a.passive&&(!a.charge||(ch.charges[a.charge]&&ch.charges[a.charge].cur>0));
@@ -2127,11 +2149,12 @@ function abilitySection(ch){
   if(shown.length===0)cards.appendChild(el("div","empty","Nothing matches this filter."));
   shown.forEach(a=>{
     const isNew=a.level===ch.level;
-    const card=el("div","card"+(a.passive?" passive":"")+((f.active==="dm"||f.active==="new")?" hot":""));
+    const card=el("div","card"+(a.passive?" passive":"")+((f.active==="dm"||f.active==="new")?" hot":"")+(lim!=null&&isSpellLike(a)&&!spellPrepared(a)?" unprep":""));
     card.style.setProperty("--ct",`var(--c-${a.type})`);
     let tags=`<span class="tag type">${a.type}</span><span class="tag">${esc(a.source)}</span>`;
     if(a.dmGranted)tags+=`<span class="tag dm">DM</span>`;
     if(isNew)tags+=`<span class="tag new">Lv ${a.level}</span>`;
+    if(lim!=null&&isSpellLike(a))tags+=`<button class="tag ${spellPrepared(a)?"prep on":"prep"}" data-prep="${a.id}" title="Toggle prepared">${spellPrepared(a)?"● prepared":"○ not prepared"}</button>`;
     let line="";
     const li=(k,v)=>`<div class="li"><span class="kk">${k}</span><span class="vv">${v}</span></div>`;
     if(a.action)line+=li("Action",a.action);
@@ -2542,7 +2565,10 @@ function startRoom(camp,charIds,name){
         initRoll:null,dexMod:comp.dexMod||0,conditions:[],dots:[],x:2,y:Math.min(i+1,b.rows)});});});
   camp.rooms[id]=b;STATE.ui.roomId=id;return id;
 }
-function endRoom(camp,rid){const rooms=ensureRooms(camp);delete rooms[rid];
+function endRoom(camp,rid){const rooms=ensureRooms(camp);const b=rooms[rid];
+  if(b&&b.phase==="active"){const slain=b.combatants.filter(c=>c.side==="enemy"&&isDown(c)&&c.cr!=null);const xp=slain.reduce((t,c)=>t+crXP(c.cr),0);const n=(camp.party||[]).map(id=>STATE.roster[id]).filter(ch=>ch&&!ch.npc).length||1;
+    if(xp)journalAdd(camp,"auto",`${b.name||"Encounter"} — ${slain.length} foe${slain.length===1?"":"s"} defeated: ${xp.toLocaleString()} XP (${Math.floor(xp/n).toLocaleString()} each for ${n}).`);}
+  delete rooms[rid];
   if(STATE.cloud&&SB){try{SB.from("battles").delete().eq("id",rid);}catch(e){}}
   delete Cloud._battleHash[rid];
   if(STATE.ui.roomId===rid)STATE.ui.roomId=Object.keys(rooms)[0]||null;}
@@ -2739,7 +2765,7 @@ function canAct(b,isDM){
   const c=curCombatant(b);if(!c)return false;
   if(!STATE.cloud){if(isDM)return true;return c.charId===STATE.ui.viewAs;}
   const ctrl=controllerOf(c);        // in cloud: control follows ownership, not the view switch
-  if(ctrl==="dm")return isDM;         // enemies & NPCs → the host acts
+  if(ctrl==="dm")return isDM||tableSide(curCamp());   // enemies & NPCs → the host acts (table-side: anyone)
   return ctrl===ME();                 // a hero → only its owner acts (DM can't play other players)
 }
 function reorder(b,id,dir){const i=b.order.indexOf(id);const j=i+dir;if(j<0||j>=b.order.length)return;
@@ -2804,7 +2830,7 @@ function battleActive(b,isDM,w){
       <button class="btn sm ghost" data-undo="1" ${b.undo&&b.undo.length?"":"disabled"} title="${b.undo&&b.undo.length?"Undo: "+esc(b.undo[b.undo.length-1].label):"Nothing to undo"}">↶ Undo</button>
       <button class="btn sm ghost" data-endbtl="1">End</button>
       <button class="btn sm ghost" data-tableview="on" title="Big board + initiative for a TV or laptop">📺 Table view</button>`:`<button class="btn sm ghost" data-tableview="on" title="Big board + initiative for a TV or laptop">📺</button>`)+
-    `<span class="rc">Round ${b.round}${cur?` · ${esc(cur.name.split(" ")[0])}'s turn`:""}</span>`;
+    `<span class="rc">Round ${b.round}${cur?` · ${esc(cur.name.split(" ")[0])}'s turn`:""}</span>`+(isDM?budgetHTML(curCamp(),b.combatants.filter(x=>x.side==="enemy"&&x.cr!=null)):"");
   w.appendChild(bar);
   const strip=el("div","initstrip");
   b.order.forEach((id,i)=>{const c=b.combatants.find(x=>x.id===id);if(!c)return;
@@ -2876,11 +2902,11 @@ function turnActionPanel(b,isDM){
   if(BACT&&BACT.react){const rc=b.combatants.find(x=>x.id===BACT.combatantId);if(rc&&viewerCombatants(b,isDM).some(x=>x.id===rc.id)){
     wrap.innerHTML=`<div class="aph"><span class="apt">⚡ ${esc(rc.name)} reacts</span>${economyHTML(rc)}<button class="btn sm ghost" data-reactcancel="1">Cancel</button></div>`+(rc.side==="enemy"?enemyActionForm(b,rc,isDM):partyActionForm(b,rc,isDM));return wrap;}}
   if(!canAct(b,isDM)){const mine=viewerCombatants(b,isDM).filter(x=>!isDown(x)&&x.side==="party");
-    wrap.innerHTML=`<div class="awaiting">⏳ It's <b>${esc(c.name)}</b>'s turn. Hang tight — the controls appear on your turn.</div>`+mine.map(x=>saveBlock(b,x)).join("")+(isDM?`<div style="margin-top:8px"><button class="btn sm ghost" data-callsave="1">🎲 Call for a save</button></div>`:"");return wrap;}
+    wrap.innerHTML=`<div class="awaiting">⏳ It's <b>${esc(c.name)}</b>'s turn. Hang tight — the controls appear on your turn.</div>`+mine.map(x=>saveBlock(b,x)).join("")+(isDM?`<div style="margin-top:8px"><button class="btn sm ghost" data-callsave="1">🎲 Call for a save</button> <button class="btn sm ghost" data-askcheck="1">🔍 Ask for a check</button></div>`:"");return wrap;}
   let h=`<div class="aph"><span class="apt">${esc(c.name)}'s turn</span>${economyHTML(c)}<button class="btn sm ghost" data-passturn="1">End turn →</button></div>`;
   h+=(c.side==="enemy")?enemyActionForm(b,c,isDM):partyActionForm(b,c,isDM);
   if(c.side==="party")h+=saveBlock(b,c);
-  if(isDM)h+=`<div style="margin-top:8px"><button class="btn sm ghost" data-callsave="1">🎲 Call for a save</button></div>`;
+  if(isDM)h+=`<div style="margin-top:8px"><button class="btn sm ghost" data-callsave="1">🎲 Call for a save</button> <button class="btn sm ghost" data-askcheck="1">🔍 Ask for a check</button></div>`;
   wrap.innerHTML=h;return wrap;
 }
 function ensureBACT(c,a){
@@ -2907,7 +2933,7 @@ function itemGrid(b,c,ch,items,present){
 function partyActionForm(b,c,isDM){
   const ch=actorOf(c);
   if(!ch)return `<div class="awaiting">This combatant has no sheet to act from — resolve it at the table and press Skip.</div>`;
-  const moves=(ch.abilities||[]).filter(a=>!a.passive);
+  const moves=(ch.abilities||[]).filter(a=>!a.passive&&!(isSpellLike(a)&&!spellPrepared(a)&&prepLimit(ch)!=null));
   const items=c.companionId?[]:battleItems(ch);
   const react=!!(BACT&&BACT.combatantId===c.id&&BACT.react);
   let pre="";
@@ -2996,6 +3022,11 @@ function partyActionForm(b,c,isDM){
     return html;
   }
   if(!st.targetId&&targets.length){const t=targets.find(x=>x.side==="enemy")||targets[0];st.targetId=t.id;}
+  if(!targets.length){ // nobody else on the board (table-side: the DM tracks foes on paper) — roll, read the number out
+    let hitLine="";if(a.attack&&a.attack!=="auto"){const H=st.hit;hitLine=`<div class="hitblk"><div class="lab">To hit <b class="mono">${esc(a.attack)}</b></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn sm" data-bhit="1">🎲 Roll to hit</button>${H?`<div class="hitres"><span class="mono">d20 ${H.keep}${H.bonus>=0?" +":" "}${H.bonus}</span><span class="n">${H.total}</span><span class="vs">${H.nat20?'<b class="ok">Critical!</b>':H.nat1?'<b class="bad">Natural 1</b>':"tell the DM"}</span></div>`:""}</div></div>`;}
+    html+=hitLine+`<div class="total" style="margin-top:4px"><div class="grand"><span class="cap">${esc(a.dmgType||"damage")}</span><span class="n btot">${res.total}</span></div></div>
+      <div style="margin-top:12px"><button class="btn primary" data-blogdmg="1">Call it: ${res.total} ${esc(a.dmgType||"")}${a.rider||actionKind(a)!=="action"?"":" &amp; end turn"}</button></div><div class="authnote" style="margin-top:6px">No tokens to hit — read the number to the DM. Slots and charges are still spent.</div>`;
+    return html;}
   const tgt=targets.find(x=>x.id===st.targetId);
   html+=`<div class="field" style="margin-top:12px"><label>Target</label><select id="bTargetSel">`+
     targets.map(x=>`<option value="${x.id}" ${x.id===st.targetId?"selected":""}>${esc(x.name)}${x.side==="enemy"?" — enemy":" — ally"} · ${Math.round(tileDist(b,c,x))} ft</option>`).join("")+`</select></div>`;
@@ -3221,6 +3252,19 @@ async function monDetail(index){
   MON.cache[index]=mon;return mon;
 }
 function bestiary(){const c=curCamp();if(!c)return [];c.bestiary=c.bestiary||[];return c.bestiary;}
+/* ---- encounter difficulty (DMG 2014 XP budget) ---- */
+const CR_XP={"0":10,"0.125":25,"0.25":50,"0.5":100,"1":200,"2":450,"3":700,"4":1100,"5":1800,"6":2300,"7":2900,"8":3900,"9":5000,"10":5900,"11":7200,"12":8400,"13":10000,"14":11500,"15":13000,"16":15000,"17":18000,"18":20000,"19":22000,"20":25000,"21":33000,"22":41000,"23":50000,"24":62000,"25":75000,"26":90000,"27":105000,"28":120000,"29":135000,"30":155000};
+const XP_THRESH=[null,[25,50,75,100],[50,100,150,200],[75,150,225,400],[125,250,375,500],[250,500,750,1100],[300,600,900,1400],[350,750,1100,1700],[450,900,1400,2100],[550,1100,1600,2400],[600,1200,1900,2800],[800,1600,2400,3600],[1000,2000,3000,4500],[1100,2200,3400,5100],[1250,2500,3800,5700],[1400,2800,4300,6400],[1600,3200,4800,7200],[2000,3900,5900,8800],[2100,4200,6300,9500],[2400,4900,7300,10900],[2800,5700,8500,12700]];
+function crXP(cr){if(cr==null||cr==="")return 0;const k=String(+cr);return CR_XP[k]||0;}
+function encounterBudget(camp,enemies){ // enemies: [{cr}], returns {raw,adjusted,thresholds,label,partySize}
+  const party=(camp.party||[]).map(id=>STATE.roster[id]).filter(ch=>ch&&!ch.npc);const n=party.length||1;
+  const th=[0,0,0,0];party.forEach(ch=>{const t=XP_THRESH[Math.max(1,Math.min(20,ch.level||1))];th.forEach((_,i)=>th[i]+=t[i]);});
+  const crs=enemies.map(e=>crXP(e.cr)).filter(x=>x>0);const raw=crs.reduce((a,b)=>a+b,0);const m=crs.length;
+  let mult=m<=1?1:m===2?1.5:m<=6?2:m<=10?2.5:m<=14?3:4;if(n<3)mult=m<=1?1.5:m===2?2:m<=6?2.5:m<=10?3:m<=14?4:5;else if(n>=6)mult=m<=1?0.5:m===2?1:m<=6?1.5:m<=10?2:m<=14?2.5:3;
+  const adjusted=Math.round(raw*mult);const label=!m?"—":adjusted>=th[3]?"Deadly":adjusted>=th[2]?"Hard":adjusted>=th[1]?"Medium":adjusted>=th[0]?"Easy":"Trivial";
+  return {raw,adjusted,thresholds:th,label,partySize:n,count:m};}
+function budgetHTML(camp,enemies){const e=encounterBudget(camp,enemies);if(!e.count)return "";const cls=e.label==="Deadly"?"var(--crit)":e.label==="Hard"?"var(--accent)":"var(--ok)";
+  return `<span class="ktag" style="border-color:${cls};color:${cls}" title="Adjusted XP ${e.adjusted.toLocaleString()} vs party thresholds — easy ${e.thresholds[0].toLocaleString()} · medium ${e.thresholds[1].toLocaleString()} · hard ${e.thresholds[2].toLocaleString()} · deadly ${e.thresholds[3].toLocaleString()} (${e.partySize} PCs)">${e.label} · ${e.adjusted.toLocaleString()} XP (${e.raw.toLocaleString()} earned)</span>`;}
 function enemyModal(){
   MON.sel=null;MON.q="";
   openModal(`<h2>Add opponent</h2>
@@ -3237,7 +3281,7 @@ function enemyFormHTML(m){
       <div class="field" style="flex:1;min-width:60px"><label>AC</label><input id="enAC" inputmode="numeric" value="${m?m.ac:13}"></div>
       <div class="field" style="flex:1;min-width:60px"><label>DEX mod</label><input id="enDex" inputmode="numeric" value="${m?m.dexMod:0}"></div>
       <div class="field" style="flex:1;min-width:60px"><label>How many</label><input id="enN" inputmode="numeric" value="1"></div></div>
-    ${m&&m.cr!=null?`<div class="authnote" style="margin:-4px 0 8px">CR ${m.cr} · ${esc(m.size||"")} ${esc(m.type||"")} · speed ${esc(String(m.speed))}${m.src==="SRD"?" · from the SRD":" · homebrew"}</div>`:""}
+    ${m&&m.cr!=null?`<div class="authnote" style="margin:-4px 0 8px">CR ${m.cr} (${crXP(m.cr).toLocaleString()} XP) · ${esc(m.size||"")} ${esc(m.type||"")} · speed ${esc(String(m.speed))}${m.src==="SRD"?" · from the SRD":" · homebrew"}<div id="enBudget" style="margin-top:4px">${(()=>{const b=activeBattle();const camp=curCamp();const cur=b?b.combatants.filter(x=>x.side==="enemy"&&x.cr!=null):[];return "With this added: "+budgetHTML(camp,cur.concat([{cr:m.cr}]));})()}</div></div>`:""}
     <div class="seclabel2" style="margin:8px 0 6px">Attacks &amp; actions <small style="color:var(--faint);font-weight:400">become usable moves on its turn</small></div>
     <div id="enMoves">${mv.map((x,i)=>enemyMoveRow(x,i)).join("")}</div>
     <button class="btn sm ghost" data-enaddmove="1" style="margin-top:6px">+ Add attack</button>
@@ -3306,15 +3350,37 @@ function dmgModal(cid){
 }
 /* ============================ lore: handouts, party notes, DM notes ============================ */
 let LOREF="all",PENDING_PHOTO=null,LORE_EDIT=null;
+function skillBonus(ch,name){if(!ch||!ch.scores)return 0;const ab=SKILL_ABILITY[name];if(!ab)return 0;return modN(ch.scores[ab]||10)+((ch.skills||[]).includes(name)?(ch.prof||0):0);}
+function meId(){return STATE.cloud?ME():(STATE.ui.viewAs==="dm"?"dm":STATE.ui.viewAs);}
 function whoAmI(isDM){return STATE.cloud?(STATE.user.name||"Player"):(isDM?"DM":(STATE.roster[STATE.ui.viewAs]?STATE.roster[STATE.ui.viewAs].name:"Player"));}
-function canSeeNote(n,isDM){if(isDM)return true;if(n.kind==="dm")return false;if(n.kind==="handout"||n.kind==="npc")return n.visible!==false;return true;}
+function canSeeNote(n,isDM){if(isDM)return true;if(n.kind==="dm")return false;if(["handout","npc","faction","shop"].includes(n.kind))return n.visible!==false;return true;}
+function goldOf(ch){ensureInv(ch);const c=ch.coins;return Math.round((c.pp*10+c.gp+c.ep/2+c.sp/10+c.cp/100)*100)/100;}
+function payGold(ch,gp){ // spend gp from the purse, breaking larger coins as needed; false if short
+  ensureInv(ch);const c=ch.coins;let cp=Math.round(gp*100);const have=Math.round(goldOf(ch)*100);if(have<cp)return false;
+  const take=(k,val)=>{const n=Math.min(c[k],Math.floor(cp/val));c[k]-=n;cp-=n*val;};take("cp",1);take("sp",10);take("ep",50);take("gp",100);take("pp",1000);
+  if(cp>0){ // break a coin
+    const order=[["pp",1000],["gp",100],["ep",50],["sp",10]];for(const [k,val] of order){if(c[k]>0&&val>cp){c[k]--;let change=val-cp;cp=0;c.gp+=Math.floor(change/100);change%=100;c.sp+=Math.floor(change/10);change%=10;c.cp+=change;break;}}}
+  return cp===0;}
+function factionModal(noteId){const camp=curCamp();const n=noteId?camp.lore.find(x=>x.id===noteId):null;const m=n?npcMeta(n):{};
+  openModal(`<h2>${n?"Edit":"New"} faction</h2><div class="banner">Reputation runs −5 (enemy) to +5 (allied). Nudge it with the + / − on the card as the party earns it.</div>
+    <div class="field"><label>Name</label><input id="fcName" value="${esc(n?n.title||"":"")}" placeholder="The Harbour Guild"></div>
+    <div style="display:flex;gap:8px"><div class="field" style="flex:1"><label>Reputation (−5…+5)</label><input id="fcRep" inputmode="numeric" value="${m.rep||0}"></div></div>
+    <div class="field"><label>What the party knows</label><textarea id="fcNotes" style="min-height:70px">${esc(m.notes||"")}</textarea></div>
+    <div class="field"><label>DM secret <small style="color:var(--faint)">players never see this</small></label><input id="fcSecret" value="${esc(m.secret||"")}"></div>
+    <div class="acts"><button class="btn ghost" data-close="1">Cancel</button><button class="btn primary" data-factionsave="${noteId||""}">Save</button></div>`);}
+function shopModal(noteId){const camp=curCamp();const n=noteId?camp.lore.find(x=>x.id===noteId):null;const m=n?npcMeta(n):{};const items=m.items||[];
+  openModal(`<h2>${n?"Edit":"New"} shop</h2><div class="banner">One item per line: <code>name, price in gp, stock (blank = unlimited), note</code>. Players buy from the Lore tab; coins and bags update by themselves.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><div class="field" style="flex:2;min-width:140px"><label>Name</label><input id="shName" value="${esc(n?n.title||"":"")}" placeholder="Orrin's Sundries"></div><div class="field" style="flex:1;min-width:120px"><label>Where</label><input id="shWhere" value="${esc(m.where||"")}" placeholder="Harrowmere market"></div></div>
+    <div class="field"><label>Blurb</label><input id="shNotes" value="${esc(m.notes||"")}" placeholder="Smells of lamp oil. Orrin haggles badly."></div>
+    <div class="field"><label>Stock</label><textarea id="shItems" style="min-height:140px" placeholder="Potion of Healing, 50, 3, red, tastes of cherries\nRope (50 ft), 1\nLongsword, 15, 2">${esc(items.map(it=>[it.name,it.price,it.stock==null?"":it.stock,it.note||""].join(", ").replace(/(, )+$/,"")).join("\n"))}</textarea></div>
+    <div class="acts"><button class="btn ghost" data-close="1">Cancel</button><button class="btn primary" data-shopsave="${noteId||""}">Save</button></div>`);}
 function canEditNote(n,isDM){if(isDM)return true;if(!STATE.cloud)return true;return n.author_id===ME();}
 function loreView(isDM){
   const camp=curCamp();if(!camp.lore)camp.lore=[];
   const w=el("div");
   if(STATE.cloud&&isDM&&!Cloud.feat.lore2)w.appendChild(el("div","banner",`<b>Handouts need a one-time database upgrade.</b> Run the SQL Claude gave you in Supabase to unlock DM-only notes, handouts with images, and reveal-to-party.`));
-  const kinds=isDM?[["all","All"],["handout","Handouts"],["npc","People"],["note","Party notes"],["dm","DM only"]]:[["all","All"],["handout","Handouts"],["npc","People"],["note","Party notes"]];
-  const fb=el("div","bfilters");fb.innerHTML=kinds.map(([k,l])=>`<button class="chip ${LOREF===k?"on":""}" data-loref="${k}">${l}</button>`).join("")+`<span style="flex:1"></span><button class="btn sm primary" data-lorenew="${isDM?"handout":"note"}">+ ${isDM?"New handout":"New note"}</button>${isDM?`<button class="btn sm ghost" data-npcnew="1">+ Person</button><button class="btn sm ghost" data-lorenew="dm">+ DM note</button>`:""}`;
+  const kinds=isDM?[["all","All"],["handout","Handouts"],["npc","People"],["faction","Factions"],["shop","Shops"],["note","Party notes"],["dm","DM only"]]:[["all","All"],["handout","Handouts"],["npc","People"],["faction","Factions"],["shop","Shops"],["note","Party notes"]];
+  const fb=el("div","bfilters");fb.innerHTML=kinds.map(([k,l])=>`<button class="chip ${LOREF===k?"on":""}" data-loref="${k}">${l}</button>`).join("")+`<span style="flex:1"></span><button class="btn sm primary" data-lorenew="${isDM?"handout":"note"}">+ ${isDM?"New handout":"New note"}</button>${isDM?`<button class="btn sm ghost" data-npcnew="1">+ Person</button><button class="btn sm ghost" data-factionnew="1">+ Faction</button><button class="btn sm ghost" data-shopnew="1">+ Shop</button><button class="btn sm ghost" data-lorenew="dm">+ DM note</button>`:""}`;
   w.appendChild(fb);
   if(LOREF==="npc"||LOREF==="all"){const people=camp.lore.filter(n=>n.kind==="npc"&&canSeeNote(n,isDM));
     if(people.length){const pg=el("div","npcgrid");
@@ -3325,8 +3391,27 @@ function loreView(isDM){
       w.appendChild(pg);}
     else if(LOREF==="npc")w.appendChild(el("div","empty",isDM?"No one met yet. Add the people the party runs into — a face, where they met, and how they feel about the party.":"The DM hasn't added anyone yet."));
     if(LOREF==="npc")return w;}
+  if(LOREF==="faction"||LOREF==="all"){const fs=camp.lore.filter(n=>n.kind==="faction"&&canSeeNote(n,isDM));
+    if(fs.length){const fg=el("div","npcgrid");fs.slice().reverse().forEach(n=>{const m=npcMeta(n);const rep=Math.max(-5,Math.min(5,+m.rep||0));const lbl=rep>=4?"Allied":rep>=2?"Friendly":rep>=1?"Warm":rep===0?"Neutral":rep>=-1?"Wary":rep>=-3?"Hostile":"Enemy";
+      fg.innerHTML+=`<div class="npccard att-${rep>=2?"friendly":rep<=-2?"hostile":rep<0?"wary":"neutral"}" data-noteid="${n.id}"><div class="npcimg noimg">${esc((n.title||"?")[0])}</div><div class="npcbody"><div class="npcname">${esc(n.title)}${n.visible===false?' <span class="ktag">hidden</span>':""}</div>
+        <div class="npcatt">${lbl} · reputation ${rep>0?"+":""}${rep}${isDM?` <button class="iconbtn" data-faction="${n.id}|-1" style="width:22px;height:22px;font-size:12px">−</button><button class="iconbtn" data-faction="${n.id}|1" style="width:22px;height:22px;font-size:12px">+</button>`:""}</div>
+        <div class="repbar"><i style="left:${(rep+5)*10}%"></i></div>${m.notes?`<div class="npcnotes">${esc(m.notes)}</div>`:""}${isDM&&m.secret?`<div class="npcnotes" style="color:var(--c-damage)">DM: ${esc(m.secret)}</div>`:""}
+        ${isDM?`<div class="npcacts"><button class="btn sm ghost" data-factionedit="${n.id}">Edit</button><button class="btn sm ghost" data-lorereveal="${n.id}">${n.visible===false?"Reveal":"Hide"}</button><button class="btn sm ghost" data-delnote="${n.id}">✕</button></div>`:""}</div></div>`;});
+      w.appendChild(fg);}
+    else if(LOREF==="faction")w.appendChild(el("div","empty",isDM?"No factions yet. Guilds, courts, cults — track how each feels about the party.":"The DM hasn't added any factions yet."));
+    if(LOREF==="faction")return w;}
+  if(LOREF==="shop"||LOREF==="all"){const shops=camp.lore.filter(n=>n.kind==="shop"&&canSeeNote(n,isDM));
+    if(shops.length){const buyer=isDM?null:viewedChar();shops.slice().reverse().forEach(n=>{const m=npcMeta(n);const items=m.items||[];
+      const card=el("div","note kind-shop");card.dataset.noteid=n.id;
+      card.innerHTML=`<div class="meta"><span class="ktag handout">Shop${n.visible===false?" · closed to players":""}</span><span class="au">${esc(m.where||"")}</span><span style="flex:1"></span>${isDM?`<button class="btn sm ghost" data-shopedit="${n.id}" style="padding:2px 8px;font-size:11px">Edit</button><button class="btn sm ghost" data-lorereveal="${n.id}" style="padding:2px 8px;font-size:11px">${n.visible===false?"Open":"Close"}</button><button class="btn sm ghost" data-delnote="${n.id}" style="padding:2px 8px;font-size:11px">✕</button>`:""}</div>
+        <div class="ntitle">${esc(n.title||"Shop")}</div>${m.notes?`<div class="body">${esc(m.notes)}</div>`:""}
+        <div class="invlist">${items.map((it,i)=>`<div class="invitem"><div class="iv"><b>${esc(it.name)}</b>${it.note?`<small>${esc(it.note)}</small>`:""}</div><small class="wt">${it.stock===""||it.stock==null?"":"×"+it.stock}</small><b class="mono" style="min-width:64px;text-align:right">${esc(it.price)} gp</b>${buyer&&(it.stock==null||it.stock==="" ||+it.stock>0)?`<button class="btn sm" data-buy="${n.id}|${i}">Buy</button>`:""}</div>`).join("")||'<div class="empty" style="padding:6px">Shelves are bare.</div>'}</div>
+        ${buyer?`<div class="authnote">You have ≈ ${goldOf(buyer)} gp. Buying pays from your purse and drops the item in your bag.</div>`:""}`;
+      w.appendChild(card);});}
+    else if(LOREF==="shop")w.appendChild(el("div","empty",isDM?"No shops yet. Stock a general store, a smith, a potion seller — players buy straight from their phones.":"No shops open right now."));
+    if(LOREF==="shop")return w;}
   const list=el("div","notes");
-  const vis=camp.lore.filter(n=>canSeeNote(n,isDM)&&n.kind!=="npc").filter(n=>LOREF==="all"||(n.kind||"note")===LOREF);
+  const vis=camp.lore.filter(n=>canSeeNote(n,isDM)&&!["npc","faction","shop"].includes(n.kind)).filter(n=>LOREF==="all"||(n.kind||"note")===LOREF);
   if(!vis.length)list.appendChild(el("div","empty",isDM?"Nothing here yet. Handouts are what the party sees — DM notes stay yours until you reveal them.":"No notes yet. Jot what happened, clues, names — the party's story builds up here."));
   vis.slice().reverse().forEach(n=>{
     const nd=el("div","note kind-"+(n.kind||"note"));nd.dataset.noteid=n.id;const img=n.image||PHOTOS[n.id];const kind=n.kind||"note";
@@ -3382,12 +3467,64 @@ const DM_REF={
   healing:{t:"Dying & healing",rows:[["0 HP","Unconscious; death saves on your turns: 10+ success, 9− failure; nat 20 = 1 HP, nat 1 = two failures."],["Three successes","Stable (unconscious; 1 HP after 1d4 hours)."],["Three failures","Dead."],["Damage while at 0","One failure (two on a crit); instant death if damage ≥ max HP."],["Stabilize","Medicine DC 10, or a healer's kit."],["Temp HP","Doesn't stack; take the higher; lost first; not healing."],["Potion of healing","2d4+2 (action to drink, bonus action is a common house rule)."]]},
   skills:{t:"Skills by ability",rows:[["STR","Athletics"],["DEX","Acrobatics, Sleight of Hand, Stealth"],["INT","Arcana, History, Investigation, Nature, Religion"],["WIS","Animal Handling, Insight, Medicine, Perception, Survival"],["CHA","Deception, Intimidation, Performance, Persuasion"],["Tools","Thieves' tools (DEX), herbalism (INT/WIS), instruments (CHA), vehicles (DEX/WIS)."]]},
   house:{t:"House rules",rows:[]},
+  loot:{t:"Treasure",rows:[]},
+  tables:{t:"Random tables",rows:[]},
 };
 function dmScreen(){const camp=curCamp();if(!camp)return;const sec=DM_REF[DMSEC]||DM_REF.conditions;
   const tabs=Object.entries(DM_REF).map(([k,v])=>`<button class="chip ${DMSEC===k?"on":""}" data-dmsec="${k}">${esc(v.t)}</button>`).join("");
   let body;if(DMSEC==="house")body=`<div class="banner">Your table's rulings. Players don't see this — it's your screen.</div><textarea id="hrText" style="min-height:220px;width:100%">${esc((camp.settings&&camp.settings.houseRules)||"")}</textarea>`;
+  else if(DMSEC==="loot")body=lootHTML(camp);
+  else if(DMSEC==="tables")body=tablesHTML(camp);
   else body=`<table class="reftable">${sec.rows.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td></tr>`).join("")}</table>`;
   openModal(`<div class="dmscreen"><h2>DM screen</h2><div class="chiprow" style="margin-bottom:10px">${tabs}</div>${body}<div class="acts"><button class="btn ghost" data-close="1">Close</button></div></div>`);}
+/* ============================ DM generators: treasure, random tables, weather ============================ */
+const LOOT_LAST={};
+function lootHTML(camp){const r=LOOT_LAST[camp.id];
+  return `<div class="banner">DMG-style treasure. <b>Individual</b> is what one creature carries; <b>Hoard</b> is a lair or a boss's stash. Results post to the DM log only until you hand them out.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end"><div class="field" style="flex:1;min-width:120px"><label>Challenge</label><select id="lootCR"><option value="0">CR 0–4</option><option value="5">CR 5–10</option><option value="11">CR 11–16</option><option value="17">CR 17+</option></select></div>
+      <button class="btn sm" data-loot="ind">🎲 Individual</button><button class="btn sm" data-loot="hoard">🎲 Hoard</button></div>
+    ${r?`<div class="card" style="margin-top:10px"><div class="desc" style="white-space:pre-wrap">${esc(r)}</div><div class="cfoot"><button class="btn sm ghost" data-lootpost="1">Post as a handout</button></div></div>`:""}`;}
+function rollLoot(camp,kind,tier){const d=(n,x)=>{let t=0;for(let i=0;i<n;i++)t+=rollDie(x);return t;};const coin=(label,n)=>`${n.toLocaleString()} ${label}`;let out=[];
+  if(kind==="ind"){const r=rollDie(100);
+    if(tier===0){out.push(r<=30?coin("cp",d(5,6)):r<=60?coin("sp",d(4,6)):r<=70?coin("ep",d(3,6)):r<=95?coin("gp",d(3,6)):coin("pp",d(1,6)));}
+    else if(tier===5){out.push(r<=30?coin("cp",d(4,6)*100)+", "+coin("ep",d(1,6)*10):r<=60?coin("sp",d(6,6)*10)+", "+coin("gp",d(2,6)*10):r<=70?coin("ep",d(3,6)*10)+", "+coin("gp",d(2,6)*10):r<=95?coin("gp",d(4,6)*10):coin("gp",d(2,6)*10)+", "+coin("pp",d(3,6)));}
+    else if(tier===11){out.push(r<=20?coin("sp",d(4,6)*100)+", "+coin("gp",d(1,6)*100):r<=35?coin("ep",d(1,6)*100)+", "+coin("gp",d(1,6)*100):r<=75?coin("gp",d(2,6)*100)+", "+coin("pp",d(1,6)*10):coin("gp",d(2,6)*100)+", "+coin("pp",d(2,6)*10));}
+    else{out.push(r<=15?coin("ep",d(2,6)*1000)+", "+coin("gp",d(8,6)*100):r<=55?coin("gp",d(1,6)*1000)+", "+coin("pp",d(1,6)*100):coin("gp",d(1,6)*1000)+", "+coin("pp",d(2,6)*100));}
+    return "Individual treasure: "+out.join("; ")+".";}
+  const gems=["banded agate","blue quartz","eye agate","lapis lazuli","malachite","moss agate","obsidian","rhodochrosite","tiger eye","turquoise","bloodstone","carnelian","chalcedony","chrysoprase","citrine","jasper","moonstone","onyx","quartz","sardonyx","star rose quartz","zircon","amber","amethyst","chrysoberyl","coral","garnet","jade","jet","pearl","spinel","tourmaline","alexandrite","aquamarine","black pearl","blue spinel","peridot","topaz","black opal","blue sapphire","emerald","fire opal","opal","star ruby","star sapphire","yellow sapphire","black sapphire","diamond","jacinth","ruby"];
+  const art=["silver ewer","carved bone statuette","small gold bracelet","cloth-of-gold vestments","black velvet mask with silver thread","copper chalice with silver filigree","pair of engraved bone dice","small mirror in a painted wooden frame","embroidered silk handkerchief","gold locket with a painted portrait","gold ring set with bloodstones","carved ivory statuette","large gold bracelet","silver necklace with a gemstone pendant","bronze crown","silk robe with gold embroidery","large well-made tapestry","brass mug with jade inlay","box of turquoise animal figurines","gold bird cage with electrum filigree","silver chalice set with moonstones","silver-plated steel longsword with jet set in hilt","carved harp of exotic wood with ivory inlay","small gold idol","gold dragon comb set with red garnets","bottle stopper cork embossed with gold leaf and set with amethysts","ceremonial electrum dagger with a black pearl in the pommel","silver and gold brooch","obsidian statuette with gold fittings","painted gold war mask"];
+  const magic={minor:["Potion of healing","Potion of climbing","Spell scroll (cantrip)","Spell scroll (1st level)","Potion of greater healing","Bag of holding","Driftglobe","Potion of animal friendship","Potion of hill giant strength","Potion of resistance","Spell scroll (2nd level)","Elixir of health","Oil of slipperiness","Alchemy jug","Cap of water breathing","Cloak of the manta ray","Goggles of night","Helm of comprehending languages","Immovable rod","Lantern of revealing","Mariner's armor","Mithral armor","Potion of water breathing","Ring of swimming","Robe of useful items","Rope of climbing","Saddle of the cavalier","Wand of magic detection","Wand of secrets"],
+    mid:["+1 weapon","+1 shield","Bag of tricks","Boots of elvenkind","Boots of striding and springing","Bracers of archery","Brooch of shielding","Broom of flying","Cloak of elvenkind","Cloak of protection","Eyes of charming","Gauntlets of ogre power","Gloves of swimming and climbing","Hat of disguise","Headband of intellect","Javelin of lightning","Pearl of power","Ring of jumping","Ring of mind shielding","Ring of warmth","Slippers of spider climbing","Wand of magic missiles","Wand of web","Winged boots","+1 armor","Amulet of health","Belt of dwarvenkind","Boots of levitation","Cape of the mountebank","Cloak of displacement","Ring of evasion","Ring of protection","Wand of fireballs","Wand of lightning bolts"],
+    major:["+2 weapon","+2 armor","Belt of fire giant strength","Cloak of arachnida","Dancing sword","Flame tongue","Frost brand","Ring of regeneration","Ring of spell storing","Rod of absorption","Staff of fire","Staff of healing","Sun blade","Wand of polymorph","+3 weapon","+3 armor","Amulet of the planes","Carpet of flying","Crystal ball","Ring of telekinesis","Robe of stars","Staff of power","Belt of cloud giant strength","Cloak of invisibility","Holy avenger","Ring of djinni summoning","Ring of invisibility","Sphere of annihilation","Staff of the magi","Vorpal sword"]};
+  const pick=(arr,n)=>Array.from({length:n},()=>arr[Math.floor(Math.random()*arr.length)]);
+  if(tier===0){out.push(coin("cp",d(6,6)*100)+", "+coin("sp",d(3,6)*100)+", "+coin("gp",d(2,6)*10));const r=rollDie(100);if(r>6){const g=rollDie(2)===1;out.push(g?pick(gems.slice(0,10),d(2,6)).join(", ")+" (10 gp gems)":pick(art.slice(0,10),d(2,4)).join(", ")+" (25 gp art)");}if(r>36)out.push("Magic: "+pick(magic.minor,r>60?d(1,4):1).join(", "));}
+  else if(tier===5){out.push(coin("cp",d(2,6)*100)+", "+coin("sp",d(2,6)*1000)+", "+coin("gp",d(6,6)*100)+", "+coin("pp",d(3,6)*10));const r=rollDie(100);if(r>4){const g=rollDie(2)===1;out.push(g?pick(gems.slice(10,30),d(3,6)).join(", ")+" (50–100 gp gems)":pick(art.slice(5,20),d(2,4)).join(", ")+" (25–250 gp art)");}if(r>28)out.push("Magic: "+pick(r>80?magic.mid:magic.minor,d(1,4)).join(", "));}
+  else if(tier===11){out.push(coin("gp",d(4,6)*1000)+", "+coin("pp",d(5,6)*100));const r=rollDie(100);if(r>3){const g=rollDie(2)===1;out.push(g?pick(gems.slice(22,46),d(3,6)).join(", ")+" (500–1,000 gp gems)":pick(art.slice(15,30),d(2,4)).join(", ")+" (250–750 gp art)");}if(r>15)out.push("Magic: "+pick(r>70?magic.major:magic.mid,d(1,4)).join(", "));}
+  else{out.push(coin("gp",d(12,6)*1000)+", "+coin("pp",d(8,6)*1000));const r=rollDie(100);const g=rollDie(2)===1;out.push(g?pick(gems.slice(38),d(3,6)).join(", ")+" (1,000–5,000 gp gems)":pick(art.slice(20),d(1,10)).join(", ")+" (2,500–7,500 gp art)");out.push("Magic: "+pick(r>50?magic.major:magic.mid,d(1,6)).join(", "));}
+  return "Hoard: "+out.join("\n")+".";}
+function tablesOf(camp){camp.settings=camp.settings||{};if(!Array.isArray(camp.settings.tables))camp.settings.tables=[];return camp.settings.tables;}
+const BUILTIN_TABLES=[
+  {name:"Weather",rows:["Clear and mild","Overcast, a chill in the air","Light rain","Heavy rain, roads turn to mud","Fog until midday","Strong wind","Storm — thunder, lightning, shelter needed","Unseasonably hot","Frost at dawn","Snow (or sleet in warm lands)"]},
+  {name:"Road encounter",rows:["A merchant caravan, nervous guards","A patrol looking for someone","Bandits (CR ½ ×4) at a broken bridge","A lone pilgrim with a strange relic","Abandoned wagon, tracks lead off the road","Wolves shadowing the party at dusk","A toll collector with questionable authority","A travelling fair — games, rumours, a pickpocket","Refugees fleeing the direction you're headed","Nothing — a quiet day; everyone regains a hit die"]},
+  {name:"Tavern name",rows:["The Drowned Rat","The Gilded Antler","The Broken Oar","The Laughing Hag","The Last Candle","The Salt and Saddle","The Hollow Crown","The Sleeping Giant","The Wyvern's Rest","The Copper Kettle"]},
+  {name:"NPC quirk",rows:["Never makes eye contact","Collects teeth","Speaks only in questions","Terrified of birds","Constantly eating","Hums old war songs","Owes money to everyone","Lies about their name each time","Has a pet rat named after a king","Knows your party by reputation — wrongly"]},
+  {name:"Rumour",rows:["Children vanish at the new moon","The baron hasn't been seen in weeks","Something moved into the old mill","A dragon was seen over the hills — or a very large bird","The priest buys silver at twice the price","There's gold in the flooded mine, and something guarding it","A noble is hiring sellswords, no questions asked","The well water tastes of iron since the quake"]},
+  {name:"Carousing (d8)",rows:["Woke up in a cell — fine of 2d10 gp","Made a friend: a useful contact in town","Won big: +2d10 gp","Lost it all and a boot","Offended a noble's retainer","Found a map tattooed on a stranger","Joined a cult for one evening","Nothing happened, somehow"]}];
+function tablesHTML(camp){const custom=tablesOf(camp);
+  const all=BUILTIN_TABLES.map((t,i)=>({t,key:"b"+i})).concat(custom.map((t,i)=>({t,key:"c"+i})));
+  return `<div class="banner">Roll on a table and the result lands in the DM log. Write your own below — one entry per line.</div>
+    <div class="chips">${all.map(x=>`<button class="chip" data-rolltable="${x.key}">🎲 ${esc(x.t.name)}</button>`).join("")}</div>
+    ${TABLE_LAST[camp.id]?`<div class="card" style="margin-top:10px"><div class="desc"><b>${esc(TABLE_LAST[camp.id].name)}:</b> ${esc(TABLE_LAST[camp.id].text)}</div></div>`:""}
+    <div class="seclabel2" style="margin:12px 0 6px">Your tables</div>
+    ${custom.map((t,i)=>`<div class="invitem"><div class="iv"><b>${esc(t.name)}</b><small>${t.rows.length} entries</small></div><button class="iconbtn" data-rmtable="${i}" style="width:26px;height:26px;font-size:11px">✕</button></div>`).join("")}
+    <div class="field" style="margin-top:8px"><label>Name</label><input id="tblName" placeholder="Dungeon dressing"></div>
+    <div class="field"><label>Entries (one per line)</label><textarea id="tblRows" style="min-height:90px" placeholder="A skeleton in a cage\nScratches on the wall, counting days\n…"></textarea></div>
+    <button class="btn sm" data-addtable="1">Add table</button>`;}
+const TABLE_LAST={};
+function rollTable(camp,key){const t=key[0]==="b"?BUILTIN_TABLES[+key.slice(1)]:tablesOf(camp)[+key.slice(1)];if(!t||!t.rows.length)return;const i=Math.floor(Math.random()*t.rows.length);const text=t.rows[i];TABLE_LAST[camp.id]={name:t.name,text};
+  journalAdd(camp,"context",`🎲 ${t.name} (${i+1}/${t.rows.length}): ${text}`);return text;}
+/* travel: pace → miles per day; weather roll */
+const TRAVEL_PACE={fast:{mph:4,mpd:30,note:"−5 passive Perception"},normal:{mph:3,mpd:24,note:""},slow:{mph:2,mpd:18,note:"can use stealth"}};
 /* ============================ campaign calendar & downtime ============================ */
 const DEFAULT_MONTHS=["Frostfall","Thawmoon","Seedtide","Greenrise","Highsun","Longday","Emberwane","Harvestmoon","Fallingleaf","Dimming","Coldeve","Deepnight"];
 const DOWNTIME_KINDS=["Training","Crafting","Research","Carousing","Working","Recuperating","Travelling","Pit fighting","Other"];
@@ -3398,6 +3535,13 @@ function calendarView(camp,isDM){
   const c=calendarOf(camp);const w=el("div");const J=journalOf(camp);
   w.innerHTML=`<div class="calcard"><div class="callbl">In-game date</div><div class="caldate">${esc(calLabel(camp))}</div>
     ${isDM?`<div class="calacts"><button class="btn sm" data-calday="1">+1 day</button><button class="btn sm" data-calday="7">+1 week</button><button class="btn sm ghost" data-calday="-1">−1</button><button class="btn sm ghost" data-calset="1">Set date…</button><label style="display:flex;gap:6px;align-items:center;font-size:12.5px;color:var(--muted);margin-left:auto"><input type="checkbox" data-calrest="1" ${c.restAdvances?"checked":""}> long rest = next day</label></div>`:`<div class="authnote">The DM moves the calendar; long rests roll it a day forward.</div>`}</div>`;
+  if(isDM){const tv=el("div","notecomposer");const w0=c.weather||"";
+    tv.innerHTML=`<div class="seclabel2" style="margin-bottom:6px">Travel &amp; weather</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end"><div class="field" style="flex:1;min-width:100px"><label>Distance (miles)</label><input id="tvMiles" inputmode="numeric" placeholder="48"></div>
+        <div class="field" style="flex:1;min-width:120px"><label>Pace</label><select id="tvPace"><option value="normal">Normal · 24 mi/day</option><option value="fast">Fast · 30 mi/day (−5 Perception)</option><option value="slow">Slow · 18 mi/day (stealth)</option></select></div>
+        <button class="btn sm" data-travel="1">Travel</button><button class="btn sm ghost" data-weather="1">🎲 Weather</button></div>
+      ${w0?`<div class="authnote">Today: ${esc(w0)}</div>`:""}`;
+    w.appendChild(tv);}
   const comp=el("div","notecomposer");
   const mine=Object.values(STATE.roster).filter(ch=>camp.party.includes(ch.id)&&(!STATE.cloud||isDM||(ch.owner_id||ME())===ME()));
   comp.innerHTML=`<div class="seclabel2" style="margin-bottom:6px">Downtime</div>
@@ -3693,7 +3837,8 @@ async function aiRespond(camp,extra){
   finally{AI_BUSY=false;render();}
 }
 function aiNewCampaignFields(){
-  return `<div class="field" style="margin-top:6px"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="ncAI"> <b>AI Dungeon Master</b> runs this campaign</label></div>
+  return `<div class="field" style="margin-top:6px"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="ncTable"> <b>Table-side mode</b> — the DM runs the game at the table; players use the app for sheets, dice, items and a shared tracker (no DM seat, always open)</label></div>
+    <div class="field" style="margin-top:6px"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="ncAI"> <b>AI Dungeon Master</b> runs this campaign</label></div>
     <div id="ncAIFields" hidden>
       <div class="field"><label>Premise <small style="color:var(--faint)">a sentence or two; the DM builds the rest</small></label><textarea id="ncPremise" rows="2" placeholder="e.g. A frontier town's children are vanishing at the new moon; the party arrives the night before one."></textarea></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><div class="field" style="flex:1"><label>Difficulty</label><select id="ncDiff"><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option></select></div>
@@ -3836,6 +3981,51 @@ function rollDeathSave(b,c){
 }
 
 /* ============================ global dice roller ============================ */
+/* ============================ table chat: whispers, posted rolls, checks ============================ */
+let CHAT_OPEN=false,CHAT_TO="";
+function chatRows(camp){const me=meId();const dm=STATE.cloud?amDM(camp):STATE.ui.viewAs==="dm";
+  return journalOf(camp).filter(j=>j.kind==="chat").filter(j=>{const m=j.meta||{};if(m.secret)return dm||j.author_id===me||(!STATE.cloud&&m.from===me);
+    if(!m.to)return true;if(m.to==="dm")return dm||j.author_id===me||(!STATE.cloud&&m.from===me);return m.to===me||j.author_id===me||(!STATE.cloud&&m.from===me)||(dm&&STATE.cloud);}).sort((a,b)=>a.ts-b.ts);}
+function chatSeenKey(camp){return "wt_chatseen_"+camp.id+"_"+(meId()||"x");}
+function chatUnread(camp){let seen=0;try{seen=+localStorage.getItem(chatSeenKey(camp))||0;}catch(e){}const me=meId();return chatRows(camp).filter(j=>j.ts>seen&&!(j.author_id===me||(!STATE.cloud&&(j.meta||{}).from===me))).length;}
+function chatMarkSeen(camp){try{localStorage.setItem(chatSeenKey(camp),String(Date.now()));}catch(e){}}
+function chatPost(camp,text,meta){const j=journalAdd(camp,"chat",text,Object.assign({from:meId()},meta||{}));chatMarkSeen(camp);render();return j;}
+function chatMembers(camp){ // [{id,label}] whisper targets
+  const out=[];const dm=STATE.cloud?amDM(camp):STATE.ui.viewAs==="dm";
+  if(!dm)out.push({id:"dm",label:"the DM"});
+  if(STATE.cloud){(camp.members||[]).forEach(m=>{if(m.user_id===ME())return;const ch=m.character_id&&STATE.roster[m.character_id];out.push({id:m.user_id,label:(ch?ch.name:(m.name||"player"))+(m.role==="dm"?" (DM)":"")});});}
+  else camp.party.forEach(id=>{const ch=STATE.roster[id];if(ch&&id!==STATE.ui.viewAs)out.push({id,label:ch.name});});
+  return out;}
+function chatDrawer(){const camp=curCamp();if(!camp)return;CHAT_OPEN=true;chatMarkSeen(camp);
+  const dm=STATE.cloud?amDM(camp):STATE.ui.viewAs==="dm";const members=chatMembers(camp);
+  openModal(`<h2>Table chat</h2><div class="chatlist" id="chatList"></div>
+    <div class="chatcomp"><div style="flex:1"><div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap"><select class="sel" id="chatTo"><option value="">To everyone</option>${members.map(m=>`<option value="${esc(m.id)}" ${CHAT_TO===m.id?"selected":""}>Whisper ${esc(m.label)}</option>`).join("")}</select>${dm?`<button class="btn sm ghost" data-askcheck="1">🎲 Ask for a check</button>`:""}<button class="btn sm ghost" data-chatroll="1">Post last roll</button></div>
+      <textarea id="chatIn" rows="2" placeholder="Say something — Enter to send"></textarea></div><button class="btn primary" data-chatsend="1">Send</button></div>
+    <div class="acts"><button class="btn ghost" data-close="1">Close</button></div>`,()=>{CHAT_OPEN=false;});
+  chatRefresh(camp);setTimeout(()=>{const t=$("#chatIn");if(t)t.focus();},30);}
+function chatRefresh(camp){const l=$("#chatList");if(!l)return;const me=meId();const dm=STATE.cloud?amDM(camp):STATE.ui.viewAs==="dm";
+  const rows=chatRows(camp).slice(-80);const fmt=ts=>new Date(ts).toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});
+  l.innerHTML=rows.length?rows.map(j=>{const m=j.meta||{};const mine=j.author_id===me||(!STATE.cloud&&m.from===me);
+    let tag="";if(m.secret)tag=`<span class="ktag">secret</span>`;else if(m.to==="dm")tag=`<span class="ktag">to the DM</span>`;else if(m.to){const t=STATE.cloud?((camp.members||[]).find(x=>x.user_id===m.to)):null;const ch=t&&t.character_id&&STATE.roster[t.character_id];const nm=STATE.cloud?(ch?ch.name:"player"):(STATE.roster[m.to]||{}).name||"player";tag=`<span class="ktag">whisper → ${esc(nm)}</span>`;}
+    let body=`<div class="cbody">${esc(j.text)}</div>`;
+    if(m.roll)body=`<div class="croll">${esc(m.roll.detail)} = <b>${m.roll.total}</b>${j.text?` <span style="color:var(--muted)">— ${esc(j.text)}</span>`:""}</div>`;
+    if(m.check)body=checkRowHTML(camp,j,dm,me);
+    return `<div class="cmsg ${mine?"mine":""} ${m.to?"whisper":""} ${m.secret?"secret":""}"><div class="cau"><b>${esc(j.author)}</b> ${tag} <span>${fmt(j.ts)}</span></div>${body}</div>`;}).join(""):`<div class="empty">Nothing yet. Whispers only show to the person they're sent to (and the DM).</div>`;
+  l.scrollTop=l.scrollHeight;}
+function checkRowHTML(camp,j,dm,me){const c=j.meta.check;const res=c.results||{};
+  const rows=(c.targets||[]).map(cid=>{const ch=STATE.roster[cid];if(!ch)return "";const r=res[cid];const owner=STATE.cloud?((ch.owner_id||"")===me||dm):(STATE.ui.viewAs===cid||STATE.ui.viewAs==="dm");
+    const bonus=c.skill?skillBonus(ch,c.skill):modN((ch.scores||{})[c.ability]||10);
+    return `<div class="checkrow"><span style="min-width:90px"><b>${esc(ch.name.split(" ")[0])}</b> <small style="color:var(--faint)">${bonus>=0?"+":""}${bonus}</small></span>${r?`<span class="mono">d20 ${r.roll}${r.mod>=0?" +":" "}${r.mod} = <b>${r.total}</b></span>${c.dc?`<span class="${r.total>=c.dc?"ok":"bad"}">${r.total>=c.dc?"success":"fail"}</span>`:""}`:(owner?`<button class="btn sm" data-checkroll="${j.id}|${cid}">🎲 Roll ${esc(c.skill||c.ability.toUpperCase())}</button>`:`<span style="color:var(--faint)">waiting…</span>`)}</div>`;}).join("");
+  const done=(c.targets||[]).filter(cid=>res[cid]).length,n=(c.targets||[]).length;let verdict="";
+  if(c.group&&c.dc&&done===n&&n){const ok=(c.targets||[]).filter(cid=>res[cid].total>=c.dc).length;verdict=`<div class="checkrow"><b>Group check:</b> ${ok}/${n} succeeded — <span class="${ok*2>=n?"ok":"bad"}">${ok*2>=n?"the group succeeds":"the group fails"}</span></div>`;}
+  return `<div class="cbody"><b>${esc(c.skill||c.ability.toUpperCase())} check</b>${c.dc&&(dm||c.showDC)?` · DC ${c.dc}`:""}${c.group?" · group":""}${j.text?` — ${esc(j.text)}`:""}</div>${rows}${verdict}`;}
+function askCheckModal(camp){const party=camp.party.map(id=>STATE.roster[id]).filter(Boolean);
+  openModal(`<h2>Ask for a check</h2><div class="banner">Each player rolls on their own phone with their bonus added. Set a DC to grade it; tick <i>group</i> for a group check (half or more must succeed).</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><div class="field" style="flex:2;min-width:160px"><label>Skill or ability</label><select id="ckSkill">${Object.keys(SKILL_ABILITY).map(sk=>`<option value="s:${sk}">${sk}</option>`).join("")}${["str","dex","con","int","wis","cha"].map(a=>`<option value="a:${a}">${a.toUpperCase()} (raw)</option>`).join("")}</select></div><div class="field" style="flex:1"><label>DC <small>optional</small></label><input id="ckDC" inputmode="numeric" placeholder="—"></div></div>
+    <div class="field"><label>What for <small>optional</small></label><input id="ckWhy" placeholder="to notice the tripwire"></div>
+    <div class="field"><label>Who</label><div class="chips">${party.map(ch=>`<label class="chip on" style="display:inline-flex;gap:6px;align-items:center"><input type="checkbox" data-cktgt="${ch.id}" checked>${esc(ch.name.split(" ")[0])}</label>`).join("")}</div></div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap"><label style="display:flex;gap:7px;align-items:center;font-size:13px"><input type="checkbox" id="ckGroup"> Group check</label><label style="display:flex;gap:7px;align-items:center;font-size:13px"><input type="checkbox" id="ckShow"> Players see the DC</label></div>
+    <div class="acts"><button class="btn ghost" data-close="1">Cancel</button><button class="btn primary" data-askcheckgo="1">Ask</button></div>`);}
 const DICE={die:20,count:1,mod:0,adv:"none",last:null};
 function diceDrawer(){
   if(!STATE.diceHist)STATE.diceHist=[];
@@ -3854,6 +4044,7 @@ function diceDrawer(){
   if(DICE.last){const L=DICE.last;
     h+=`<div class="diceresult"><div class="big ${L.nat20?"nat20":L.nat1?"nat1":""}">${L.total}</div>
       <div class="det">${esc(L.detail)}</div></div>`;}
+  if(DICE.last&&curCamp()){const dm=STATE.cloud?amDM(curCamp()):STATE.ui.viewAs==="dm";h+=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin:-4px 0 10px"><button class="btn sm ghost" data-postroll="table">💬 Post to the table</button><button class="btn sm ghost" data-postroll="${dm?"secret":"dm"}">${dm?"🔒 Secret (DM log)":"🔒 Whisper to the DM"}</button></div>`;}
   if(STATE.diceHist.length)h+=`<div><div class="sub" style="margin-bottom:4px">Recent</div><div class="dicehist">`+
     STATE.diceHist.slice(0,12).map(x=>`<div class="dh"><span>${esc(x.detail)}</span><b>${x.total}</b></div>`).join("")+`</div></div>`;
   h+=`<div class="acts"><button class="btn ghost" data-close="1">Close</button></div></div>`;
@@ -3880,10 +4071,20 @@ function doDiceRoll(){
 }
 
 /* ============================ export / import ============================ */
+function downloadJSON(name,obj){const blob=new Blob([JSON.stringify(obj,null,1)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);}
+function exportCharacter(ch){const o=JSON.parse(JSON.stringify(ch));delete o._filter;delete o.owner_id;downloadJSON((ch.name||"character").replace(/[^a-z0-9]+/gi,"-").toLowerCase()+".wartable.json",{wartable:"character",version:1,character:o});}
+function exportCampaign(camp){const o=JSON.parse(JSON.stringify(camp));const roster={};(camp.party||[]).concat(Object.values(camp.settings&&camp.settings.dmParty||{}).flat()).forEach(id=>{if(STATE.roster[id])roster[id]=STATE.roster[id];});downloadJSON((camp.name||"campaign").replace(/[^a-z0-9]+/gi,"-").toLowerCase()+".wartable.json",{wartable:"campaign",version:1,campaign:o,roster});}
+function importFile(file){const r=new FileReader();r.onload=()=>{try{const j=JSON.parse(r.result);
+    if(j&&j.wartable==="character"&&j.character){const ch=j.character;ch.id=uid("ch");if(STATE.cloud)ch.owner_id=ME();delete ch.ddbSynced;classKit(ch);STATE.roster[ch.id]=ch;render();toast(ch.name+" imported");return;}
+    if(j&&j.wartable==="campaign"&&j.campaign){const c=j.campaign;c.id=uid("c");c.name=(c.name||"Campaign")+" (imported)";if(STATE.cloud){c.owner_id=ME();c.members=[];}c.rooms={};c.session={live:false};const map={};Object.values(j.roster||{}).forEach(ch=>{const nid=uid("ch");map[ch.id]=nid;ch.id=nid;if(STATE.cloud)ch.owner_id=ME();STATE.roster[nid]=ch;});c.party=(c.party||[]).map(id=>map[id]).filter(Boolean);STATE.campaigns[c.id]=c;render();toast(c.name+" imported with "+Object.keys(map).length+" characters");return;}
+    if(j&&j.roster&&j.campaigns){STATE.roster=j.roster;STATE.campaigns=j.campaigns;STATE.ui={screen:"campaigns",viewAs:"dm",tab:"sheet"};render();toast("Save imported");return;}
+    toast("That doesn't look like a War Table file");}catch(e){toast("Couldn't read that file");}};r.readAsText(file);}
 function exportModal(){
   const data=JSON.stringify({roster:STATE.roster,campaigns:STATE.campaigns},null,0);
   openModal(`<h2>Export / Import</h2>
-    <div class="banner">Copy this to carry your table to another device, then paste it there and Import. (A stopgap until the real sync backend — it won't merge, it replaces.)</div>
+    <div class="banner">Your data is yours. Download the whole table, or one character / campaign from its card, as a <code>.wartable.json</code> file — open it anywhere, hand it to a friend, keep a backup.</div>
+    <div style="display:flex;gap:9px;flex-wrap:wrap;margin:0 0 12px"><button class="btn sm" data-dlsave="1">⬇ Download everything</button><label class="btn sm ghost filebtn">⬆ Import a file<input type="file" accept=".json,application/json" id="impFile"></label></div>
+    <div class="banner" style="opacity:.8">Below is the old copy-and-paste route — still works.</div>
     <div class="bfield"><label>Your save</label><textarea class="bigta" id="expTa" readonly>${esc(data)}</textarea></div>
     <div style="display:flex;gap:9px;flex-wrap:wrap;margin:10px 0"><button class="btn sm" data-copysave="1">Copy</button></div>
     <div class="bfield"><label>Import (paste a save here)</label><textarea class="bigta" id="impTa" placeholder="Paste exported JSON…"></textarea></div>
@@ -4799,8 +5000,9 @@ function doRest(kind){
 }
 
 /* ============================ overlay / modals ============================ */
-function openModal(html){const o=$("#overlay");o.innerHTML=`<div class="scrim" data-scrim="1"><div class="modal">${html}</div></div>`;}
-function closeModal(){$("#overlay").innerHTML="";}
+let MODAL_ONCLOSE=null;
+function openModal(html,onClose){const o=$("#overlay");if(MODAL_ONCLOSE){const f=MODAL_ONCLOSE;MODAL_ONCLOSE=null;try{f();}catch(e){}}MODAL_ONCLOSE=onClose||null;o.innerHTML=`<div class="scrim" data-scrim="1"><div class="modal">${html}</div></div>`;}
+function closeModal(){$("#overlay").innerHTML="";if(MODAL_ONCLOSE){const f=MODAL_ONCLOSE;MODAL_ONCLOSE=null;try{f();}catch(e){}}}
 function newCampaignModal(){
   openModal(`<h2>New campaign</h2>
     <div class="banner">A fresh save slot. You can add characters and tune settings in the lobby.</div>
@@ -4818,7 +5020,7 @@ function confirmModal(msg,onYes){
 
 /* ============================ event wiring ============================ */
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-nav],[data-open],[data-del],[data-newcamp],[data-join],[data-leave],[data-ready],[data-startsession],[data-endsession],[data-enterplay],[data-tab],[data-filter],[data-tocalc],[data-use],[data-spend],[data-clvl],[data-poolspend],[data-blvl],[data-bpool],[data-rollinst],[data-rollall],[data-clearrolls],[data-modtoggle],[data-perinst],[data-bonus],[data-rest],[data-cooldowns],[data-dmview],[data-awardinsp],[data-spendinsp],[data-hpedit],[data-hp],[data-hpsave],[data-close],[data-scrim],[data-createcamp],[data-newchar],[data-dmnewchar],[data-setskin],[data-openacct],[data-abilsort],[data-autoconds],[data-autosaves],[data-fbload],[data-tableview]");
+  const t=e.target.closest("[data-nav],[data-open],[data-del],[data-newcamp],[data-join],[data-leave],[data-ready],[data-startsession],[data-endsession],[data-enterplay],[data-tab],[data-filter],[data-tocalc],[data-use],[data-spend],[data-clvl],[data-poolspend],[data-prep],[data-blvl],[data-bpool],[data-rollinst],[data-rollall],[data-clearrolls],[data-modtoggle],[data-perinst],[data-bonus],[data-rest],[data-cooldowns],[data-dmview],[data-awardinsp],[data-spendinsp],[data-hpedit],[data-hp],[data-hpsave],[data-close],[data-scrim],[data-createcamp],[data-newchar],[data-dmnewchar],[data-setskin],[data-openacct],[data-abilsort],[data-autoconds],[data-autosaves],[data-fbload],[data-tableview]");
   if(!t)return;
   const d=t.dataset;
   if(d.scrim&&e.target!==t)return; // clicked inside modal
@@ -4834,7 +5036,8 @@ document.addEventListener("click",e=>{
     const dm=STATE.cloud?(STATE.user.name||"DM"):(($("#ncDM").value||"Turtle").trim());
     const id=uid("camp");
     const settings={cooldowns:true};
-    if($("#ncAI")&&$("#ncAI").checked)settings.ai={on:true,premise:($("#ncPremise").value||"").trim(),difficulty:$("#ncDiff").value,tone:$("#ncTone").value,length:$("#ncLen").value,bible:null,pendingRolls:[]};
+    if($("#ncTable")&&$("#ncTable").checked)settings.tableSide=true;
+    if($("#ncAI")&&$("#ncAI").checked&&!settings.tableSide)settings.ai={on:true,premise:($("#ncPremise").value||"").trim(),difficulty:$("#ncDiff").value,tone:$("#ncTone").value,length:$("#ncLen").value,bible:null,pendingRolls:[]};
     STATE.campaigns[id]={id,name,dm:settings.ai?"AI DM (hosted by "+dm+")":dm,dm_id:STATE.cloud?ME():null,invite_code:STATE.cloud?inviteCode():null,created:Date.now(),lastPlayed:Date.now(),party:[],ready:{},members:[],lore:[],session:{live:false},settings};
     STATE.ui.campId=id;closeModal();go("lobby");toast("Campaign created");return;}
   if(d.del){const c=STATE.campaigns[d.del];
@@ -4873,6 +5076,7 @@ document.addEventListener("click",e=>{
     if(a.heal){const mod=ch.spellAbility&&ch.spellAbility!=="—"&&ch.scores?modN(ch.scores[ch.spellAbility.toLowerCase()]||10):0;let t=0;String(a.heal).replace(/\bMOD\b/i,String(mod)).split("+").forEach(pt=>{t+=rollDiceStr(pt.trim()).total;});ch.hp=Math.min(ch.maxHP,(ch.hp||0)+t);toast(`${a.name} — +${t} HP`);render();return;}
     if(a.refreshes){refreshCharge(ch,a.refreshes);toast(a.name+" — refreshed "+(ch.charges[a.refreshes]?.label||""));}
     else toast(a.name+" used");render();return;}
+  if(d.prep){const ch=viewedChar();const a=ch.abilities.find(x=>x.id===d.prep);if(!a)return;a.prepared=!spellPrepared(a);render();return;}
   if(d.poolspend){const ch=viewedChar();const a=ch.abilities.find(x=>x.id===d.poolspend);const sc=a&&scaleInfo(ch,a);if(!sc)return;const inp=$("#pool-"+a.id);const n=Math.max(1,parseInt(inp&&inp.value,10)||1);
     if(!spendCharge(ch,sc.res,n)){toast("Only "+ch.charges[sc.res].cur+" "+ch.charges[sc.res].label+" left");return;}toast(`${a.name} — spent ${n} ${ch.charges[sc.res].label}`);render();return;}
   if(d.clvl){const ch=viewedChar();const a0=ch.abilities.find(x=>x.id===STATE.ui.calcAbility);const si=scaleInfo(ch,a0);if(!si)return;const st=CALC[a0.id]||(CALC[a0.id]={});
@@ -4941,7 +5145,7 @@ function liveCalc(ch,a,st){
 
 /* battle + lore events */
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-newroom],[data-newroomsave],[data-roomsel],[data-roomend],[data-addplayer],[data-addplayersave],[data-endbtl],[data-addenemy],[data-addenemysave],[data-nextturn],[data-cell],[data-selbtl],[data-dmgc],[data-revhp],[data-revac],[data-rmc],[data-brollinit],[data-rollallinit],[data-begincombat],[data-reroll],[data-reup],[data-redn],[data-passturn],[data-bmove],[data-bmovefilter],[data-buse],[data-ballroll],[data-blvl],[data-bpool],[data-stdact],[data-helpgo],[data-bitem],[data-biuse],[data-bheal],[data-bsave],[data-callsave],[data-callsavego],[data-reactgo],[data-reactcancel],[data-bclear],[data-bmod],[data-bperinst],[data-bbonus],[data-bapply],[data-eapply],[data-cond],[data-adddot],[data-dotsave],[data-rmdot],[data-bfeet],[data-bmode],[data-bclearmap],[data-bsettingsave],[data-bzoom],[data-undo],[data-defs],[data-react],[data-reactpick],[data-fxadd],[data-fxsave],[data-fxrm],[data-defsave],[data-concroll],[data-concdrop],[data-conckeep],[data-aoeshape],[data-aoeplace],[data-aoeclear],[data-enaddmove],[data-enrmmove],[data-monpick],[data-emove],[data-ehit],[data-eroll],[data-bgridopen],[data-bhit],[data-btgt],[data-bsaveroll],[data-bresolve],[data-bpendclear]");
+  const t=e.target.closest("[data-newroom],[data-newroomsave],[data-roomsel],[data-roomend],[data-addplayer],[data-addplayersave],[data-endbtl],[data-addenemy],[data-addenemysave],[data-nextturn],[data-cell],[data-selbtl],[data-dmgc],[data-revhp],[data-revac],[data-rmc],[data-brollinit],[data-rollallinit],[data-begincombat],[data-reroll],[data-reup],[data-redn],[data-passturn],[data-bmove],[data-bmovefilter],[data-buse],[data-ballroll],[data-blvl],[data-bpool],[data-blogdmg],[data-stdact],[data-helpgo],[data-bitem],[data-biuse],[data-bheal],[data-bsave],[data-callsave],[data-callsavego],[data-reactgo],[data-reactcancel],[data-bclear],[data-bmod],[data-bperinst],[data-bbonus],[data-bapply],[data-eapply],[data-cond],[data-adddot],[data-dotsave],[data-rmdot],[data-bfeet],[data-bmode],[data-bclearmap],[data-bsettingsave],[data-bzoom],[data-undo],[data-defs],[data-react],[data-reactpick],[data-fxadd],[data-fxsave],[data-fxrm],[data-defsave],[data-concroll],[data-concdrop],[data-conckeep],[data-aoeshape],[data-aoeplace],[data-aoeclear],[data-enaddmove],[data-enrmmove],[data-monpick],[data-emove],[data-ehit],[data-eroll],[data-bgridopen],[data-bhit],[data-btgt],[data-bsaveroll],[data-bresolve],[data-bpendclear]");
   if(!t)return;const d=t.dataset;const camp=curCamp();
   const isDM=STATE.cloud?amDM(camp):(STATE.ui.viewAs==="dm"); // host authority (DM keeps it even while viewing a PC)
   // room management (DM) — resolved before we need a battle
@@ -5070,10 +5274,10 @@ document.addEventListener("click",e=>{
     if(k==="dodge"){add("Dodging");blog(b,`${c.name} takes the Dodge action.`);}
     else if(k==="dash"){c.extraMove=(c.extraMove||0)+baseSpeedOf(c);blog(b,`${c.name} dashes${how==="bonus"?" (bonus action)":""} — ${speedOf(c)} ft this turn.`);}
     else if(k==="disengage"){add("Disengaged");blog(b,`${c.name} disengages${how==="bonus"?" (bonus action)":""}.`);}
-    else if(k==="hide"){const ch=actorOf(c);const st=ch&&ch.skills&&ch.skills.stealth!=null?ch.skills.stealth:(ch?modN(ch.scores.dex):0);const r=rollDie(20);blog(b,`${c.name} hides — Stealth ${r+st} (d20 ${r}${st>=0?"+":""}${st}).`);}
+    else if(k==="hide"){const ch=actorOf(c);const st=skillBonus(ch,"Stealth");const r=rollDie(20);blog(b,`${c.name} hides — Stealth ${r+st} (d20 ${r}${st>=0?"+":""}${st}).`);}
     else if(k==="help"){const allies=b.combatants.filter(x=>x.side==="party"&&x.id!==c.id);const t=allies[0];if(!t){toast("No ally to help");u[kind]=false;return;}
       openModal(`<h2>Help</h2><div class="field"><label>Who gets advantage on their next attack?</label><select id="helpSel">${allies.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select></div><div class="acts"><button class="btn ghost" data-close="1">Cancel</button><button class="btn primary" data-helpgo="${c.id}">Help them</button></div>`);return;}
-    else if(k==="grapple"){const ch=actorOf(c);const ath=ch&&ch.skills&&ch.skills.athletics!=null?ch.skills.athletics:(ch?modN(ch.scores.str):0);const r=rollDie(20);blog(b,`${c.name} grapples/shoves — Athletics ${r+ath} vs the target's Athletics or Acrobatics (DM compares).`);}
+    else if(k==="grapple"){const ch=actorOf(c);const ath=skillBonus(ch,"Athletics");const r=rollDie(20);blog(b,`${c.name} grapples/shoves — Athletics ${r+ath} vs the target's Athletics or Acrobatics (DM compares).`);}
     render();return;}
   if(d.helpgo){const c=b.combatants.find(x=>x.id===d.helpgo);const t=b.combatants.find(x=>x.id===$("#helpSel").value);if(!c||!t)return;t.conditions=t.conditions||[];if(!t.conditions.includes("Helped"))t.conditions.push("Helped");blog(b,`${c.name} helps ${t.name} — advantage on their next attack.`);closeModal();render();return;}
   if(d.bitem){const c=curCombatant(b);if(!c)return;if(!BACT||BACT.combatantId!==c.id)BACT={combatantId:c.id,abilityId:null,rolls:[],perInstance:false,bonusOn:false,modOff:{},targetId:null};BACT.itemId=d.bitem;BACT.abilityId=null;BFILTER="items";render();return;}
@@ -5101,6 +5305,12 @@ document.addEventListener("click",e=>{
     blog(b,`${c.name} uses ${a.name}${a._scale&&a._scale.kind!=="charge"?" ("+ordLevel(a._lvl)+")":""} — ${tgt.name} regains ${total} HP${rolls.length?" ["+rolls.join(", ")+"]":""}${note||""}${econ}.`);
     const k=actionKind(a);if(k==="action"&&!BACT.react){advanceTurn(b,0);}if(BACT.react){ensureUsed(c).reaction=true;BACT=null;}
     render();toast(`${tgt.name} +${total} HP`);return;}
+  if(d.blogdmg){const c=(BACT&&BACT.react)?b.combatants.find(x=>x.id===BACT.combatantId):curCombatant(b);if(!c||!BACT)return;const ch=actorOf(c);const a=ch&&bactAb(ch,ch.abilities.find(x=>x.id===BACT.abilityId));if(!a)return;
+    if(!spendScaled(ch,a)){toast("Nothing left to spend on that");return;}const res=computeTotal(ch,a,BACT);let total=res.total;const H=BACT.hit;if(H&&H.nat20&&a.dmg){const die=+a.dmg.match(/d(\d+)/)[1];BACT.rolls.forEach(r=>r.forEach(()=>{total+=rollDie(die);}));}
+    const econ=a.rider?"":markUsed(b,c,a);blog(b,`${c.name} — ${a.name}${a._scale&&a._scale.kind!=="charge"?" ("+ordLevel(a._lvl)+")":""}: ${total}${a.dmgType?" "+a.dmgType:""}${H?` (to hit ${H.total}${H.nat20?", critical!":""})`:""}${econ}.`);
+    if(BACT.react){ensureUsed(c).reaction=true;BACT=null;render();toast(`${total} — reaction used`);return;}
+    BACT.rolls=BACT.rolls.map(r=>r.map(()=>0));BACT.hit=null;BACT._bonusRoll=null;
+    if(!a.rider&&actionKind(a)==="action"){advanceTurn(b,0);}render();toast(`${total}${a.dmgType?" "+a.dmgType:""} — tell the DM`);return;}
   if(d.blvl){const c=(BACT&&BACT.react)?b.combatants.find(x=>x.id===BACT.combatantId):curCombatant(b);if(!c||!BACT)return;const ch=actorOf(c);const a0=ch&&ch.abilities.find(x=>x.id===BACT.abilityId);const si=a0&&scaleInfo(ch,a0);if(!si)return;
     BACT.lvl=Math.max(si.min,Math.min(si.max,(BACT.lvl!=null?BACT.lvl:si.def)+(+d.blvl)));render();return;}
   if(d.bpool){const c=curCombatant(b);if(!c||!BACT)return;const ch=actorOf(c);const a=ch&&bactAb(ch,ch.abilities.find(x=>x.id===d.bpool));if(!a||!a._scale)return;
@@ -5270,11 +5480,32 @@ document.addEventListener("input",e=>{
 
 /* lore + journal events */
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-loref],[data-lorenew],[data-loreedit],[data-lorereveal],[data-loresave],[data-loreimgrm],[data-delnote],[data-lightbox],[data-jtab],[data-jadd],[data-jbuild],[data-jdel],[data-jedit],[data-jctxsave],[data-lbclose],[data-aibegin],[data-aisend],[data-aiquick],[data-airoll],[data-aisettings],[data-aisave],[data-aibible],[data-calday],[data-calset],[data-calsave],[data-dtadd],[data-npcnew],[data-npcedit],[data-npcsave],[data-npcportrait],[data-recapok]");
+  const t=e.target.closest("[data-loref],[data-lorenew],[data-factionnew],[data-factionedit],[data-factionsave],[data-faction],[data-shopnew],[data-shopedit],[data-shopsave],[data-buy],[data-loreedit],[data-lorereveal],[data-loresave],[data-loreimgrm],[data-delnote],[data-lightbox],[data-jtab],[data-jadd],[data-jbuild],[data-jdel],[data-jedit],[data-jctxsave],[data-lbclose],[data-aibegin],[data-aisend],[data-aiquick],[data-airoll],[data-aisettings],[data-aisave],[data-aibible],[data-calday],[data-calset],[data-calsave],[data-dtadd],[data-npcnew],[data-npcedit],[data-npcsave],[data-npcportrait],[data-recapok]");
   if(!t)return;const d=t.dataset;const camp=curCamp();if(!camp)return;
   const isDM=STATE.cloud?amDM(camp):(STATE.ui.viewAs==="dm");
   if(d.loref){LOREF=d.loref;render();return;}
   if(d.lorenew){if((d.lorenew==="dm"||d.lorenew==="handout")&&!isDM){toast("Only the DM writes those");return;}loreModal(d.lorenew,null);return;}
+  if(d.factionnew){if(!isDM)return;factionModal(null);return;}
+  if(d.factionedit){if(!isDM)return;factionModal(d.factionedit);return;}
+  if(d.factionsave!=null){const camp=curCamp();const name=($("#fcName").value||"").trim();if(!name){toast("Name it");return;}const meta={rep:Math.max(-5,Math.min(5,parseInt($("#fcRep").value,10)||0)),notes:($("#fcNotes").value||"").trim(),secret:($("#fcSecret").value||"").trim()};
+    if(d.factionsave){const n=camp.lore.find(x=>x.id===d.factionsave);if(n){n.title=name;n.text=JSON.stringify(meta);if(STATE.cloud)Cloud.updLore(n);}}
+    else{const note={id:uid("n"),author:"DM",author_id:STATE.cloud?ME():null,ts:Date.now(),text:JSON.stringify(meta),title:name,kind:"faction",visible:true,image:null};camp.lore.push(note);if(STATE.cloud)Cloud.addLore(camp.id,note);}
+    closeModal();LOREF="faction";render();return;}
+  if(d.faction){if(!isDM)return;const [id,delta]=d.faction.split("|");const camp=curCamp();const n=camp.lore.find(x=>x.id===id);if(!n)return;const m=npcMeta(n);m.rep=Math.max(-5,Math.min(5,(+m.rep||0)+(+delta)));n.text=JSON.stringify(m);if(STATE.cloud)Cloud.updLore(n);journalAdd(camp,"auto",`${n.title} reputation ${m.rep>0?"+":""}${m.rep} (${+delta>0?"up":"down"}).`);render();return;}
+  if(d.shopnew){if(!isDM)return;shopModal(null);return;}
+  if(d.shopedit){if(!isDM)return;shopModal(d.shopedit);return;}
+  if(d.shopsave!=null){const camp=curCamp();const name=($("#shName").value||"").trim();if(!name){toast("Name it");return;}
+    const items=($("#shItems").value||"").split("\n").map(l=>l.trim()).filter(Boolean).map(l=>{const parts=l.split(",").map(x=>x.trim());const price=parseFloat(parts[1]);return {name:parts[0],price:isNaN(price)?0:price,stock:parts[2]===""||parts[2]==null?null:(parseInt(parts[2],10)||0),note:parts.slice(3).join(", ")};}).filter(it=>it.name);
+    const meta={where:($("#shWhere").value||"").trim(),notes:($("#shNotes").value||"").trim(),items};
+    if(d.shopsave){const n=camp.lore.find(x=>x.id===d.shopsave);if(n){n.title=name;n.text=JSON.stringify(meta);if(STATE.cloud)Cloud.updLore(n);}}
+    else{const note={id:uid("n"),author:"DM",author_id:STATE.cloud?ME():null,ts:Date.now(),text:JSON.stringify(meta),title:name,kind:"shop",visible:true,image:null};camp.lore.push(note);if(STATE.cloud)Cloud.addLore(camp.id,note);}
+    closeModal();LOREF="shop";render();return;}
+  if(d.buy){const [id,idx]=d.buy.split("|");const camp=curCamp();const n=camp.lore.find(x=>x.id===id);const ch=viewedChar();if(!n||!ch)return;if(STATE.cloud&&(ch.owner_id||ME())!==ME()){toast("That's not your purse");return;}
+    const m=npcMeta(n);const it=(m.items||[])[+idx];if(!it)return;if(it.stock!=null&&it.stock<=0){toast("Sold out");return;}
+    if(!payGold(ch,it.price)){toast(`Not enough coin — ${it.name} is ${it.price} gp, you have ≈ ${goldOf(ch)} gp`);return;}
+    const inv=ensureInv(ch);const ex=inv.find(x=>x.name.toLowerCase()===it.name.toLowerCase());if(ex)ex.qty=(ex.qty||1)+1;else inv.push({id:uid("it"),name:it.name,qty:1,weight:0,note:it.note||"",equipped:false,attuned:false});
+    if(it.stock!=null){it.stock--;n.text=JSON.stringify(m);if(STATE.cloud)Cloud.updLore(n);}
+    journalAdd(camp,"auto",`${ch.name} buys ${it.name} from ${n.title} for ${it.price} gp.`);render();toast(`Bought ${it.name} — ${goldOf(ch)} gp left`);return;}
   if(d.loreedit){const n=(camp.lore||[]).find(x=>x.id===d.loreedit);if(!n||!canEditNote(n,isDM))return;loreModal(n.kind||"note",n.id);return;}
   if(d.lorereveal){if(!isDM)return;const n=(camp.lore||[]).find(x=>x.id===d.lorereveal);if(!n)return;n.visible=n.visible===false;if(STATE.cloud)Cloud.updLore(n);render();toast(n.visible?"Revealed to the party":"Hidden from the party");return;}
   if(d.npcnew){if(!isDM)return;npcModal(null);return;}
@@ -5349,7 +5580,7 @@ function pinModal(){openModal(`<h2>Drop a pin</h2>
   setTimeout(()=>{const n=$("#pinLabel");if(n)n.focus();},30);}
 const _diceBtn=$("#diceBtn");if(_diceBtn)_diceBtn.addEventListener("click",diceDrawer);
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-dieface],[data-adv],[data-roll],[data-copysave],[data-importsave],[data-maptool],[data-mapcell],[data-maptok],[data-mapreveal],[data-saveprof],[data-addcharge],[data-rmcharge],[data-chargesave],[data-addab],[data-editab],[data-rmab],[data-absave],[data-addmod],[data-rmmod],[data-modsave],[data-buildsave],[data-buildcancel],[data-buildnew],[data-buildedit],[data-deathsave],[data-restore],[data-purge],[data-pinsave],[data-export],[data-compadd],[data-compedit],[data-comprm],[data-compaddatk],[data-comprmatk],[data-compsave],[data-compaddcharge],[data-comprmcharge],[data-comphp],[data-compcharge],[data-compportrait],[data-genportrait],[data-clearportrait],[data-pstyle],[data-pgen],[data-psave],[data-premove],[data-prefrm],[data-portrait],[data-readmore],[data-monblock],[data-invadd],[data-invsave],[data-invuse],[data-iusave],[data-invpick],[data-inveq],[data-invqty],[data-invatt],[data-invrm],[data-printsheet]");
+  const t=e.target.closest("[data-dieface],[data-adv],[data-roll],[data-dlsave],[data-chexport],[data-campexport],[data-postroll],[data-loot],[data-lootpost],[data-rolltable],[data-addtable],[data-rmtable],[data-travel],[data-weather],[data-chatsend],[data-chatroll],[data-askcheck],[data-askcheckgo],[data-checkroll],[data-copysave],[data-importsave],[data-maptool],[data-mapcell],[data-maptok],[data-mapreveal],[data-saveprof],[data-addcharge],[data-rmcharge],[data-chargesave],[data-addab],[data-editab],[data-rmab],[data-absave],[data-addmod],[data-rmmod],[data-modsave],[data-buildsave],[data-buildcancel],[data-buildnew],[data-buildedit],[data-deathsave],[data-restore],[data-purge],[data-pinsave],[data-export],[data-compadd],[data-compedit],[data-comprm],[data-compaddatk],[data-comprmatk],[data-compsave],[data-compaddcharge],[data-comprmcharge],[data-comphp],[data-compcharge],[data-compportrait],[data-genportrait],[data-clearportrait],[data-pstyle],[data-pgen],[data-psave],[data-premove],[data-prefrm],[data-portrait],[data-readmore],[data-monblock],[data-invadd],[data-invsave],[data-invuse],[data-iusave],[data-invpick],[data-inveq],[data-invqty],[data-invatt],[data-invrm],[data-printsheet]");
   if(!t)return;const d=t.dataset;
   // inventory
   const ownsChar=id=>{const ch=STATE.roster[id];return ch&&(!STATE.cloud||(ch.owner_id||ME())===ME()||Cloud.dmOwnsChar(id));};
@@ -5398,7 +5629,30 @@ document.addEventListener("click",e=>{
   if(d.dieface){DICE.die=+d.dieface;diceDrawer();return;}
   if(d.adv){DICE.adv=d.adv;diceDrawer();return;}
   if(d.roll){doDiceRoll();return;}
+  if(d.postroll){const camp=curCamp();if(!camp||!DICE.last)return;const L=DICE.last;const meta={roll:{detail:L.detail,total:L.total,nat20:L.nat20,nat1:L.nat1}};if(d.postroll==="secret")meta.secret=true;if(d.postroll==="dm")meta.to="dm";
+    closeModal();chatPost(camp,"",meta);toast(d.postroll==="table"?"Rolled on the table":"Sent");return;}
+  if(d.chatsend){const camp=curCamp();const t=$("#chatIn");const txt=(t&&t.value||"").trim();if(!txt){toast("Type something");return;}const to=$("#chatTo")?$("#chatTo").value:"";CHAT_TO=to;
+    chatPost(camp,txt,to?{to}:{});t.value="";chatRefresh(camp);return;}
+  if(d.chatroll){const camp=curCamp();if(!DICE.last){toast("Roll something first (🎲)");return;}const L=DICE.last;const to=$("#chatTo")?$("#chatTo").value:"";chatPost(camp,"",Object.assign({roll:{detail:L.detail,total:L.total,nat20:L.nat20,nat1:L.nat1}},to?{to}:{}));chatRefresh(camp);return;}
+  if(d.askcheck){askCheckModal(curCamp());return;}
+  if(d.loot){const camp=curCamp();const tier=+$("#lootCR").value;LOOT_LAST[camp.id]=rollLoot(camp,d.loot,tier);journalAdd(camp,"context","💰 "+LOOT_LAST[camp.id]);dmScreen();return;}
+  if(d.lootpost){const camp=curCamp();const txt=LOOT_LAST[camp.id];if(!txt)return;camp.lore=camp.lore||[];const note={id:uid("n"),author:"DM",author_id:STATE.cloud?ME():null,ts:Date.now(),text:txt,title:"Treasure",kind:"handout",visible:true,image:null};camp.lore.push(note);if(STATE.cloud)Cloud.addLore(camp.id,note);closeModal();render();toast("Posted as a handout");return;}
+  if(d.rolltable){const camp=curCamp();const t=rollTable(camp,d.rolltable);dmScreen();if(t)toast(t);return;}
+  if(d.addtable){const camp=curCamp();const name=($("#tblName").value||"").trim();const rows=($("#tblRows").value||"").split("\n").map(x=>x.trim()).filter(Boolean);if(!name||!rows.length){toast("Name it and add some lines");return;}tablesOf(camp).push({name,rows});dmScreen();return;}
+  if(d.rmtable){const camp=curCamp();tablesOf(camp).splice(+d.rmtable,1);dmScreen();return;}
+  if(d.travel){const camp=curCamp();const miles=parseFloat($("#tvMiles").value);const pace=TRAVEL_PACE[$("#tvPace").value]||TRAVEL_PACE.normal;if(!miles||miles<=0){toast("How far?");return;}const days=Math.ceil(miles/pace.mpd);const hrs=Math.round(miles/pace.mph*10)/10;
+    calAdvance(camp,days);journalAdd(camp,"auto",`Travelled ${miles} miles at a ${$("#tvPace").value} pace — ${days} day${days===1?"":"s"} (about ${hrs} hours on the road${pace.note?"; "+pace.note:""}). Now ${calLabel(camp)}.`);render();toast(`${days} day${days===1?"":"s"} pass`);return;}
+  if(d.weather){const camp=curCamp();const t=BUILTIN_TABLES[0];const text=t.rows[Math.floor(Math.random()*t.rows.length)];calendarOf(camp).weather=text;journalAdd(camp,"auto",`Weather — ${text}.`);render();return;}
+  if(d.askcheckgo){const camp=curCamp();const v=$("#ckSkill").value;const [k,name]=v.split(":");const dc=parseInt($("#ckDC").value,10);const targets=[...document.querySelectorAll("[data-cktgt]:checked")].map(x=>x.dataset.cktgt);if(!targets.length){toast("Pick someone");return;}
+    const check={skill:k==="s"?name:null,ability:k==="a"?name:SKILL_ABILITY[name],dc:isNaN(dc)?null:dc,group:$("#ckGroup").checked,showDC:$("#ckShow").checked,targets,results:{}};
+    closeModal();chatPost(camp,($("#ckWhy")&&$("#ckWhy").value||"").trim(),{check});chatDrawer();return;}
+  if(d.checkroll){const camp=curCamp();const [jid,cid]=d.checkroll.split("|");const j=journalOf(camp).find(x=>x.id===jid);const ch=STATE.roster[cid];if(!j||!ch||!j.meta.check)return;const c=j.meta.check;if(c.results[cid])return;
+    const mod=c.skill?skillBonus(ch,c.skill):modN((ch.scores||{})[c.ability]||10);const r=rollDie(20);c.results[cid]={roll:r,mod,total:r+mod,ts:Date.now()};if(STATE.cloud)Cloud.updJournal(j);
+    toast(`${c.skill||c.ability.toUpperCase()}: ${r+mod}`+(c.dc&&(c.showDC)?(r+mod>=c.dc?" — success":" — fail"):""));chatRefresh(camp);render();return;}
   if(d.export){exportModal();return;}
+  if(d.dlsave){downloadJSON("war-table-save.wartable.json",{roster:STATE.roster,campaigns:STATE.campaigns});return;}
+  if(d.chexport){const ch=STATE.roster[d.chexport];if(ch)exportCharacter(ch);return;}
+  if(d.campexport){const c=STATE.campaigns[d.campexport];if(c)exportCampaign(c);return;}
   if(d.copysave){const ta=$("#expTa");if(ta){ta.select();if(navigator.clipboard)navigator.clipboard.writeText(ta.value).then(()=>toast("Copied")).catch(()=>toast("Select the text and copy"));else toast("Select the text and copy");}return;}
   if(d.importsave){try{const p=JSON.parse(($("#impTa").value||"").trim());if(p&&p.roster&&p.campaigns){STATE.roster=p.roster;STATE.campaigns=p.campaigns;STATE.ui={screen:"campaigns",viewAs:"dm",tab:"sheet"};closeModal();render();toast("Save imported");}else toast("That doesn't look like a War Table save");}catch(err){toast("Couldn't read that JSON");}return;}
   if(d.maptool){const m=ensureMap(curCamp());m.tool=d.maptool;m.selTok=null;render();return;}
@@ -5468,7 +5722,7 @@ document.addEventListener("change",e=>{
 
 /* wizard + characters events */
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-wiznew],[data-wizrace],[data-wizclass],[data-wizbg],[data-wizheasi],[data-wizraceskill],[data-wizclassskill],[data-wizmethod],[data-wizpb],[data-wizportrait],[data-wiznext],[data-wizback],[data-wizcancel],[data-wizcreate],[data-joinwith],[data-addseed],[data-dedupechars],[data-wizlevel],[data-wizsub],[data-wizspell],[data-wizarmor],[data-wizshield],[data-wizweapon],[data-wizrmclass],[data-wizasimode],[data-wizgoto],[data-levelup]");
+  const t=e.target.closest("[data-wiznew],[data-wizrace],[data-wizclass],[data-wizbg],[data-wizheasi],[data-wizraceskill],[data-wizclassskill],[data-wizmethod],[data-wizpb],[data-wizportrait],[data-wiznext],[data-wizback],[data-wizcancel],[data-wizcreate],[data-joinwith],[data-tableside],[data-addseed],[data-dedupechars],[data-wizlevel],[data-wizsub],[data-wizspell],[data-wizarmor],[data-wizshield],[data-wizweapon],[data-wizrmclass],[data-wizasimode],[data-wizgoto],[data-levelup]");
   if(!t)return;const d=t.dataset;const wiz=STATE.ui.wiz;
   if(d.wiznew!=null){openWizard();return;}
   if(d.levelup){const ch=STATE.roster[d.levelup];if(!ch)return;if(!ch.build){toast("Level-ups work for characters made with the guided builder — use Edit sheet for this one");return;}
@@ -5483,6 +5737,7 @@ document.addEventListener("click",e=>{
     groups.forEach(g=>{g.sort((a,b)=>(b.abilities||[]).length-(a.abilities||[]).length);
       g.slice(1).forEach(c=>{if(STATE.cloud)Cloud.delCharacter(c.id);delete STATE.roster[c.id];removed++;});});
     render();toast(removed?`Merged — removed ${removed} duplicate${removed===1?"":"s"}`:"No duplicates found");return;}
+  if(d.tableside){tableSidePlay(d.tableside);return;}
   if(d.joinwith!=null){const ch=STATE.roster[d.joinwith];if(!ch)return;
     if(!STATE.cloud){toast("Sign in (☁) to join online campaigns");return;}
     joinModal("",d.joinwith);return;}
@@ -5548,8 +5803,11 @@ document.addEventListener("input",e=>{
 $("#themeBtn").addEventListener("click",()=>{go("profile");});
 $("#searchBtn").addEventListener("click",searchModal);
 $("#dmScreenBtn").addEventListener("click",()=>dmScreen());
+$("#chatBtn").addEventListener("click",()=>chatDrawer());
 document.addEventListener("change",e=>{if(e.target.id==="ncAI"){const f=$("#ncAIFields");if(f)f.hidden=!e.target.checked;}});
-document.addEventListener("keydown",e=>{if(e.target.id==="aiInput"&&e.key==="Enter"&&!e.shiftKey){e.preventDefault();const b=document.querySelector("[data-aisend]");if(b)b.click();}});
+document.addEventListener("keydown",e=>{if(e.target.id==="aiInput"&&e.key==="Enter"&&!e.shiftKey){e.preventDefault();const b=document.querySelector("[data-aisend]");if(b)b.click();}
+  if(e.target.id==="chatIn"&&e.key==="Enter"&&!e.shiftKey){e.preventDefault();const b=document.querySelector("[data-chatsend]");if(b)b.click();}});
+document.addEventListener("change",e=>{if(e.target.id==="impFile"&&e.target.files&&e.target.files[0]){closeModal();importFile(e.target.files[0]);}});
 document.addEventListener("input",e=>{if(e.target.id==="srchQ")renderSearch(e.target.value);if(e.target.id==="hrText"){const camp=curCamp();if(camp){camp.settings.houseRules=e.target.value;clearTimeout(e.target._t);e.target._t=setTimeout(()=>{save();if(STATE.cloud)Cloud.afterRender();},600);}}});
 document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-srchgo],[data-dmsec]");if(!t)return;
   if(t.dataset.dmsec){DMSEC=t.dataset.dmsec;dmScreen();return;}
@@ -5573,6 +5831,14 @@ function ME(){return STATE.user&&STATE.user.id;}
 function myMember(camp){return (camp.members||[]).find(m=>m.user_id===ME());}
 function myCharId(camp){const m=myMember(camp);return m?m.character_id:null;}
 function amDM(camp){return camp&&camp.dm_id===ME();}
+/* table-side mode: the DM runs the game at the physical table; the app is the players' aid. No DM seat — any member drives the tracker, the session is always open. */
+function tableSide(camp){return !!(camp&&camp.settings&&camp.settings.tableSide);}
+function isLive(camp){return !!(camp&&((camp.session&&camp.session.live)||tableSide(camp)));}
+function tableSidePlay(chId){const ch=STATE.roster[chId];if(!ch)return;
+  let camp=Object.values(STATE.campaigns).find(c=>tableSide(c)&&c.settings.solo&&(c.party||[]).includes(chId)&&(!STATE.cloud||amDM(c)));
+  if(!camp){const id=uid("camp");camp={id,name:"Table side — "+ch.name,dm:"the table",dm_id:STATE.cloud?ME():null,invite_code:STATE.cloud?inviteCode():null,created:Date.now(),lastPlayed:Date.now(),party:[],ready:{},members:[],lore:[],session:{live:true},settings:{cooldowns:true,tableSide:true,solo:true}};
+    STATE.campaigns[id]=camp;if(STATE.cloud){const dp=dmParty(camp);dp.push(chId);syncDmParty(camp);}else camp.party=[chId];}
+  camp.lastPlayed=Date.now();STATE.ui.campId=camp.id;STATE.ui.viewAs=chId;STATE.ui.screen="play";STATE.ui.tab="sheet";render();toast("Table-side: your sheet, dice and tracker. The DM runs the rest.");}
 /* the DM's own characters (PCs they play, NPCs they run) ride on the campaign row, not on membership — so the DM never needs a seat */
 function dmParty(camp){if(!camp.settings)camp.settings={};if(!Array.isArray(camp.settings.dmParty))camp.settings.dmParty=[];return camp.settings.dmParty;}
 function syncDmParty(camp){dmParty(camp).forEach(id=>{if(STATE.roster[id]&&!camp.party.includes(id)){camp.party.push(id);camp.ready[id]=true;}});}
