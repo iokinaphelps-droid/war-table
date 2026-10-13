@@ -1,3 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f0d13">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="War Table">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
 <title>War Table</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&family=Cinzel:wght@500;600;700&family=Spectral:ital,wght@0,400;0,500;0,600;1,400&family=EB+Garamond:ital@0;1&family=IM+Fell+English:ital@0;1&family=Rajdhani:wght@500;600;700&display=swap">
@@ -149,7 +161,7 @@ h1,h2,h3{text-wrap:balance;margin:0}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 @media (prefers-reduced-motion:reduce){.pill.live .dot{animation:none}}
 
-.viewas{display:flex;align-items:center;gap:7px}
+.viewas{display:flex;align-items:center;gap:7px}.viewas[hidden],#bar .iconbtn[hidden]{display:none}#moreBtn{display:none}
 .viewas label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)}
 select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px;
   padding:6px 10px;font-size:13px;font-weight:600}
@@ -705,6 +717,37 @@ body.tableview #screen{max-width:none;padding:14px 18px}
   .pendrow .pb{width:100%}
   .slots{grid-template-columns:1fr}
   .modal{max-height:92vh;overflow:auto}
+  /* top bar: one row, thumb-sized */
+  #bar{flex-wrap:nowrap;gap:8px;padding:8px 12px;padding-top:calc(8px + env(safe-area-inset-top,0px));top:0}
+  #bar .brand span{display:none}#bar .brand{gap:0}
+  #bar .ctx{font-size:12.5px;gap:6px;flex:1 1 auto;overflow:hidden}#bar .ctx .pill{display:none}#bar .ctx span{display:none}
+  #bar .spacer{display:none}
+  #bar:has(.viewas:not([hidden])) .ctx{display:none}
+  .viewas label{display:none}.viewas select.sel{max-width:132px;padding:7px 8px;font-size:13px}
+  #bar .iconbtn{width:38px;height:38px;flex:none}
+  body.phone #searchBtn,body.phone #dmScreenBtn,body.phone #themeBtn{display:none !important}
+  body.phone #moreBtn{display:grid}
+  /* play: compact status strip + sticky tabs; the big status card lives in the Sheet tab only */
+  .playwrap{gap:0}.statusrail{display:none}
+  .ministatus{position:sticky;top:var(--barh,54px);z-index:21;display:flex;align-items:center;gap:10px;padding:8px 0 6px;background:var(--bg);border-bottom:1px solid var(--line);margin:0 -16px;padding-left:16px;padding-right:16px}
+  .ministatus .token{width:30px;height:30px;font-size:13px;flex:none}.ministatus .mn{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:38vw}.ministatus .mhp{flex:1;min-width:60px}.ministatus .hpbar{height:6px;margin:0}.ministatus .mhpn{font-size:11px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}.ministatus .mac{font-size:12px;color:var(--muted);white-space:nowrap}.ministatus .mac b{color:var(--fg)}
+  .tabs{top:calc(var(--barh,54px) + var(--minih,0px));margin-bottom:14px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;mask-image:linear-gradient(90deg,#000 92%,transparent)}
+  .tab{scroll-snap-align:center;min-height:44px}
+  /* battle action header: name on top, controls under */
+  .actionpanel .aph{flex-wrap:wrap}.actionpanel .apt{flex:1 1 100%;font-size:17px}.actionpanel .aph .economy{margin-left:0}
+  .actionpanel .aph>.btn{margin-left:auto}
+  /* modals become bottom sheets */
+  .scrim{place-items:end center;padding:0}
+  .modal{width:100%;max-width:100%;border-radius:20px 20px 0 0;max-height:94vh;padding:18px 16px calc(16px + env(safe-area-inset-bottom,0px));border-bottom:none}
+  .modal::before{content:"";display:block;width:42px;height:4px;border-radius:2px;background:var(--line2);margin:-6px auto 12px}
+  .modal .acts{position:sticky;bottom:calc(-16px - env(safe-area-inset-bottom,0px));background:var(--bg2);padding:12px 0 calc(4px + env(safe-area-inset-bottom,0px));margin-top:14px;border-top:1px solid var(--line)}
+  .modal .acts .btn{min-height:44px;flex:1}
+  .chip{min-height:36px;padding:7px 13px}.chip.xs{min-height:28px}
+  #screen{padding:12px 16px calc(40px + env(safe-area-inset-bottom,0px))}
+  .foot{margin-top:18px}
+  .cards{grid-template-columns:1fr}
+  .card .ch h3{font-size:17px}
+  .stdacts .chip{flex:1 1 auto;justify-content:center}
 }
 /* ---- builder ---- */
 .bform{display:flex;flex-direction:column;gap:18px}
@@ -893,6 +936,7 @@ body.tableview #screen{max-width:none;padding:14px 18px}
   <button class="iconbtn" id="diceBtn" title="Dice roller" aria-label="Dice roller">🎲</button>
   <button class="iconbtn" id="acctBtn" title="Account" aria-label="Account">☁</button>
   <button class="iconbtn" id="themeBtn" title="Toggle theme" aria-label="Toggle theme">◐</button>
+  <button class="iconbtn" id="moreBtn" title="More" aria-label="More">⋯</button>
 </div>
 
 <div id="screen"></div>
@@ -1511,6 +1555,7 @@ function render(){
   else if(ui.screen==="wizard")scr.appendChild(screenWizard());
   else if(ui.screen==="profile")scr.appendChild(screenProfile());
   $("#foot").innerHTML=footNote();
+  phoneLayout();
   if(sameView&&sy>0)requestAnimationFrame(()=>window.scrollTo({top:sy,behavior:"instant"})); // a background sync shouldn't move the page
   save();
   if(STATE.cloud){Cloud.syncRooms();Cloud.afterRender();}
@@ -1798,8 +1843,12 @@ function screenPlay(){
   // tabs
   const tabs=el("div","tabs");
   const tabList=aiOn(camp)?[["story","Story"]].concat(PLAY_TABS):PLAY_TABS;
+  const phone=window.innerWidth<=700;const short={"Dice & Damage":"Dice"};
+  if(railChar&&phone){const {ac}=effAC(railChar);const cur=railChar.hp??railChar.maxHP;const pct=Math.max(0,Math.min(100,cur/railChar.maxHP*100));
+    const ms=el("div","ministatus");ms.innerHTML=`<div class="token" style="${tokenStyle(railChar)}${railChar.portrait?`;background-image:url('${railChar.portrait}');background-size:cover`:""}">${railChar.portrait?"":esc(railChar.token||railChar.name[0])}</div><div class="mn">${esc(railChar.name)}</div><div class="mhp"><div class="hpbar"><i class="${pct<=25?"crit":pct<=50?"low":""}" style="width:${pct}%"></i></div><div class="mhpn">${cur}/${railChar.maxHP}${railChar.tempHP?" +"+railChar.tempHP:""}</div></div><div class="mac">AC <b>${ac}</b></div>`;
+    ms.addEventListener("click",()=>{STATE.ui.tab="sheet";render();});main.appendChild(ms);}
   tabList.forEach(([k,label])=>{
-    const t=el("button","tab"+(STATE.ui.tab===k?" active":""),label);
+    const t=el("button","tab"+(STATE.ui.tab===k?" active":""),phone&&short[label]||label);
     t.dataset.tab=k;tabs.appendChild(t);
   });
   main.appendChild(tabs);
@@ -6013,6 +6062,13 @@ document.addEventListener("input",e=>{
 
 /* appearance — opens the Profile tab's theme picker */
 $("#themeBtn").addEventListener("click",()=>{go("profile");});
+$("#moreBtn").addEventListener("click",()=>{const camp=curCamp();const inCamp=!!camp&&(STATE.ui.screen==="play"||STATE.ui.screen==="lobby");const dm=inCamp&&(STATE.cloud?amDM(camp):STATE.ui.viewAs==="dm");
+  openModal(`<h2>More</h2><div class="chips" style="flex-direction:column;align-items:stretch">${inCamp?`<button class="btn" data-more="search">⌕ Search the campaign</button>`:""}${dm?`<button class="btn" data-more="dmscreen">📜 DM screen</button>`:""}${inCamp?`<button class="btn" data-more="table">📺 Table view (TV)</button>`:""}<button class="btn" data-more="profile">◐ Themes &amp; profile</button><button class="btn" data-more="characters">Characters</button><button class="btn" data-more="campaigns">Campaigns</button>${STATE.ui.ttaChar?`<button class="btn" data-more="tta">⚡ Assistant</button>`:""}</div><div class="acts"><button class="btn ghost" data-close="1">Close</button></div>`);});
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-more]");if(!t)return;const k=t.dataset.more;closeModal();
+  if(k==="search")searchModal();else if(k==="dmscreen")dmScreen();else if(k==="table"){STATE.ui.tableView=true;render();}else if(k==="tta")ttaOpen(null);else go(k);});
+function phoneLayout(){const ph=window.innerWidth<=700;document.body.classList.toggle("phone",ph);const bar=$("#bar");if(bar)document.documentElement.style.setProperty("--barh",bar.offsetHeight+"px");const ms=document.querySelector(".ministatus");document.documentElement.style.setProperty("--minih",(ph&&ms?ms.offsetHeight:0)+"px");
+  const act=document.querySelector(".tabs .tab.active");if(act&&ph)act.scrollIntoView({inline:"center",block:"nearest"});}
+window.addEventListener("resize",()=>phoneLayout());
 $("#searchBtn").addEventListener("click",searchModal);
 $("#dmScreenBtn").addEventListener("click",()=>dmScreen());
 $("#chatBtn").addEventListener("click",()=>chatDrawer());
