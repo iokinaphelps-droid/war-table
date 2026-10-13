@@ -49,6 +49,9 @@ Gold **DM card** in the lobby; Start works with an empty party. DM-owned PCs/NPC
 - **Table-side mode:** `settings.tableSide` (new-campaign checkbox) → `isLive()` always true, `tableHost` gives every member board/battle authority, `canAct` lets anyone run foes; `tableSidePlay(chId)` makes/reuses a personal `solo` table-side campaign from a character card. Target-less attacks: `data-blogdmg` "Call it" logs the number, spends resources, ends the turn.
 - Tests: `tabletools.py`, `tableside.py`.
 
+## Tabletop Assistant — TTA (v27)
+Spec: Claude Doc "War Table — Tabletop Assistant (TTA) spec" (artifact 9dfb7f6b-93e0-485f-a274-a9629c645c2e). One character, one screen, nothing shared: `screenTTA()` at `STATE.ui.screen="tta"`, route `#tta[=charId]`, ⚡ on character cards and the sheet header. Per-character transient state in `STATE.tta[chId]` (log, adv/dis control, turn pips, stepper levels, undo stack); durable state on the character (`hp, tempHP, slots, charges, hitDice, conds, exhaustion, death, inventory, inspiration`). `ttaAct(ch,a)` is the one-tap action: `effAbility` + `spendScaled`, attack d20 with `ttaAdvFor` (control + conditions), crits double dice, rage bonus, bonus-die toggle, riders use `lastCrit`, save spells print the DC, heals/pools/apply hooks/items reuse the battle semantics. `restChar(ch,kind)` + `hitDiceOf/spendHitDie` (`CLASS_HD`) now back both the TTA and campaign rests. `spendCharge` works without a campaign. Acceptance test `scratchpad/pw/tta.py` mirrors the spec checklist, including offline reload.
+
 ## Builder (v19–v20)
 `newWiz/wizSteps/wizStep/wizFinalize/wizMergeInto`. dnd5eapi.co via `D5E.get` (cached; 301 to `/api/2014/`). Races+subraces merged with extras. Multiclass (`wiz.extra[]`), PHB slot table, per-class spell limits. ASIs or feats (`FEATS`). Gear → AC/attacks/inventory. Level-up via `ch.build` + `wizMergeInto`. Offline fallback. Spells import `upcast` / `healUp` tables.
 
@@ -86,6 +89,7 @@ Lore kinds `note/handout/dm/npc`. Journal kinds `auto/story/recap/context/downti
 - **v23** — AI DM live (env mapping fix). Story tab keeps drafts/scroll. AI `map` + `move` commands, wall tiles.
 - **v24** — Scaling resources: slot picker on cast, upcast tables, riders (Divine Smite), pools (Lay on Hands), Ki/Sorcery Points, editor scaling fields, half-caster slot fix.
 - **v25** — Combat deep-dive: class kits for every SRD class, items in battle, standard actions, player-rolled saves + DM call-for-save, mechanical reactions.
+- **v27** — Tabletop Assistant (TTA) + hit dice.
 - **v26** — Table tools: chat/whispers/checks, spell preparation, encounter budget + XP, treasure & random tables, travel & weather, factions, shops, file export/import, table-side mode. Player Guide updated (fighting, between fights, table-side, DM extras).
 
 ---
