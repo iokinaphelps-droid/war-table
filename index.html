@@ -161,6 +161,7 @@ h1,h2,h3{text-wrap:balance;margin:0}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 @media (prefers-reduced-motion:reduce){.pill.live .dot{animation:none}}
 
+.netdot{position:absolute;bottom:-3px;right:-3px;width:9px;height:9px;border-radius:50%;background:var(--ok);border:2px solid var(--bg2)}.netdot.off{background:var(--crit)}
 .viewas{display:flex;align-items:center;gap:7px}.viewas[hidden],#bar .iconbtn[hidden]{display:none}#moreBtn{display:none}
 .viewas label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)}
 select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px;
@@ -936,7 +937,7 @@ body.tableview #screen{max-width:none;padding:14px 18px}
   <button class="iconbtn" id="diceBtn" title="Dice roller" aria-label="Dice roller">🎲</button>
   <button class="iconbtn" id="acctBtn" title="Account" aria-label="Account">☁</button>
   <button class="iconbtn" id="themeBtn" title="Toggle theme" aria-label="Toggle theme">◐</button>
-  <button class="iconbtn" id="moreBtn" title="More" aria-label="More">⋯</button>
+  <button class="iconbtn" id="moreBtn" title="More" aria-label="More">⋯<span id="netDot" class="netdot on" title="Connection"></span></button>
 </div>
 
 <div id="screen"></div>
@@ -1490,6 +1491,28 @@ function spellUsesLabel(ch,a){
   const si=slotInfo(ch,a);
   if(!si)return "At will";
   return si.kind==="pact"?`${si.cur}/${si.max} Pact Slots`:`${si.cur}/${si.max} ${ordLevel(si.level)} slots`;}
+/* ============================ diagnostics: breadcrumbs, error capture, one-tap bug report ============================ */
+const BUILD_ID="20261013.51e451f";
+const DIAG={crumbs:[],errors:[],lastSync:null,online:navigator.onLine};
+function crumb(line){DIAG.crumbs.push(new Date().toTimeString().slice(0,8)+" "+line);if(DIAG.crumbs.length>40)DIAG.crumbs.shift();}
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("button,[data-nav],[data-tab],.chip,.tok,.tile,.movebtn,a");if(!t)return;const ds=t.dataset||{};const k=Object.keys(ds).find(x=>x!=="v")||"";crumb((k?k+"="+String(ds[k]).slice(0,30):"")+" "+(t.textContent||"").trim().replace(/\s+/g," ").slice(0,28));},true);
+function diagContext(){const ui=STATE.ui||{};const camp=curCamp();return {screen:ui.screen,tab:ui.tab,viewAs:ui.viewAs,camp:camp?camp.name:null,campId:camp?camp.id:null,cloud:!!STATE.cloud,user:STATE.cloud&&STATE.user?STATE.user.email:null,online:navigator.onLine,lastSync:DIAG.lastSync,build:BUILD_ID,ua:navigator.userAgent.slice(0,140),vp:window.innerWidth+"x"+window.innerHeight,room:ui.roomId||null,ai:camp?aiOn(camp):false,errors:DIAG.errors.slice(-5),crumbs:DIAG.crumbs.slice(-30)};}
+function diagText(note){const c=diagContext();return [note?"NOTE: "+note:"",`screen=${c.screen}/${c.tab} viewAs=${c.viewAs} camp=${c.camp} cloud=${c.cloud} online=${c.online} lastSync=${c.lastSync?new Date(c.lastSync).toTimeString().slice(0,8):"-"} build=${c.build}`,`device: ${c.vp} ${c.ua}`,c.errors.length?"ERRORS:\n"+c.errors.join("\n"):"no JS errors",`last taps:\n${c.crumbs.join("\n")}`].filter(Boolean).join("\n");}
+async function diagSend(kind,note){try{const row={name:(STATE.cloud&&STATE.user&&(STATE.user.name||STATE.user.email))||"anon",character:kind,device:diagContext().vp,rating:null,likes:"",dislikes:"",changes:"",additions:"",bugs:diagText(note).slice(0,6000),tried:"auto:"+kind,ua:navigator.userAgent.slice(0,160)};
+    const r=await fetch(SB_URL+"/rest/v1/feedback",{method:"POST",headers:{"Content-Type":"application/json",apikey:SB_KEY,Authorization:"Bearer "+SB_KEY,Prefer:"return=minimal"},body:JSON.stringify(row)});return r.ok;}catch(e){return false;}}
+let ERR_SENT=0;
+window.addEventListener("error",e=>{const line=`${new Date().toTimeString().slice(0,8)} ${e.message} @${(e.filename||"").split("/").pop()}:${e.lineno}`;DIAG.errors.push(line);if(DIAG.errors.length>20)DIAG.errors.shift();if(ERR_SENT<5){ERR_SENT++;diagSend("js-error",e.message);}});
+window.addEventListener("unhandledrejection",e=>{const m=(e.reason&&(e.reason.message||String(e.reason)))||"promise rejection";const line=`${new Date().toTimeString().slice(0,8)} ${m}`;DIAG.errors.push(line);if(DIAG.errors.length>20)DIAG.errors.shift();if(ERR_SENT<5&&!/AbortError|Failed to fetch|NetworkError|Load failed/.test(m)){ERR_SENT++;diagSend("js-error",m);}});
+window.addEventListener("online",()=>{DIAG.online=true;const d=$("#netDot");if(d)d.className="netdot on";});window.addEventListener("offline",()=>{DIAG.online=false;const d=$("#netDot");if(d)d.className="netdot off";});
+function bugModal(){openModal(`<h2>🐞 Report a problem</h2><div class="banner">Say what you were doing and what went wrong. The report takes your last 30 taps, any errors, and which screen you're on — nothing from your sheet.</div>
+  <div class="field"><label>What happened?</label><textarea id="bugNote" style="min-height:90px" placeholder="I tapped Apply on Burning Hands and nothing happened…"></textarea></div>
+  <details><summary style="cursor:pointer;color:var(--muted);font-size:13px">What gets sent</summary><pre style="white-space:pre-wrap;font-size:11px;color:var(--faint);max-height:160px;overflow:auto">${esc(diagText(""))}</pre></details>
+  <div class="acts"><button class="btn ghost" data-close="1">Cancel</button><button class="btn ghost" data-bugcopy="1">Copy</button><button class="btn primary" data-bugsend="1">Send</button></div>`);}
+document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-bugsend],[data-bugcopy],[data-bugopen]");if(!t)return;const d=t.dataset;
+  if(d.bugopen){bugModal();return;}
+  const note=($("#bugNote")&&$("#bugNote").value||"").trim();
+  if(d.bugcopy){const txt=diagText(note);if(navigator.clipboard)navigator.clipboard.writeText(txt).then(()=>toast("Copied — paste it to Claude")).catch(()=>toast("Couldn't copy"));return;}
+  if(d.bugsend){if(!note){toast("Say what happened");return;}closeModal();diagSend("bug-report",note).then(ok=>toast(ok?"Sent — thank you":"Couldn't send; use Copy instead"));return;}});
 function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show");
   clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove("show"),1900);}
 function curCamp(){return STATE.campaigns[STATE.ui.campId];}
@@ -1554,14 +1577,14 @@ function render(){
   else if(ui.screen==="builder")scr.appendChild(screenBuilder());
   else if(ui.screen==="wizard")scr.appendChild(screenWizard());
   else if(ui.screen==="profile")scr.appendChild(screenProfile());
-  $("#foot").innerHTML=footNote();
+  $("#foot").innerHTML=footNote0()+` · <button class="chip xs" data-bugopen="1">🐞 Report a problem</button> · build ${BUILD_ID}`;
   phoneLayout();
   if(sameView&&sy>0)requestAnimationFrame(()=>window.scrollTo({top:sy,behavior:"instant"})); // a background sync shouldn't move the page
   save();
   if(STATE.cloud){Cloud.syncRooms();Cloud.afterRender();}
   if(camp&&ui.screen==="play"&&aiOn(camp))setTimeout(()=>aiMaybeRunEnemy(camp),50);
 }
-function footNote(){
+function footNote0(){
   if(STATE.cloud){
     if(STATE.ui.screen==="play")
       return "Live mode: the DM runs the board and its state syncs to everyone. Players watch their own sheet update in real time. Sign out from the ☁ menu.";
@@ -1684,7 +1707,8 @@ async function loadFeedback(){
   try{const {data,error}=await SB.from("feedback").select("*").order("created_at",{ascending:false}).limit(100);if(error)throw error;
     if(!data||!data.length){box.innerHTML=`<div class="empty">No responses yet. Share ${esc(location.origin)}/feedback.html with the party.</div>`;return;}
     const f=(k,v)=>v?`<div class="fbf"><span class="k">${k}</span><span class="v">${esc(v)}</span></div>`:"";
-    box.innerHTML=`<div class="authnote">${data.length} response${data.length===1?"":"s"} · <button class="btn sm ghost" data-fbload="1">Refresh</button></div>`+data.map(r=>`<div class="note fbnote"><div class="meta"><span class="au">${esc(r.name)}${r.character?` <small>· ${esc(r.character)}</small>`:""}</span>${r.rating?`<span class="ktag handout">${"★".repeat(r.rating)}</span>`:""}<span class="ts">${new Date(r.created_at).toLocaleString()}</span><span style="flex:1"></span><small style="color:var(--faint)">${esc(r.device||"")}</small></div>
+    window._FB=data;
+    box.innerHTML=`<div class="authnote">${data.length} response${data.length===1?"":"s"} · <button class="btn sm ghost" data-fbload="1">Refresh</button> <button class="btn sm ghost" data-fbcopy="1">Copy all for Claude</button></div>`+data.map(r=>`<div class="note fbnote"><div class="meta"><span class="au">${esc(r.name)}${r.character?` <small>· ${esc(r.character)}</small>`:""}</span>${r.rating?`<span class="ktag handout">${"★".repeat(r.rating)}</span>`:""}<span class="ts">${new Date(r.created_at).toLocaleString()}</span><span style="flex:1"></span><small style="color:var(--faint)">${esc(r.device||"")}</small></div>
       ${f("Likes",r.likes)}${f("Dislikes",r.dislikes)}${f("Change",r.changes)}${f("Add",r.additions)}${f("Bugs",r.bugs)}${r.tried?`<div class="fbf"><span class="k">Tried</span><span class="v" style="color:var(--faint)">${esc(r.tried)}</span></div>`:""}</div>`).join("");
   }catch(e){box.innerHTML=`<div class="empty">Couldn't load feedback${/relation|does not exist|permission/i.test(e.message||"")?" — run supabase/feedback.sql in Supabase first":""}.</div>`;}
 }
@@ -5281,12 +5305,13 @@ function confirmModal(msg,onYes){
 
 /* ============================ event wiring ============================ */
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-nav],[data-open],[data-del],[data-newcamp],[data-join],[data-leave],[data-ready],[data-startsession],[data-endsession],[data-enterplay],[data-tab],[data-filter],[data-tocalc],[data-use],[data-spend],[data-clvl],[data-poolspend],[data-prep],[data-blvl],[data-bpool],[data-rollinst],[data-rollall],[data-clearrolls],[data-modtoggle],[data-perinst],[data-bonus],[data-rest],[data-cooldowns],[data-dmview],[data-awardinsp],[data-spendinsp],[data-hpedit],[data-hp],[data-hpsave],[data-close],[data-scrim],[data-createcamp],[data-newchar],[data-dmnewchar],[data-setskin],[data-openacct],[data-abilsort],[data-autoconds],[data-autosaves],[data-fbload],[data-tableview]");
+  const t=e.target.closest("[data-nav],[data-open],[data-del],[data-newcamp],[data-join],[data-leave],[data-ready],[data-startsession],[data-endsession],[data-enterplay],[data-tab],[data-filter],[data-tocalc],[data-use],[data-spend],[data-clvl],[data-poolspend],[data-prep],[data-blvl],[data-bpool],[data-rollinst],[data-rollall],[data-clearrolls],[data-modtoggle],[data-perinst],[data-bonus],[data-rest],[data-cooldowns],[data-dmview],[data-awardinsp],[data-spendinsp],[data-hpedit],[data-hp],[data-hpsave],[data-close],[data-scrim],[data-createcamp],[data-newchar],[data-dmnewchar],[data-setskin],[data-openacct],[data-abilsort],[data-autoconds],[data-autosaves],[data-fbload],[data-fbcopy],[data-tableview]");
   if(!t)return;
   const d=t.dataset;
   if(d.scrim&&e.target!==t)return; // clicked inside modal
   if(d.nav){if(d.nav==="lobby")go("lobby");else go(d.nav);return;}
   if(d.setskin){setSkin(d.setskin);return;}
+  if(d.fbcopy){const rows=window._FB||[];const txt=rows.map(r=>`--- ${r.created_at} · ${r.name} · ${r.character||""} · ${r.tried||""}\n${[["likes",r.likes],["dislikes",r.dislikes],["changes",r.changes],["additions",r.additions],["bugs",r.bugs]].filter(x=>x[1]).map(x=>x[0]+": "+x[1]).join("\n")}`).join("\n\n");if(navigator.clipboard)navigator.clipboard.writeText(txt).then(()=>toast("Copied "+rows.length+" responses")).catch(()=>toast("Couldn't copy"));return;}
   if(d.fbload){loadFeedback();return;}
   if(d.tableview){STATE.ui.tableView=d.tableview==="on";try{history.replaceState(null,"",location.pathname+(STATE.ui.tableView?"#table":""));}catch(e){}render();return;}
   if(d.openacct){if(!SB){toast("Cloud unavailable — playing solo");return;}STATE.cloud?acctModal():authModal();return;}
@@ -6063,9 +6088,9 @@ document.addEventListener("input",e=>{
 /* appearance — opens the Profile tab's theme picker */
 $("#themeBtn").addEventListener("click",()=>{go("profile");});
 $("#moreBtn").addEventListener("click",()=>{const camp=curCamp();const inCamp=!!camp&&(STATE.ui.screen==="play"||STATE.ui.screen==="lobby");const dm=inCamp&&(STATE.cloud?amDM(camp):STATE.ui.viewAs==="dm");
-  openModal(`<h2>More</h2><div class="chips" style="flex-direction:column;align-items:stretch">${inCamp?`<button class="btn" data-more="search">⌕ Search the campaign</button>`:""}${dm?`<button class="btn" data-more="dmscreen">📜 DM screen</button>`:""}${inCamp?`<button class="btn" data-more="table">📺 Table view (TV)</button>`:""}<button class="btn" data-more="profile">◐ Themes &amp; profile</button><button class="btn" data-more="characters">Characters</button><button class="btn" data-more="campaigns">Campaigns</button>${STATE.ui.ttaChar?`<button class="btn" data-more="tta">⚡ Assistant</button>`:""}</div><div class="acts"><button class="btn ghost" data-close="1">Close</button></div>`);});
+  openModal(`<h2>More</h2><div class="chips" style="flex-direction:column;align-items:stretch">${inCamp?`<button class="btn" data-more="search">⌕ Search the campaign</button>`:""}${dm?`<button class="btn" data-more="dmscreen">📜 DM screen</button>`:""}${inCamp?`<button class="btn" data-more="table">📺 Table view (TV)</button>`:""}<button class="btn" data-more="bug">🐞 Report a problem</button><a class="btn" href="https://claude.ai/code/artifact/6d35a88c-fb74-4940-9a1b-cf022fe0144e" target="_blank" rel="noopener" style="text-align:center">📖 Player guide</a><button class="btn" data-more="profile">◐ Themes &amp; profile</button><button class="btn" data-more="characters">Characters</button><button class="btn" data-more="campaigns">Campaigns</button>${STATE.ui.ttaChar?`<button class="btn" data-more="tta">⚡ Assistant</button>`:""}</div><div class="acts"><button class="btn ghost" data-close="1">Close</button></div>`);});
 document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("[data-more]");if(!t)return;const k=t.dataset.more;closeModal();
-  if(k==="search")searchModal();else if(k==="dmscreen")dmScreen();else if(k==="table"){STATE.ui.tableView=true;render();}else if(k==="tta")ttaOpen(null);else go(k);});
+  if(k==="bug"){bugModal();return;}if(k==="search")searchModal();else if(k==="dmscreen")dmScreen();else if(k==="table"){STATE.ui.tableView=true;render();}else if(k==="tta")ttaOpen(null);else go(k);});
 function phoneLayout(){const ph=window.innerWidth<=700;document.body.classList.toggle("phone",ph);const bar=$("#bar");if(bar)document.documentElement.style.setProperty("--barh",bar.offsetHeight+"px");const ms=document.querySelector(".ministatus");document.documentElement.style.setProperty("--minih",(ph&&ms?ms.offsetHeight:0)+"px");
   const act=document.querySelector(".tabs .tab.active");if(act&&ph)act.scrollIntoView({inline:"center",block:"nearest"});}
 window.addEventListener("resize",()=>phoneLayout());
@@ -6207,7 +6232,7 @@ const Cloud={
       if(Cloud._charHash[id]!==h){Cloud._charHash[id]=h;try{await SB.from("characters").upsert(row);}catch(e){}}}
     for(const id in STATE.campaigns){const c=STATE.campaigns[id];if((c.dm_id||me)!==me)continue;
       const row=Cloud.campRow(c);const h=hashStr(JSON.stringify(row));
-      if(Cloud._campHash[id]!==h){Cloud._campHash[id]=h;try{await SB.from("campaigns").upsert(row);}catch(e){}}}
+      if(Cloud._campHash[id]!==h){Cloud._campHash[id]=h;try{await SB.from("campaigns").upsert(row);DIAG.lastSync=Date.now();}catch(e){}}}
   },400),
   // battle rooms sync on a fast path so combat feels live (any member may push a room forward)
   syncRooms:debounce(async function(){
