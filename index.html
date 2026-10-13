@@ -1464,8 +1464,15 @@ function effAC(ch){
 }
 
 /* ============================ render: shell ============================ */
+let RENDER_KEY="";
 function render(){
-  const ui=STATE.ui;aiSnapshotUI();
+  const ui=STATE.ui;
+  // Someone is typing in the Story or chat box: don't rebuild the page under them — patch what changed and leave the rest alone.
+  const ae=document.activeElement;const typing=ae&&(ae.id==="aiInput"||ae.id==="chatIn");
+  const key=[ui.screen,ui.tab,ui.campId,ui.viewAs,ui.roomId,ui.tableView?1:0].join("|");
+  if(typing&&key===RENDER_KEY&&ui.screen==="play"){storyPatch();save();if(STATE.cloud){Cloud.syncRooms();Cloud.afterRender();}return;}
+  const sameView=key===RENDER_KEY;RENDER_KEY=key;const sy=window.scrollY;
+  aiSnapshotUI();
   // top bar context + view switcher
   const camp=curCamp();
   const ctx=$("#ctx"),va=$("#viewas");
@@ -1504,6 +1511,7 @@ function render(){
   else if(ui.screen==="wizard")scr.appendChild(screenWizard());
   else if(ui.screen==="profile")scr.appendChild(screenProfile());
   $("#foot").innerHTML=footNote();
+  if(sameView&&sy>0)requestAnimationFrame(()=>window.scrollTo({top:sy,behavior:"instant"})); // a background sync shouldn't move the page
   save();
   if(STATE.cloud){Cloud.syncRooms();Cloud.afterRender();}
   if(camp&&ui.screen==="play"&&aiOn(camp))setTimeout(()=>aiMaybeRunEnemy(camp),50);
@@ -3991,15 +3999,9 @@ function storyView(camp,isDM){
   head.innerHTML=`<div><div class="eyebrow">AI Dungeon Master${ai.scene?" · "+esc(ai.scene):""}</div><div class="storymeta">${esc(calLabel(camp))} · <span class="ktag">${esc(ai.difficulty||"medium")}</span> <span class="ktag">${esc(ai.tone||"pg13")}</span>${ai.length?` <span class="ktag">${esc(ai.length)}</span>`:""}</div></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap">${isDM?`<button class="btn sm ghost" data-aisettings="1">⚙</button><button class="btn sm ghost" data-aibible="1" title="Peek at the hidden campaign bible (spoilers)">📖</button>`:""}${!thread.length&&isDM?`<button class="btn sm primary" data-aibegin="1">Begin the campaign</button>`:""}</div>`;
   w.appendChild(head);
-  const list=el("div","storylist");list.id="storyList";
-  if(!thread.length)list.innerHTML=`<div class="empty">${isDM?"Press <b>Begin the campaign</b> — the DM writes its secret bible from your premise, then opens the first scene.":"Waiting for the table owner to begin."}</div>`;
-  thread.slice(-80).forEach(j=>{const dm=j.meta&&j.meta.role==="dm";const sys=j.meta&&j.meta.system;
-    list.innerHTML+=`<div class="smsg ${dm?"dm":"pl"} ${sys?"sys":""}"><div class="sau">${dm?"DM":esc(j.author)}</div><div class="sbody">${sys?esc(j.text):dm?aiMarkdown(j.text):esc(j.text)}</div></div>`;});
-  if(AI_BUSY)list.innerHTML+=`<div class="smsg dm thinking"><div class="sau">DM</div><div class="sbody"><span class="dots"><i></i><i></i><i></i></span></div></div>`;
+  const list=el("div","storylist");list.id="storyList";list.innerHTML=storyListHTML(camp,isDM);
   w.appendChild(list);
-  const pend=(ai.pendingRolls||[]);
-  if(pend.length){const pr=el("div","rollreqs");pr.innerHTML=pend.map(r=>{const ch=camp.party.map(id=>STATE.roster[id]).find(c=>c&&c.name.toLowerCase().startsWith(String(r.who||"").toLowerCase().split(" ")[0]));const mine=!STATE.cloud||!ch||(ch.owner_id||ME())===ME()||isDM;
-      return `<div class="rollreq"><span>🎲 <b>${esc(r.who)}</b>: ${esc(r.check)}${r.dc?" (DC "+r.dc+")":""}${r.why?` <small>— ${esc(r.why)}</small>`:""}</span>${mine?`<button class="btn sm gold" data-airoll="${r.id}">Roll</button>`:""}</div>`;}).join("");w.appendChild(pr);}
+  const pr=el("div","rollreqs");pr.id="rollReqs";pr.innerHTML=rollReqHTML(camp,isDM);w.appendChild(pr);
   const comp=el("div","storycomposer");
   const mine=camp.party.map(id=>STATE.roster[id]).filter(ch=>ch&&(!STATE.cloud||isDM||(ch.owner_id||ME())===ME()));
   comp.innerHTML=`<div style="display:flex;gap:8px;align-items:flex-end"><div style="flex:1"><div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap">${mine.length>1?`<select class="sel" id="aiAs">${mine.map(ch=>`<option value="${ch.id}">${esc(ch.name)}</option>`).join("")}</select>`:""}<button class="chip" data-aiquick="I look around carefully.">Look around</button><button class="chip" data-aiquick="I talk to them.">Talk</button><button class="chip" data-aiquick="I attack!">Attack</button><button class="chip" data-aiquick="We take a short rest.">Rest</button><button class="chip" data-aiquick="What do I know about this?">Recall</button></div>
@@ -4014,6 +4016,22 @@ function storyView(camp,isDM){
     if(AI_UI.focus){const t=$("#aiInput");if(t){t.focus({preventScroll:true});if(AI_UI.sel)try{t.setSelectionRange(AI_UI.sel[0],AI_UI.sel[1]);}catch(e){}}}},0);
   return w;
 }
+function storyListHTML(camp,isDM){const thread=aiThread(camp);let h="";
+  if(!thread.length)h=`<div class="empty">${isDM?"Press <b>Begin the campaign</b> — the DM writes its secret bible from your premise, then opens the first scene.":"Waiting for the table owner to begin."}</div>`;
+  thread.slice(-80).forEach(j=>{const dm=j.meta&&j.meta.role==="dm";const sys=j.meta&&j.meta.system;
+    h+=`<div class="smsg ${dm?"dm":"pl"} ${sys?"sys":""}"><div class="sau">${dm?"DM":esc(j.author)}</div><div class="sbody">${sys?esc(j.text):dm?aiMarkdown(j.text):esc(j.text)}</div></div>`;});
+  if(AI_BUSY)h+=`<div class="smsg dm thinking"><div class="sau">DM</div><div class="sbody"><span class="dots"><i></i><i></i><i></i></span></div></div>`;
+  return h;}
+function rollReqHTML(camp,isDM){const ai=aiOf(camp)||{};const pend=(ai.pendingRolls||[]);if(!pend.length)return "";
+  return pend.map(r=>{const ch=camp.party.map(id=>STATE.roster[id]).find(c=>c&&c.name.toLowerCase().startsWith(String(r.who||"").toLowerCase().split(" ")[0]));const mine=!STATE.cloud||!ch||(ch.owner_id||ME())===ME()||isDM;
+    return `<div class="rollreq"><span>🎲 <b>${esc(r.who)}</b>: ${esc(r.check)}${r.dc?" (DC "+r.dc+")":""}${r.why?` <small>— ${esc(r.why)}</small>`:""}</span>${mine?`<button class="btn sm gold" data-airoll="${r.id}">Roll</button>`:""}</div>`;}).join("");}
+/* in-place update of the Story tab while the player is typing: list, roll prompts, send button — never the composer */
+function storyPatch(){const camp=curCamp();if(!camp)return;const isDM=STATE.cloud?amDM(camp):STATE.ui.viewAs==="dm";
+  const l=$("#storyList");if(l){const html=storyListHTML(camp,isDM);if(l.innerHTML!==html){const atBottom=l.scrollHeight-l.scrollTop-l.clientHeight<40;const n=aiThread(camp).length+(AI_BUSY?1:0);const grew=n!==AI_UI.count;AI_UI.count=n;l.innerHTML=html;if(grew||atBottom)l.scrollTo({top:l.scrollHeight,behavior:"instant"});}}
+  const pr=$("#rollReqs");if(pr){const html=rollReqHTML(camp,isDM);if(pr.innerHTML!==html)pr.innerHTML=html;}
+  const sb=document.querySelector("[data-aisend]");if(sb)sb.disabled=!!AI_BUSY;
+  const cl=$("#chatList");if(cl)chatRefresh(camp);
+  if($("#chatBadge")){const n=chatUnread(camp);const bd=$("#chatBadge");bd.hidden=!n;bd.textContent=n>9?"9+":n;}}
 function aiMarkdown(t){return esc(t).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/\*(.+?)\*/g,"<i>$1</i>").replace(/\n{2,}/g,"</p><p>").replace(/\n/g,"<br>").replace(/^/,"<p>").replace(/$/,"</p>");}
 async function aiRespond(camp,extra){
   if(AI_BUSY)return;AI_BUSY=true;render();
