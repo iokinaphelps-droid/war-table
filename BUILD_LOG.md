@@ -90,6 +90,7 @@ Lore kinds `note/handout/dm/npc`. Journal kinds `auto/story/recap/context/downti
 - **v24** — Scaling resources: slot picker on cast, upcast tables, riders (Divine Smite), pools (Lay on Hands), Ki/Sorcery Points, editor scaling fields, half-caster slot fix.
 - **v25** — Combat deep-dive: class kits for every SRD class, items in battle, standard actions, player-rolled saves + DM call-for-save, mechanical reactions.
 - **v27** — Tabletop Assistant (TTA) + hit dice.
+- **v28** — Importer pass (DDB features/actions/weapons/spells with activation, dice, saves, range; SRD spell enrichment; resync preserves prepared/upcast). Sheet split into **Moves** (chosen) and **Traits** (always on); ★ favorites (up to 4) as quick picks in battle before "Change move". Range limits (reach/range/long-range disadvantage/point-blank disadvantage, toggle in Settings). Enemy AI paths around walls (BFS), ranged foes kite. AI DM narrates every round (`[battle narrate]`) and moves player tokens on described movement.
 - **v26** — Table tools: chat/whispers/checks, spell preparation, encounter budget + XP, treasure & random tables, travel & weather, factions, shops, file export/import, table-side mode. Player Guide updated (fighting, between fights, table-side, DM extras).
 
 ---
