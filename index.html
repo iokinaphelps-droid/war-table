@@ -1494,7 +1494,7 @@ function spellUsesLabel(ch,a){
   if(!si)return "At will";
   return si.kind==="pact"?`${si.cur}/${si.max} Pact Slots`:`${si.cur}/${si.max} ${ordLevel(si.level)} slots`;}
 /* ============================ diagnostics: breadcrumbs, error capture, one-tap bug report ============================ */
-const BUILD_ID="20261014.fdcc1ed";
+const BUILD_ID="20261014.f541985";
 const DIAG={crumbs:[],errors:[],lastSync:null,online:navigator.onLine};
 function crumb(line){DIAG.crumbs.push(new Date().toTimeString().slice(0,8)+" "+line);if(DIAG.crumbs.length>40)DIAG.crumbs.shift();}
 document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("button,[data-nav],[data-tab],.chip,.tok,.tile,.movebtn,a");if(!t)return;const ds=t.dataset||{};const k=Object.keys(ds).find(x=>x!=="v")||"";crumb((k?k+"="+String(ds[k]).slice(0,30):"")+" "+(t.textContent||"").trim().replace(/\s+/g," ").slice(0,28));},true);
@@ -1636,7 +1636,7 @@ function screenCharacters(){
         <div class="cstats"><span>AC ${effAC(ch).ac}</span><span>HP ${ch.hp??ch.maxHP}/${ch.maxHP}</span><span>Spd ${ch.speed}</span></div></div>
       <div class="crow"><button class="btn sm primary" data-joinwith="${ch.id}">Join a campaign →</button><button class="btn sm" data-ttaopen="${ch.id}" title="One-screen assistant: HP, slots, one-tap rolls — no table on the software">⚡ Assistant</button><button class="btn sm ghost" data-tableside="${ch.id}" title="Shared tracker for the whole party at a paper table">🎲 Table side</button>
         <button class="btn sm ghost" data-portrait="${ch.id}">🖼</button>
-        <button class="btn sm ghost" data-buildedit="${ch.id}">Edit</button></div>`;
+        <button class="btn sm ghost" data-buildedit="${ch.id}">Edit</button>${ch.ddbId?`<button class="btn sm ghost" data-ddbsync="${ch.id}" title="Pull the latest from D&D Beyond">⟳ D&amp;D Beyond</button>`:""}</div>`;
     grid.appendChild(s);
   });
   wrap.appendChild(grid);
