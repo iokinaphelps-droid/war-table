@@ -1492,7 +1492,7 @@ function spellUsesLabel(ch,a){
   if(!si)return "At will";
   return si.kind==="pact"?`${si.cur}/${si.max} Pact Slots`:`${si.cur}/${si.max} ${ordLevel(si.level)} slots`;}
 /* ============================ diagnostics: breadcrumbs, error capture, one-tap bug report ============================ */
-const BUILD_ID="20261014.2051132";
+const BUILD_ID="20261014.9813f05";
 const DIAG={crumbs:[],errors:[],lastSync:null,online:navigator.onLine};
 function crumb(line){DIAG.crumbs.push(new Date().toTimeString().slice(0,8)+" "+line);if(DIAG.crumbs.length>40)DIAG.crumbs.shift();}
 document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("button,[data-nav],[data-tab],.chip,.tok,.tile,.movebtn,a");if(!t)return;const ds=t.dataset||{};const k=Object.keys(ds).find(x=>x!=="v")||"";crumb((k?k+"="+String(ds[k]).slice(0,30):"")+" "+(t.textContent||"").trim().replace(/\s+/g," ").slice(0,28));},true);
@@ -2812,8 +2812,11 @@ function enterTurn(b,applyStart,guard){
     advanceTurn(b,g);
   }
 }
+function battleBrief(b){const up=x=>`${x.name.split(" ")[0]} ${x.hp}/${x.maxHP}`;const heroes=b.combatants.filter(c=>c.side==="party").map(up).join(", ");const foes=b.combatants.filter(c=>c.side==="enemy");const down=foes.filter(isDown).length;
+  return `[battle] ${b.name||"Encounter"} round ${b.round}: ${heroes}. Foes: ${foes.length-down} standing, ${down} down${foes.length-down<=6?" ("+foes.filter(c=>!isDown(c)).map(up).join(", ")+")":""}. Last: ${(b.log||[]).slice(0,3).reverse().join(" ")}`;}
 function advanceTurn(b,guard){
-  b.turnIdx++;if(b.turnIdx>=b.order.length){b.turnIdx=0;b.round++;blog(b,`— Round ${b.round} —`);tickEffects(b);}
+  b.turnIdx++;if(b.turnIdx>=b.order.length){b.turnIdx=0;b.round++;blog(b,`— Round ${b.round} —`);tickEffects(b);
+    const camp=curCamp();if(camp&&b.ai&&aiOn(camp)&&aiOwner(camp)&&b.round>1)aiPost(camp,"player",battleBrief(b),{system:true});} // the DM sees how the fight is going
   enterTurn(b,true,guard);
 }
 /* ---- action economy: action / bonus / reaction per turn ---- */
@@ -3169,7 +3172,9 @@ function pendingPanel(b,isDM){
 }
 function enemyActionForm(b,c,isDM){
   const moves=c.moves||[];
-  if(!BACT||BACT.combatantId!==c.id)BACT={combatantId:c.id,moveId:moves[0]?moves[0].id:null,flat:0,targetId:null,targetIds:null,rolls:null,hit:null};
+  if(b.ai&&!b.aiPaused){const multi=c.multi||((moves.find(x=>x.multi)||{}).multi||1);return `<div class="awaiting">🎭 The DM is taking <b>${esc(c.name)}</b>'s turn${multi>1?" ("+multi+" attacks)":""}… <button class="btn sm ghost" data-ainow="1">Resolve now</button> <button class="btn sm ghost" data-aipause="1" title="Run the monsters yourself">Take over</button></div>`;}
+  const first=moves.find(x=>x.dmg&&!/multiattack/i.test(x.name||""))||moves[0];
+  if(!BACT||BACT.combatantId!==c.id)BACT={combatantId:c.id,moveId:first?first.id:null,flat:0,targetId:null,targetIds:null,rolls:null,hit:null};
   const targets=b.combatants.filter(x=>x.id!==c.id);
   if(!BACT.targetId&&targets.length){const t=targets.find(x=>x.side==="party"&&!isDown(x))||targets[0];BACT.targetId=t.id;}
   let html="";
@@ -3319,9 +3324,12 @@ async function monList(){
     try{localStorage.setItem("wt_monlist",JSON.stringify(MON.list));}catch(e){}}catch(e){MON.list=[];MON.offline=true;}
   return MON.list;
 }
+/* a usable stat line when the DM names a creature the SRD doesn't have: by CR (DMG monster-building table, rounded) */
+function genericMonster(name,cr){cr=+cr||1;const row=cr<1?[12,[7,15,22,30][Math.round(cr*8)]||15,3,[2,3,4,5][Math.round(cr*8)]||3,"1d6"]:[13+Math.floor(cr/3),Math.round(15+cr*12),3+Math.floor(cr/2),2+Math.ceil(cr*1.1),cr>=5?"2d8":cr>=2?"1d10":"1d8"];
+  const [ac,hp,atk,flat,dice]=row;return {index:null,name,hp,ac,resist:[],immune:[],vuln:[],condImmune:[],dexMod:1,scores:{str:14,dex:12,con:14,int:8,wis:10,cha:8},saves:{},moves:[{id:uid("m"),name:"Strike",attack:"+"+atk,dmg:dice,flatPer:flat,dmgType:"slashing",text:"Melee weapon attack, reach 5 ft."}],cr,speed:"30 ft.",type:"humanoid",size:"Medium",src:"generic",multi:cr>=5?2:1};}
 async function monDetail(index){
   if(MON.cache[index])return MON.cache[index];
-  const r=await fetch("https://www.dnd5eapi.co/api/monsters/"+index);const j=await r.json();
+  const r=await fetch("https://www.dnd5eapi.co/api/monsters/"+index);if(!r.ok)throw new Error("no such monster: "+index);const j=await r.json();
   const sm=v=>Math.floor(((v||10)-10)/2);
   const scores={str:j.strength,dex:j.dexterity,con:j.constitution,int:j.intelligence,wis:j.wisdom,cha:j.charisma};
   const saves={};(j.proficiencies||[]).forEach(p=>{const m=(p.proficiency&&p.proficiency.index||"").match(/^saving-throw-(\w+)$/);if(m)saves[m[1]]=p.value;});
@@ -3335,8 +3343,11 @@ async function monDetail(index){
     const dc=ac.dc||(d&&d.dc);if(dc&&dc.dc_type)m.save={ability:(dc.dc_type.name||"").slice(0,3).toUpperCase(),dc:dc.dc_value};
     const am=(ac.desc||"").match(/(\d+)-foot[- ](cone|line|radius|cube|sphere)/i);if(am){const t=am[2].toLowerCase();m.aoe={type:t==="radius"?"sphere":t,size:+am[1]};}
     moves.push(m);});
+  const ma=(j.actions||[]).find(a=>/multiattack/i.test(a.name||""));let multi=1;
+  if(ma){const t=(ma.desc||"").toLowerCase();const w={two:2,three:3,four:4,five:5,six:6};const mm=t.match(/makes (two|three|four|five|six|\d+) /);if(mm)multi=w[mm[1]]||parseInt(mm[1],10)||2;else if(/two/.test(t))multi=2;}
+  moves.forEach(m=>{if(/multiattack/i.test(m.name))m.multi=multi;});
   const low=a=>(a||[]).map(x=>String(x).toLowerCase());
-  const mon={index:j.index,name:j.name,hp:j.hit_points,ac:Array.isArray(j.armor_class)?(j.armor_class[0]&&j.armor_class[0].value)||10:(j.armor_class||10),resist:low(j.damage_resistances),immune:low(j.damage_immunities),vuln:low(j.damage_vulnerabilities),condImmune:low((j.condition_immunities||[]).map(x=>x.name)),
+  const mon={index:j.index,name:j.name,multi,hp:j.hit_points,ac:Array.isArray(j.armor_class)?(j.armor_class[0]&&j.armor_class[0].value)||10:(j.armor_class||10),resist:low(j.damage_resistances),immune:low(j.damage_immunities),vuln:low(j.damage_vulnerabilities),condImmune:low((j.condition_immunities||[]).map(x=>x.name)),
     dexMod:sm(j.dexterity),scores,saves,moves,cr:j.challenge_rating,speed:(j.speed&&j.speed.walk)||"30 ft.",type:j.type,size:j.size,
     hpDice:j.hit_dice,src:"SRD"};
   MON.cache[index]=mon;return mon;
@@ -3896,6 +3907,8 @@ HOW TO RUN THE TABLE
 - Track time: use the calendar command when days pass. Use the npc command when a named NPC becomes someone the party will meet again. Use the handout command for letters, maps, inscriptions, wanted posters.
 - THE MAP IS YOURS. When a fight starts or the party enters a place worth seeing (a dungeon room, a ruined chapel, a tavern brawl), send a map command in the SAME reply as the encounter: describe the scene for the artist, size the grid (10×8 for a room, up to 24×16 for a battlefield), and list wall/obstacle tiles as [x,y] pairs (outer walls, pillars, a table, a chasm). Keep walls plausible — don't box the party in.
 - MOVE THE TOKENS. Players describe what they do in words; you place them. Use the move command to set starting positions when an encounter begins (party together on one side, foes where the fiction puts them) and whenever a player says they move ("I circle behind the ogre" → move them adjacent to the ogre's far side). Respect speed (30 ft = 6 tiles of 5 ft) and walls; say what you did in the narration. You can move foes too. Coordinates are x,y from the BATTLE BOARD block above.
+- NEVER claim to have changed a sheet, spawned a fight, moved a token or restored anything unless you sent the command for it in that reply. After each reply the app posts an "[app] …" line saying what it actually did (or that nothing applied) — read it; if something didn't apply, fix the command next reply. During a fight the app posts "[battle] …" round summaries — narrate from those; you don't need to ask whether the fight is being tracked.
+- One encounter at a time. The app closes the previous fight when you spawn a new one; use end_encounter when a fight resolves narratively. Encounters are capped at 12 foes — for a horde, spawn the dozen that engage and narrate the rest. A monster not in the SRD can still be spawned by giving it "cr" (and a "name"); the app builds plausible stats.
 - THE SHEETS ARE LIVE. When a player says they use a resource (a spell slot, Lay on Hands, Ki, a potion, Channel Divinity), narrate it AND send a spend command so the app deducts it — you can see their current resources under THE PARTY. When they take damage or heal outside a tracked fight, send an hp command. When the story gives a character something lasting — a bond, a curse, a blessing, a pact with an entity, a new power — send a grant command and it appears on their sheet as a DM-granted ability with the mechanics you define (keep boons modest: a once-per-rest effect, a small bonus, a cost). Loot and keepsakes → item command. A player asking "add X to my sheet" means: grant it, with rules.
 - Keep each player's spotlight fair; if one has gone quiet for a while, give their character something.
 - Rules: 5e as written, adjudicate fast, player agency over rules minutiae. Don't narrate a player's success or failure before the roll.
@@ -3907,7 +3920,7 @@ Plain narrative text (markdown light: *italics* for emphasis, no headings). Then
 \`\`\`
 Command shapes (use any, in one array):
 {"roll":{"who":"Aster Phagos","check":"Perception","dc":13,"why":"to spot the ambush"}}
-{"encounter":{"name":"Ambush at the ford","monsters":[{"index":"goblin","count":3},{"index":"wolf","count":1}],"terrain":"a shallow river crossing, boulders for cover"}}
+{"encounter":{"name":"Ambush at the ford","monsters":[{"index":"goblin","count":3},{"index":"wolf","count":1},{"index":"greytower-soldier","name":"Greytower soldier","cr":1,"count":4}],"terrain":"a shallow river crossing, boulders for cover"}}
 {"npc":{"name":"Mirabel","role":"ferry-keeper","attitude":"friendly|neutral|wary|hostile","where":"the Drowned Rat","notes":"what the party knows"}}
 {"handout":{"title":"The sealed letter","text":"..."}}
 {"calendar":{"advance":1}}
@@ -3920,7 +3933,9 @@ Command shapes (use any, in one array):
 {"spend":{"who":"Riven","resource":"Lay on Hands","amount":10}}  — resource = a charge/pool name, or "slot 1" / "slot 2"… for spell slots.
 {"hp":{"who":"Riven","delta":-6,"why":"the rockfall"}}  — damage (negative) or healing (positive) outside a tracked fight; "temp":5 for temp HP.
 {"grant":{"who":"Riven","name":"The Choir's Chord","type":"support|damage|defense|control|utility","action":"Action|Bonus|Reaction|Free","text":"what it does, in rules terms","uses":2,"recharge":"long|short","dmg":"2d6","dmgType":"thunder","save":{"ability":"WIS","dc":14}}  — only name, type, action and text are required.
-{"item":{"who":"Riven","name":"Salt-etched locket","qty":1,"note":"hums faintly near water"}}`;
+{"item":{"who":"Riven","name":"Salt-etched locket","qty":1,"note":"hums faintly near water"}}
+{"restore":{"who":"Riven","hp":true,"slots":true,"charges":true}}  — a reset between arcs or after a long rest you've narrated (prefer the rest command for an ordinary rest).
+{"end_encounter":true}  — close the current fight when it's over in the fiction.`;
 }
 function aiRecent(camp,n){const all=aiThread(camp);const recent=all.slice(-(n||30));const older=all.slice(0,Math.max(0,all.length-(n||30)));
   // long sessions: the last 30 messages in full, the ones before that as a one-line each digest (keeps the prompt small enough to answer within the server's time limit)
@@ -3962,7 +3977,9 @@ async function aiExecute(camp,cmds){
     if(c.handout&&aiOwner(camp)){camp.lore=camp.lore||[];const note={id:uid("n"),author:"DM",author_id:STATE.cloud?ME():null,ts:Date.now(),text:c.handout.text||"",title:c.handout.title||"Handout",kind:"handout",visible:true,image:null};camp.lore.push(note);if(STATE.cloud)Cloud.addLore(camp.id,note);notes.push("handout: "+note.title);}
     if(c.calendar&&aiOwner(camp)){calAdvance(camp,+c.calendar.advance||1);notes.push("time passes → "+calLabel(camp));}
     if(c.rest&&aiOwner(camp)){doRest(c.rest==="long"?"long":"short");notes.push(c.rest+" rest");}
-    if(c.encounter&&aiOwner(camp)){await aiSpawnEncounter(camp,c.encounter);notes.push("encounter: "+(c.encounter.name||"fight"));}
+    if(c.encounter&&aiOwner(camp)){await aiSpawnEncounter(camp,c.encounter,notes);}
+    if(c.end_encounter&&aiOwner(camp)){Object.entries(ensureRooms(camp)).forEach(([id,r])=>{if(r.ai&&!r.aiDone){r.aiDone=true;endRoom(camp,id);notes.push("encounter ended: "+(r.name||"fight"));}});render();}
+    if(c.restore&&aiOwner(camp)){const ch=aiFindChar(camp,c.restore.who);if(ch&&aiOwnsChar(ch)){if(c.restore.slots!==false&&ch.slots)Object.values(ch.slots).forEach(sl=>sl.cur=sl.max);if(c.restore.hp)ch.hp=ch.maxHP;if(c.restore.charges)Object.values(ch.charges||{}).forEach(x=>x.cur=x.max);notes.push(`${ch.name.split(" ")[0]} restored${c.restore.hp?" (HP)":""}${c.restore.slots!==false?" (slots)":""}${c.restore.charges?" (charges)":""}`);}}
   }catch(e){console.warn("ai cmd failed",c,e);}}
   for(const c of cmds){try{
     if(c.spend)aiSpend(camp,c.spend,notes);
@@ -4039,23 +4056,29 @@ async function aiGenMap(camp,roomId,prompt,cols,rows){
     catch(e){console.warn("map gen",model,e.message);}}}
   toast("The art service didn't return a map — the grid is set, fight on the plain board");
 }
-async function aiSpawnEncounter(camp,enc){
-  const party=camp.party.filter(id=>STATE.roster[id]);if(!party.length)return;
+async function aiSpawnEncounter(camp,enc,notes){
+  const party=camp.party.filter(id=>STATE.roster[id]);if(!party.length)return;notes=notes||[];
+  // one fight at a time: close any AI room still open (its summary goes to the DM)
+  Object.entries(ensureRooms(camp)).forEach(([id,r])=>{if(r.ai&&!r.aiDone){r.aiDone=true;const sum=`[combat ended] ${r.name||"Encounter"} closed after ${r.round} round${r.round===1?"":"s"} to start a new one.`;endRoom(camp,id);aiPost(camp,"player",sum,{system:true});}else if(!r.ai&&r.combatants.length<=party.length&&r.phase==="setup")endRoom(camp,id);});
   const rid=startRoom(camp,party,enc.name||"Encounter");const b=camp.rooms[rid];b.ai=true;b.terrain=enc.terrain||"";
-  const mons=Array.isArray(enc.monsters)?enc.monsters:[];let placed=0;
-  for(const m of mons){let base=null;try{base=await monDetail(String(m.index||"").toLowerCase().replace(/\s+/g,"-"));}catch(e){}
-    const n=Math.max(1,Math.min(8,parseInt(m.count,10)||1));
-    for(let i=0;i<n;i++){let x=b.cols,y=1;outer:for(let xx=b.cols;xx>=1;xx--)for(let yy=1;yy<=b.rows;yy++){if(!isWall(b,xx,yy)&&!b.combatants.find(c=>c.x===xx&&c.y===yy)){x=xx;y=yy;break outer;}}
+  const mons=Array.isArray(enc.monsters)?enc.monsters:[];let placed=0;const CAP=12;const missing=[];
+  const freeSpots=()=>{const out=[];const x0=Math.ceil(b.cols*0.55);for(let y=1;y<=b.rows;y++)for(let x=x0;x<=b.cols;x++){if(!isWall(b,x,y)&&!b.combatants.find(c=>c.x===x&&c.y===y))out.push([x,y]);}return out;};
+  for(const m of mons){if(placed>=CAP)break;let base=null;const idx=String(m.index||"").toLowerCase().replace(/\s+/g,"-");
+    try{base=await monDetail(idx);}catch(e){if(m.cr!=null||m.name){base=genericMonster(m.name||idx.replace(/-/g," "),m.cr!=null?m.cr:1);missing.push(idx);}else{missing.push(idx);continue;}}
+    const n=Math.max(1,Math.min(CAP-placed,parseInt(m.count,10)||1));
+    for(let i=0;i<n;i++){const spots=freeSpots();let x=b.cols,y=1;if(spots.length){const pick=spots[Math.floor(Math.random()*spots.length)];x=pick[0];y=pick[1];}else{outer:for(let xx=b.cols;xx>=1;xx--)for(let yy=1;yy<=b.rows;yy++){if(!isWall(b,xx,yy)&&!b.combatants.find(c=>c.x===xx&&c.y===yy)){x=xx;y=yy;break outer;}}}
       const nm=base?base.name:(m.name||m.index||"Foe");const label=n>1?`${nm} ${i+1}`:nm;
       b.combatants.push({id:uid("e"),side:"enemy",name:label,token:nm[0].toUpperCase()+(n>1?String(i+1):""),ac:base?base.ac:12,maxHP:base?base.hp:11,hp:base?base.hp:11,dmgTaken:0,revealHP:false,revealAC:false,initRoll:rollDie(20),dexMod:base?base.dexMod:1,conditions:[],dots:[],x,y,
-        moves:base?JSON.parse(JSON.stringify(base.moves)):[{id:uid("m"),name:"Strike",attack:"+3",dmg:"1d6",flatPer:1,dmgType:"slashing"}],scores:base&&base.scores||null,saves:base&&base.saves||null,cr:base?base.cr:null,resist:base&&base.resist||[],immune:base&&base.immune||[],vuln:base&&base.vuln||[],tempHP:0,monIndex:base?base.index:null});placed++;}}
+        moves:base?JSON.parse(JSON.stringify(base.moves)):[{id:uid("m"),name:"Strike",attack:"+3",dmg:"1d6",flatPer:1,dmgType:"slashing"}],scores:base&&base.scores||null,saves:base&&base.saves||null,cr:base?base.cr:null,multi:base?base.multi||1:1,resist:base&&base.resist||[],immune:base&&base.immune||[],vuln:base&&base.vuln||[],tempHP:0,monIndex:base&&base.src==="SRD"?base.index:null});placed++;}}
   blog(b,`${enc.name||"An encounter"} begins${enc.terrain?" — "+enc.terrain:""}.`);
+  const bud=encounterBudget(camp,b.combatants.filter(c=>c.side==="enemy"&&c.cr!=null));
+  notes.push(`encounter "${enc.name||"fight"}" on the Battle tab: ${placed} foe${placed===1?"":"s"} (${bud.label}${mons.reduce((t,m)=>t+(parseInt(m.count,10)||1),0)>CAP?", capped at "+CAP:""})${missing.length?"; not in the SRD, used generic stats: "+missing.join(", "):""}`);
   STATE.ui.roomId=rid;render();
 }
 /* the owner's client plays the monsters: pick the best attack, pick a target by difficulty, roll, apply, advance */
 let AI_TURN_T=null;
 function aiMaybeRunEnemy(camp){
-  if(!aiOn(camp)||!aiOwner(camp))return;const cr=curRoom(camp,true);if(!cr)return;const b=cr.b;if(!b.ai)return;
+  if(!aiOn(camp)||!aiOwner(camp))return;const cr=curRoom(camp,true);if(!cr)return;const b=cr.b;if(!b.ai||b.aiPaused)return;
   if(b.phase==="setup"){ // begin automatically once every hero has rolled
     const heroes=b.combatants.filter(c=>c.side==="party");if(heroes.length&&heroes.every(c=>c.initRoll!=null)){b.combatants.forEach(c=>{if(c.initRoll==null)c.initRoll=rollDie(20);});beginCombat(b);render();}
     return;}
@@ -4069,8 +4092,9 @@ function aiMaybeRunEnemy(camp){
 function aiEnemyTurn(camp,b,c){
   const diff=(aiOf(camp)||{}).difficulty||"medium";const heroes=b.combatants.filter(x=>x.side==="party"&&!isDown(x));if(!heroes.length)return;
   const avg=m=>{const mm=(m.dmg||"").match(/(\d+)d(\d+)/);return mm?(+mm[1])*((+mm[2])+1)/2+(m.flatPer||0):0;};
-  const moves=(c.moves||[]).filter(m=>m.dmg||m.save||m.attack);let m=moves.sort((a,z)=>avg(z)-avg(a))[0];
+  const moves=(c.moves||[]).filter(m=>(m.dmg||m.save)&&!/multiattack/i.test(m.name||""));let m=moves.sort((a,z)=>avg(z)-avg(a))[0];
   if(!m){blog(b,`${c.name} hesitates.`);advanceTurn(b,0);return;}
+  const swings=Math.max(1,Math.min(4,c.multi||((c.moves||[]).find(x=>x.multi)||{}).multi||1));
   // target: easy → random; medium → nearest; hard → lowest HP (ties nearest)
   const dist=h=>tileDist(b,c,h);let tgt;
   if(diff==="easy")tgt=heroes[Math.floor(Math.random()*heroes.length)];
@@ -4088,12 +4112,13 @@ function aiEnemyTurn(camp,b,c){
     blog(b,`${c.name} uses ${m.name} (DC ${m.save.dc} ${m.save.ability}).`);
     (targets.length?targets:[tgt]).forEach(t=>{const sv=rollSaveFor(t,m.save.ability,m.save.dc);const dmg=sv.ok?Math.floor(total/2):total;const note=adjustHP(b,t,-dmg,{type:m.dmgType});blog(b,`${t.name} ${sv.auto?"auto-fails":(sv.ok?"saves ("+sv.total+")":"fails ("+sv.total+")")} — takes ${dmg}${note||""}.`);});
     advanceTurn(b,0);return;}
-  const adv=condAdvantage(c,tgt,melee);const r1=rollDie(20),r2=rollDie(20);const keep=adv.mode==="adv"?Math.max(r1,r2):adv.mode==="dis"?Math.min(r1,r2):r1;const bonus=parseInt(String(m.attack||"+0").replace(/[^-\d]/g,""),10)||0;
-  const hit=keep===20||(keep!==1&&keep+bonus>=tgt.ac);
-  if(!hit){blog(b,`${c.name} attacks ${tgt.name} with ${m.name} — misses (${keep+bonus} vs AC ${tgt.ac}).`);advanceTurn(b,0);return;}
-  const dice=(m.dmg||"").match(/(\d+)d(\d+)/);let total=m.flatPer||0;if(dice){const n=(+dice[1])*(keep===20?2:1);for(let i=0;i<n;i++)total+=rollDie(+dice[2]);}
-  const note=adjustHP(b,tgt,-Math.max(0,total),{type:m.dmgType});
-  blog(b,`${c.name} hits ${tgt.name} with ${m.name} for ${total}${m.dmgType?" "+m.dmgType:""}${keep===20?" (critical!)":""}${note||""}.`);
+  for(let sw=0;sw<swings;sw++){if(isDown(tgt))break;
+    const adv=condAdvantage(c,tgt,melee);const r1=rollDie(20),r2=rollDie(20);const keep=adv.mode==="adv"?Math.max(r1,r2):adv.mode==="dis"?Math.min(r1,r2):r1;const bonus=parseInt(String(m.attack||"+0").replace(/[^-\d]/g,""),10)||0;
+    const hit=keep===20||(keep!==1&&keep+bonus>=tgt.ac);
+    if(!hit){blog(b,`${c.name} attacks ${tgt.name} with ${m.name} — misses (${keep+bonus} vs AC ${tgt.ac}).`);continue;}
+    const dice=(m.dmg||"").match(/(\d+)d(\d+)/);let total=m.flatPer||0;if(dice){const n=(+dice[1])*(keep===20?2:1);for(let i=0;i<n;i++)total+=rollDie(+dice[2]);}
+    const note=adjustHP(b,tgt,-Math.max(0,total),{type:m.dmgType});
+    blog(b,`${c.name} hits ${tgt.name} with ${m.name} for ${total}${m.dmgType?" "+m.dmgType:""}${keep===20?" (critical!)":""}${note||""}${swings>1?" ("+(sw+1)+"/"+swings+")":""}.`);}
   advanceTurn(b,0);
 }
 function aiFinishEncounter(camp,b,won){
@@ -4157,7 +4182,8 @@ async function aiRespond(camp,extra){
   try{const text=await aiCall(camp,extra);const {narr,cmds}=aiParse(text);
     if(narr)aiPost(camp,"dm",narr);
     const notes=await aiExecute(camp,cmds);
-    if(notes.length)toast(notes.join(" · "));}
+    if(notes.length){toast(notes.join(" · "));aiPost(camp,"player","[app] "+notes.join("; "),{system:true});}
+    else if(cmds.length)aiPost(camp,"player","[app] nothing applied — commands didn't match anything (check names and shapes)",{system:true});}
   catch(e){toast(e.message||"The DM lost the thread — try again");aiPost(camp,"dm","*(The DM pauses — "+(e.message||"something went wrong")+". Try again.)*",{system:true});}
   finally{AI_BUSY=false;render();}
 }
@@ -5482,7 +5508,7 @@ function liveCalc(ch,a,st){
 
 /* battle + lore events */
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-newroom],[data-newroomsave],[data-roomsel],[data-roomend],[data-addplayer],[data-addplayersave],[data-endbtl],[data-addenemy],[data-addenemysave],[data-nextturn],[data-cell],[data-selbtl],[data-dmgc],[data-revhp],[data-revac],[data-rmc],[data-brollinit],[data-rollallinit],[data-begincombat],[data-reroll],[data-reup],[data-redn],[data-passturn],[data-bmove],[data-bmovefilter],[data-buse],[data-ballroll],[data-blvl],[data-bpool],[data-blogdmg],[data-stdact],[data-helpgo],[data-bitem],[data-biuse],[data-bheal],[data-bsave],[data-callsave],[data-callsavego],[data-reactgo],[data-reactcancel],[data-bclear],[data-bmod],[data-bperinst],[data-bbonus],[data-bapply],[data-eapply],[data-cond],[data-adddot],[data-dotsave],[data-rmdot],[data-bfeet],[data-bmode],[data-bclearmap],[data-bsettingsave],[data-bzoom],[data-undo],[data-defs],[data-react],[data-reactpick],[data-fxadd],[data-fxsave],[data-fxrm],[data-defsave],[data-concroll],[data-concdrop],[data-conckeep],[data-aoeshape],[data-aoeplace],[data-aoeclear],[data-enaddmove],[data-enrmmove],[data-monpick],[data-emove],[data-ehit],[data-eroll],[data-bgridopen],[data-bhit],[data-btgt],[data-bsaveroll],[data-bresolve],[data-bpendclear]");
+  const t=e.target.closest("[data-newroom],[data-newroomsave],[data-roomsel],[data-roomend],[data-addplayer],[data-addplayersave],[data-endbtl],[data-addenemy],[data-addenemysave],[data-nextturn],[data-cell],[data-selbtl],[data-dmgc],[data-revhp],[data-revac],[data-rmc],[data-brollinit],[data-rollallinit],[data-begincombat],[data-reroll],[data-reup],[data-redn],[data-passturn],[data-bmove],[data-bmovefilter],[data-buse],[data-ballroll],[data-blvl],[data-bpool],[data-blogdmg],[data-ainow],[data-aipause],[data-stdact],[data-helpgo],[data-bitem],[data-biuse],[data-bheal],[data-bsave],[data-callsave],[data-callsavego],[data-reactgo],[data-reactcancel],[data-bclear],[data-bmod],[data-bperinst],[data-bbonus],[data-bapply],[data-eapply],[data-cond],[data-adddot],[data-dotsave],[data-rmdot],[data-bfeet],[data-bmode],[data-bclearmap],[data-bsettingsave],[data-bzoom],[data-undo],[data-defs],[data-react],[data-reactpick],[data-fxadd],[data-fxsave],[data-fxrm],[data-defsave],[data-concroll],[data-concdrop],[data-conckeep],[data-aoeshape],[data-aoeplace],[data-aoeclear],[data-enaddmove],[data-enrmmove],[data-monpick],[data-emove],[data-ehit],[data-eroll],[data-bgridopen],[data-bhit],[data-btgt],[data-bsaveroll],[data-bresolve],[data-bpendclear]");
   if(!t)return;const d=t.dataset;const camp=curCamp();
   const isDM=STATE.cloud?amDM(camp):(STATE.ui.viewAs==="dm"); // host authority (DM keeps it even while viewing a PC)
   // room management (DM) — resolved before we need a battle
@@ -5602,6 +5628,8 @@ document.addEventListener("click",e=>{
     const label=($("#dotLabel").value||"DOT").trim();const amt=parseInt($("#dotAmt").value,10)||0;
     c.dots.push({id:uid("dot"),label,amount:amt});}closeModal();render();toast("DOT added");return;}
   if(d.rmdot){const [cid,did]=d.rmdot.split("|");const c=b.combatants.find(x=>x.id===cid);if(c)c.dots=(c.dots||[]).filter(x=>x.id!==did);render();return;}
+  if(d.ainow){const camp=curCamp();const c=curCombatant(b);if(c&&c.side==="enemy"&&!isDown(c)){clearTimeout(AI_TURN_T);b.aiBusy=false;aiEnemyTurn(camp,b,c);render();}return;}
+  if(d.aipause){b.aiPaused=!b.aiPaused;BACT=null;render();toast(b.aiPaused?"You're running the monsters":"The DM runs the monsters again");return;}
   if(d.bmove){const react=!!(BACT&&BACT.react);const c=react?b.combatants.find(x=>x.id===BACT.combatantId):curCombatant(b);if(!c)return;const ch=actorOf(c);if(!ch)return;const a=ch.abilities.find(x=>x.id===d.bmove);BACT=null;ensureBACT(c,a);if(react){BACT.react=true;BACT.gridOpen=false;}render();return;}
   if(d.bgridopen){if(BACT)BACT.gridOpen=true;render();return;}
   if(d.bmovefilter){BFILTER=d.bmovefilter;if(BACT)BACT.gridOpen=true;render();return;}
