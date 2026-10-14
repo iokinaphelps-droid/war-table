@@ -9,7 +9,7 @@ packages:
         runtime: nodejs:18
         web: true
         limits:
-          timeout: 60000
+          timeout: 120000
           memory: 256
         environment:
           ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}

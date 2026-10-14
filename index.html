@@ -1492,7 +1492,7 @@ function spellUsesLabel(ch,a){
   if(!si)return "At will";
   return si.kind==="pact"?`${si.cur}/${si.max} Pact Slots`:`${si.cur}/${si.max} ${ordLevel(si.level)} slots`;}
 /* ============================ diagnostics: breadcrumbs, error capture, one-tap bug report ============================ */
-const BUILD_ID="20261013.588901c";
+const BUILD_ID="20261014.2051132";
 const DIAG={crumbs:[],errors:[],lastSync:null,online:navigator.onLine};
 function crumb(line){DIAG.crumbs.push(new Date().toTimeString().slice(0,8)+" "+line);if(DIAG.crumbs.length>40)DIAG.crumbs.shift();}
 document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("button,[data-nav],[data-tab],.chip,.tok,.tile,.movebtn,a");if(!t)return;const ds=t.dataset||{};const k=Object.keys(ds).find(x=>x!=="v")||"";crumb((k?k+"="+String(ds[k]).slice(0,30):"")+" "+(t.textContent||"").trim().replace(/\s+/g," ").slice(0,28));},true);
@@ -3862,7 +3862,9 @@ function aiThread(camp){return journalOf(camp).filter(j=>j.kind==="ai").sort((a,
 function aiPost(camp,role,text,meta,author){const j={id:uid("j"),kind:"ai",author:role==="dm"?"DM":(author||whoAmI(false)),author_id:STATE.cloud?ME():null,ts:Date.now(),text,meta:Object.assign({role},meta||{})};journalOf(camp).push(j);if(STATE.cloud)Cloud.addJournal(camp.id,j);return j;}
 function partySummary(camp){
   return camp.party.map(id=>STATE.roster[id]).filter(Boolean).map(ch=>{const top=(ch.abilities||[]).filter(a=>!a.passive).slice(0,8).map(a=>a.name).join(", ");
-    return `- ${ch.name} — ${ch.cls}${ch.subtitle?" ("+ch.subtitle+")":""}; HP ${ch.hp??ch.maxHP}/${ch.maxHP}, AC ${effAC(ch).ac}, passive Perception ${(ch.passives||{}).Perception||10}; notable: ${top||"—"}${ch.player?"; played by "+ch.player:""}${isNPC(ch)?"; NPC":""}`;}).join("\n");
+    const res=Object.values(ch.charges||{}).map(c=>`${c.label} ${c.cur}/${c.max}`).concat(ch.slots?Object.entries(ch.slots).filter(([L,s])=>s.max>0).map(([L,s])=>`${ordLevel(+L)} slots ${s.cur}/${s.max}`):[]).join(", ");
+    const boons=(ch.abilities||[]).filter(a=>a.dmGranted).map(a=>a.name).join(", ");
+    return `- ${ch.name} — ${ch.cls}${ch.subtitle?" ("+ch.subtitle+")":""}; HP ${ch.hp??ch.maxHP}/${ch.maxHP}, AC ${effAC(ch).ac}, passive Perception ${(ch.passives||{}).Perception||10}; notable: ${top||"—"}${res?"; resources: "+res:""}${boons?"; boons granted: "+boons:""}${ch.player?"; played by "+ch.player:""}${isNPC(ch)?"; NPC":""}`;}).join("\n");
 }
 function aiBoardState(camp){
   const cr=curRoom(camp,true);if(!cr)return "";const b=cr.b;
@@ -3894,6 +3896,7 @@ HOW TO RUN THE TABLE
 - Track time: use the calendar command when days pass. Use the npc command when a named NPC becomes someone the party will meet again. Use the handout command for letters, maps, inscriptions, wanted posters.
 - THE MAP IS YOURS. When a fight starts or the party enters a place worth seeing (a dungeon room, a ruined chapel, a tavern brawl), send a map command in the SAME reply as the encounter: describe the scene for the artist, size the grid (10×8 for a room, up to 24×16 for a battlefield), and list wall/obstacle tiles as [x,y] pairs (outer walls, pillars, a table, a chasm). Keep walls plausible — don't box the party in.
 - MOVE THE TOKENS. Players describe what they do in words; you place them. Use the move command to set starting positions when an encounter begins (party together on one side, foes where the fiction puts them) and whenever a player says they move ("I circle behind the ogre" → move them adjacent to the ogre's far side). Respect speed (30 ft = 6 tiles of 5 ft) and walls; say what you did in the narration. You can move foes too. Coordinates are x,y from the BATTLE BOARD block above.
+- THE SHEETS ARE LIVE. When a player says they use a resource (a spell slot, Lay on Hands, Ki, a potion, Channel Divinity), narrate it AND send a spend command so the app deducts it — you can see their current resources under THE PARTY. When they take damage or heal outside a tracked fight, send an hp command. When the story gives a character something lasting — a bond, a curse, a blessing, a pact with an entity, a new power — send a grant command and it appears on their sheet as a DM-granted ability with the mechanics you define (keep boons modest: a once-per-rest effect, a small bonus, a cost). Loot and keepsakes → item command. A player asking "add X to my sheet" means: grant it, with rules.
 - Keep each player's spotlight fair; if one has gone quiet for a while, give their character something.
 - Rules: 5e as written, adjudicate fast, player agency over rules minutiae. Don't narrate a player's success or failure before the roll.
 
@@ -3913,9 +3916,17 @@ Command shapes (use any, in one array):
 {"xp":{"note":"milestone reached: level up"}}
 {"scene":"a short title for the current scene"}
 {"map":{"name":"Ruined chapel","prompt":"top-down battle map, ruined stone chapel, broken pews, moss, moonlight through a shattered rose window","cols":14,"rows":10,"walls":[[1,1],[2,1],[7,5],[8,5]]}}  — generates the map image and lays out the grid; use with or during an encounter.
-{"move":[{"who":"Aster","to":[3,5]},{"who":"Goblin 2","near":"Aster"}]}  — "to" is [x,y]; "near" puts them adjacent to that token.`;
+{"move":[{"who":"Aster","to":[3,5]},{"who":"Goblin 2","near":"Aster"}]}  — "to" is [x,y]; "near" puts them adjacent to that token.
+{"spend":{"who":"Riven","resource":"Lay on Hands","amount":10}}  — resource = a charge/pool name, or "slot 1" / "slot 2"… for spell slots.
+{"hp":{"who":"Riven","delta":-6,"why":"the rockfall"}}  — damage (negative) or healing (positive) outside a tracked fight; "temp":5 for temp HP.
+{"grant":{"who":"Riven","name":"The Choir's Chord","type":"support|damage|defense|control|utility","action":"Action|Bonus|Reaction|Free","text":"what it does, in rules terms","uses":2,"recharge":"long|short","dmg":"2d6","dmgType":"thunder","save":{"ability":"WIS","dc":14}}  — only name, type, action and text are required.
+{"item":{"who":"Riven","name":"Salt-etched locket","qty":1,"note":"hums faintly near water"}}`;
 }
-function aiRecent(camp,n){return aiThread(camp).slice(-(n||40)).map(j=>({role:j.meta&&j.meta.role==="dm"?"assistant":"user",content:j.meta&&j.meta.role==="dm"?j.text:`[${j.author}] ${j.text}`}));}
+function aiRecent(camp,n){const all=aiThread(camp);const recent=all.slice(-(n||30));const older=all.slice(0,Math.max(0,all.length-(n||30)));
+  // long sessions: the last 30 messages in full, the ones before that as a one-line each digest (keeps the prompt small enough to answer within the server's time limit)
+  const digest=older.length?older.slice(-40).map(j=>`${j.meta&&j.meta.role==="dm"?"DM":j.author}: ${String(j.text).replace(/\s+/g," ").slice(0,140)}`).join("\n"):"";
+  const msgs=recent.map(j=>({role:j.meta&&j.meta.role==="dm"?"assistant":"user",content:(j.meta&&j.meta.role==="dm"?j.text:`[${j.author}] ${j.text}`).slice(0,3000)}));
+  if(digest)msgs.unshift({role:"user",content:"[earlier in this session, condensed]\n"+digest});return msgs;}
 async function aiCall(camp,extraUser){
   const ai=aiOf(camp);if(!ai)throw new Error("AI DM is off for this campaign");
   const msgs=aiRecent(camp,40);if(extraUser)msgs.push({role:"user",content:extraUser});
@@ -3925,9 +3936,15 @@ async function aiCall(camp,extraUser){
   if(merged[0].role!=="user")merged.unshift({role:"user",content:"[system] continue"});
   let token="";try{if(SB){const {data}=await SB.auth.getSession();token=data&&data.session&&data.session.access_token||"";}}catch(e){}
   const base=/^https?:/.test(location.protocol)?"":"https://wontonvtt.app";
-  const r=await fetch(base+"/api/wartable/dm",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify({system:aiSystem(camp),messages:merged,max_tokens:1400})});
-  const j=await r.json().catch(()=>({}));if(!r.ok||j.error)throw new Error(j.error||("AI DM error "+r.status));
-  return j.text||"";
+  let lastErr=null;
+  for(let attempt=0;attempt<2;attempt++){
+    const r=await fetch(base+"/api/wartable/dm",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify({system:aiSystem(camp),messages:merged,max_tokens:attempt?900:1200})});
+    const j=await r.json().catch(()=>({}));
+    if(r.ok&&!j.error&&j.text)return j.text;
+    lastErr=new Error(j.error||("AI DM error "+r.status));
+    if(!/not yet ready|timed? ?out|504|502/i.test(lastErr.message))break; // only the slow-reply cutoff is worth a second try
+  }
+  throw lastErr;
 }
 function aiParse(text){const m=text.match(/```wt\s*([\s\S]*?)```/);let cmds=[];if(m){try{const j=JSON.parse(m[1]);cmds=Array.isArray(j.commands)?j.commands:Array.isArray(j)?j:[j];}catch(e){}}
   return {narr:text.replace(/```wt[\s\S]*?```/g,"").trim(),cmds};}
@@ -3947,6 +3964,12 @@ async function aiExecute(camp,cmds){
     if(c.rest&&aiOwner(camp)){doRest(c.rest==="long"?"long":"short");notes.push(c.rest+" rest");}
     if(c.encounter&&aiOwner(camp)){await aiSpawnEncounter(camp,c.encounter);notes.push("encounter: "+(c.encounter.name||"fight"));}
   }catch(e){console.warn("ai cmd failed",c,e);}}
+  for(const c of cmds){try{
+    if(c.spend)aiSpend(camp,c.spend,notes);
+    if(c.hp)aiHP(camp,c.hp,notes);
+    if(c.grant)aiGrant(camp,c.grant,notes);
+    if(c.item)aiItem(camp,c.item,notes);
+  }catch(e){console.warn("ai cmd failed",c,e);}}
   // map + move run last so they apply to an encounter spawned in the same reply
   for(const c of cmds){try{
     if(c.map&&aiOwner(camp)){aiApplyMap(camp,c.map);notes.push("map: "+(c.map.name||"new battlefield"));}
@@ -3954,6 +3977,29 @@ async function aiExecute(camp,cmds){
   }catch(e){console.warn("ai cmd failed",c,e);}}
   return notes;
 }
+function aiFindChar(camp,who){const w=String(who||"").trim().toLowerCase();if(!w)return null;const list=camp.party.map(id=>STATE.roster[id]).filter(Boolean);
+  return list.find(c=>c.name.toLowerCase()===w)||list.find(c=>c.name.toLowerCase().startsWith(w))||list.find(c=>c.name.toLowerCase().split(" ")[0]===w.split(" ")[0])||null;}
+function aiOwnsChar(ch){return !STATE.cloud||(ch.owner_id||ME())===ME();}
+function aiSpend(camp,sp,notes){const ch=aiFindChar(camp,sp.who);if(!ch)return;if(!aiOwnsChar(ch)){notes.push(`${ch.name.split(" ")[0]}: spend ${sp.resource} (their phone applies it)`);return;}
+  const n=Math.max(1,parseInt(sp.amount,10)||1);const r=String(sp.resource||"").toLowerCase();const sm=r.match(/slot\s*(\d)/);
+  if(sm){ensureSlots(ch);const L=+sm[1];const s=ch.slots[L];if(s){s.cur=Math.max(0,s.cur-1);notes.push(`${ch.name.split(" ")[0]} spends a ${ordLevel(L)} slot`);}return;}
+  const key=Object.keys(ch.charges||{}).find(k=>(ch.charges[k].label||"").toLowerCase()===r)||Object.keys(ch.charges||{}).find(k=>(ch.charges[k].label||"").toLowerCase().includes(r)||r.includes((ch.charges[k].label||"").toLowerCase()));
+  if(key){const c=ch.charges[key];c.cur=Math.max(0,c.cur-n);notes.push(`${ch.name.split(" ")[0]}: ${c.label} ${c.cur}/${c.max}`);}
+  else{const it=ensureInv(ch).find(i=>i.name.toLowerCase().includes(r));if(it){it.qty=(it.qty||1)-n;if(it.qty<=0)ch.inventory=ch.inventory.filter(x=>x!==it);notes.push(`${ch.name.split(" ")[0]} uses ${it.name}`);}}}
+function aiHP(camp,h,notes){const ch=aiFindChar(camp,h.who);if(!ch)return;if(!aiOwnsChar(ch)){notes.push(`${ch.name.split(" ")[0]}: HP ${h.delta>0?"+":""}${h.delta} (their phone applies it)`);return;}
+  const d=parseInt(h.delta,10)||0;if(h.temp){ch.tempHP=Math.max(ch.tempHP||0,parseInt(h.temp,10)||0);}
+  if(d<0){let dmg=-d;if((ch.tempHP||0)>0){const ab=Math.min(ch.tempHP,dmg);ch.tempHP-=ab;dmg-=ab;}ch.hp=Math.max(0,(ch.hp??ch.maxHP)-dmg);}else if(d>0)ch.hp=Math.min(ch.maxHP,(ch.hp??ch.maxHP)+d);
+  notes.push(`${ch.name.split(" ")[0]} ${d>0?"+":""}${d} HP → ${ch.hp}/${ch.maxHP}${h.temp?" (+"+h.temp+" temp)":""}`);}
+function aiGrant(camp,g,notes){const ch=aiFindChar(camp,g.who);if(!ch||!g.name)return;if(!aiOwnsChar(ch)){notes.push(`${ch.name.split(" ")[0]} is granted ${g.name} (their phone applies it)`);return;}
+  ch.abilities=ch.abilities||[];const nm=String(g.name).slice(0,60);const ex=ch.abilities.find(a=>a.name.toLowerCase()===nm.toLowerCase());
+  const o={name:nm,type:["damage","support","defense","control","utility","movement"].includes(g.type)?g.type:"utility",source:"Boon from the DM",level:ch.level||1,action:g.action||"Action",text:String(g.text||"").slice(0,600),dmGranted:true,attack:g.attack||null,dmg:g.dmg&&parseDice(g.dmg)?g.dmg:null,dmgType:g.dmgType||"",save:g.save&&g.save.ability?{ability:String(g.save.ability).toUpperCase().slice(0,3),dc:parseInt(g.save.dc,10)||13}:null,heal:g.heal||null};
+  if(g.uses){ch.charges=ch.charges||{};const key="boon_"+nm.toLowerCase().replace(/[^a-z0-9]+/g,"_").slice(0,20);const max=Math.max(1,parseInt(g.uses,10)||1);if(!ch.charges[key])ch.charges[key]={label:nm,max,cur:max,recharge:g.recharge==="short"?"short":"long"};o.charge=key;}
+  if(ex)Object.assign(ex,o,{id:ex.id});else ch.abilities.push(ab(o));
+  notes.push(`${ch.name.split(" ")[0]} gains ${nm}`);toast(`${nm} added to ${ch.name.split(" ")[0]}'s sheet`);}
+function aiItem(camp,it,notes){const ch=aiFindChar(camp,it.who);if(!ch||!it.name)return;if(!aiOwnsChar(ch)){notes.push(`${ch.name.split(" ")[0]} receives ${it.name} (their phone applies it)`);return;}
+  const inv=ensureInv(ch);const ex=inv.find(x=>x.name.toLowerCase()===String(it.name).toLowerCase());const q=Math.max(1,parseInt(it.qty,10)||1);
+  if(ex)ex.qty=(ex.qty||1)+q;else inv.push({id:uid("it"),name:String(it.name).slice(0,60),qty:q,weight:0,note:String(it.note||"").slice(0,160),equipped:false,attuned:false});
+  notes.push(`${ch.name.split(" ")[0]} receives ${it.name}`);}
 function aiFindToken(b,who){const w=String(who||"").trim().toLowerCase();if(!w)return null;
   return b.combatants.find(c=>c.name.toLowerCase()===w)||b.combatants.find(c=>c.name.toLowerCase().startsWith(w))||b.combatants.find(c=>c.name.toLowerCase().split(" ")[0]===w.split(" ")[0])||null;}
 function aiFreeNear(b,t,self){const cand=[];for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue;const x=t.x+dx,y=t.y+dy;if(x<1||y<1||x>b.cols||y>b.rows||isWall(b,x,y))continue;if(b.combatants.some(o=>o.x===x&&o.y===y&&o.id!==self.id&&!isDown(o)))continue;cand.push([x,y]);}
@@ -4539,7 +4585,8 @@ function ddbToChar(d){
   const totalLevel=(d.classes||[]).reduce((t,c)=>t+(c.level||0),0)||1;
   const prof=2+Math.floor((totalLevel-1)/4);
   const conMod=sm("con");
-  const maxHP=(d.baseHitPoints||0)+(d.bonusHitPoints||0)+conMod*totalLevel;
+  let hpPerLevel=0;allMods.forEach(m=>{if(m.type==="bonus"&&m.subType==="hit-points-per-level")hpPerLevel+=(m.value||0);});
+  const maxHP=(d.baseHitPoints||0)+(d.bonusHitPoints||0)+(conMod+hpPerLevel)*totalLevel;
   const curHP=d.overrideHitPoints!=null?d.overrideHitPoints:Math.max(0,maxHP-(d.removedHitPoints||0));
   const saveProf=[];allMods.forEach(m=>{if(m.type==="proficiency"&&/-saving-throws$/.test(m.subType||"")){const a=DDB_NAME[m.subType.replace("-saving-throws","")];if(a&&!saveProf.includes(a))saveProf.push(a);}});
   const skillProf=new Set();allMods.forEach(m=>{if(m.type==="proficiency"&&DDB_SKILLS.includes(m.friendlySubtypeName))skillProf.add(m.friendlySubtypeName);});
@@ -4552,6 +4599,8 @@ function ddbToChar(d){
   const armor=(d.inventory||[]).find(it=>it.equipped&&it.definition&&it.definition.armorClass&&it.definition.armorTypeId<=3);
   const shield=(d.inventory||[]).find(it=>it.equipped&&it.definition&&it.definition.armorTypeId===4);
   if(armor){const at=armor.definition.armorTypeId,b=armor.definition.armorClass;ac=at===1?b+dexMod:at===2?b+Math.min(2,dexMod):b;acNote=armor.definition.name;}
+  else{ // unarmored: Draconic Resilience (13+DEX), Unarmored Defense (10+DEX+CON / +WIS)
+    let best=ac;allMods.forEach(m=>{if(m.type==="set"&&m.subType==="unarmored-armor-class"){let v=10+(m.value||0)+dexMod;const st=m.statId?ABIL6[m.statId-1]:null;if(st&&st!=="dex")v+=sm(st);if(v>best){best=v;acNote=m.friendlySubtypeName||"unarmored defense";}}});ac=best;}
   if(shield)ac+=2;
   allMods.forEach(m=>{if(m.type==="bonus"&&m.subType==="armor-class")ac+=(m.value||0);});
   let spellAbility="—",spellMod=-99;
@@ -4587,6 +4636,8 @@ function ddbMergeInto(ch,fresh){
   const add=(fresh.abilities||[]).filter(a=>!names.has((a.name||"").toLowerCase())).map(a=>Object.assign(a,{ddb:true}));
   ch.abilities=keep.concat(add);dedupeAbilities(ch);
   if(ch.maxHP==null)ch.maxHP=fresh.maxHP;if(ch.hp==null)ch.hp=fresh.hp;if(ch.baseAC==null)ch.baseAC=fresh.baseAC;
+  if(fresh.maxHP&&fresh.maxHP!==ch.maxHP){const full=ch.hp>=ch.maxHP;ch.maxHP=fresh.maxHP;ch.hp=full?fresh.maxHP:Math.min(ch.hp,fresh.maxHP);} // max HP is level-derived → D&D Beyond owns it; current HP stays yours
+  if(fresh.baseAC&&fresh._acNote&&!/unarmored$/.test(fresh._acNote)&&fresh.baseAC>ch.baseAC)ch.baseAC=fresh.baseAC;
   if(ch.level!==prev){delete ch.slots;ensureSlots(ch);}
   ch.ddbSynced=Date.now();ch.ddbId=ch.ddbId||fresh.ddbId;
   return {leveled:ch.level!==prev,from:prev,to:ch.level};
@@ -6182,7 +6233,8 @@ const Cloud={
         if(p.id===ME()&&p.theme&&SKINS.some(s=>s.id===p.theme))STATE.ui.skin=p.theme;});
       STATE.roster={};
       (chars.data||[]).forEach(r=>{const ch=Object.assign({},r.data,{id:r.id,owner_id:r.owner_id,name:r.name||r.data.name});
-        STATE.roster[r.id]=ch;Cloud._charHash[r.id]=hashStr(JSON.stringify(ch));});
+        Cloud._charHash[r.id]=hashStr(JSON.stringify(ch));if(ch.cls&&!ch.npc&&r.owner_id===ME()){try{classKit(ch);}catch(e){}} // my own heroes get their class kit (the hash is pre-kit, so a change syncs back)
+        STATE.roster[r.id]=ch;});
       STATE.campaigns={};
       (camps.data||[]).forEach(r=>{STATE.campaigns[r.id]=Cloud.mkCamp(r);Cloud._campHash[r.id]=hashStr(JSON.stringify(Cloud.campRow(STATE.campaigns[r.id])));});
       (mems.data||[]).forEach(m=>{const c=STATE.campaigns[m.campaign_id];if(c){c.members.push(m);if(m.character_id){c.party.push(m.character_id);c.ready[m.character_id]=m.ready;}}});
