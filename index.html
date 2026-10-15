@@ -371,6 +371,7 @@ select.sel{background:var(--bg3);border:1px solid var(--line2);border-radius:9px
 .pip.full{background:var(--ct,var(--accent))}
 .pips .lab{font-size:11px;color:var(--muted);margin-left:5px;font-family:var(--f-mono)}
 .card.passive{border-left-style:dashed}
+.corpse{position:absolute;transform:translate(-50%,-50%);color:rgba(255,80,80,.45);font-size:16px;pointer-events:none;text-shadow:0 0 4px #000}
 .fav{position:absolute;top:4px;right:6px;font-size:14px;color:var(--faint);cursor:pointer;padding:2px 4px}.fav.on,.iconbtn.favon{color:#f3c04a}.movebtn{position:relative}.favrow{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}.favrow .chip.on{outline:2px solid var(--_c,#999)}
 .abgroup{margin:14px 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);display:flex;align-items:center;gap:8px}.abgroup:after{content:"";flex:1;height:1px;background:var(--line,#333)}
 
@@ -1494,7 +1495,7 @@ function spellUsesLabel(ch,a){
   if(!si)return "At will";
   return si.kind==="pact"?`${si.cur}/${si.max} Pact Slots`:`${si.cur}/${si.max} ${ordLevel(si.level)} slots`;}
 /* ============================ diagnostics: breadcrumbs, error capture, one-tap bug report ============================ */
-const BUILD_ID="20261014.f541985";
+const BUILD_ID="20261015.2c2f0c5";
 const DIAG={crumbs:[],errors:[],lastSync:null,online:navigator.onLine};
 function crumb(line){DIAG.crumbs.push(new Date().toTimeString().slice(0,8)+" "+line);if(DIAG.crumbs.length>40)DIAG.crumbs.shift();}
 document.addEventListener("click",e=>{const t=e.target.closest&&e.target.closest("button,[data-nav],[data-tab],.chip,.tok,.tile,.movebtn,a");if(!t)return;const ds=t.dataset||{};const k=Object.keys(ds).find(x=>x!=="v")||"";crumb((k?k+"="+String(ds[k]).slice(0,30):"")+" "+(t.textContent||"").trim().replace(/\s+/g," ").slice(0,28));},true);
@@ -2715,7 +2716,8 @@ function boardHTML(b,isDM,me){
   board.innerHTML=cells;
   // tokens, absolutely positioned (stacking offsets when sharing a tile)
   const stacks={};
-  b.combatants.forEach(c=>{const k=c.x+","+c.y;stacks[k]=(stacks[k]||0);const i=stacks[k]++;
+  b.combatants.forEach(c=>{if(c.side==="enemy"&&isDown(c)){board.innerHTML+=`<div class="corpse" style="left:${((c.x-1)+0.5)/b.cols*100}%;top:${((c.y-1)+0.5)/b.rows*100}%" title="${esc(c.name)} — slain">✕</div>`;return;} // the dead leave the board (a faint mark stays so the DM knows where they fell)
+    const k=c.x+","+c.y;stacks[k]=(stacks[k]||0);const i=stacks[k]++;
     const cx=((c.x-1)+(free?(c.fx||0):0.5)+(free?0:i*0.18))/b.cols*100,cy=((c.y-1)+(free?(c.fy||0):0.5)+(free?0:i*0.18))/b.rows*100;
     const en=c.side==="enemy";const sel=c.id===b.selId;const mine=me&&(c.id===me.id||(c.companionId&&c.charId===me.charId));
     const conds=(c.conditions||[]).length;
@@ -3107,7 +3109,7 @@ function partyActionForm(b,c,isDM){
         <span class="msrc">${esc(kind)} · ${esc(uses)}</span></button>`;}).join("")+`</div>`;
   // a move with no damage roll: just declare it
   html+=`<div style="display:flex;justify-content:flex-end;margin:4px 0 -4px"><button class="btn sm ghost" data-readmore="${esc(a.name)}">ⓘ Full text</button></div>`;
-  if(a.rider&&!a.dmg){const targets=b.combatants.filter(x=>x.id!==c.id);if(!st.targetId&&targets.length)st.targetId=(targets.find(x=>x.side==="enemy")||targets[0]).id;
+  if(a.rider&&!a.dmg){const targets=b.combatants.filter(x=>x.id!==c.id&&!(x.side==="enemy"&&isDown(x)));if(!st.targetId&&targets.length)st.targetId=(targets.find(x=>x.side==="enemy")||targets[0]).id;
     html+=`<div class="useblk">${a.text?`<p class="usetext">${esc(a.text)}</p>`:""}${scaleBlock(ch,a,st,"blvl")}
       <div class="field"><label>Target you just hit</label><select id="bTargetSel">${targets.map(x=>`<option value="${x.id}" ${x.id===st.targetId?"selected":""}>${esc(x.name)}</option>`).join("")}</select></div>
       <button class="btn primary" data-bapply="1">${esc(a.name)}${a.save?` — ${esc(a.save.ability)} save DC ${a.save.dc}`:""}</button></div>`;
@@ -3144,7 +3146,7 @@ function partyActionForm(b,c,isDM){
   if(a.type==="damage"&&(ch.modifiers||[]).find(x=>x.kind==="spelldmg-flat"&&x.active)&&a.instances>1)
     html+=`<div class="modrow"><div class="lab">+10 per beam/ray<small>DM ruling</small></div><span class="val">${st.perInstance?"×"+a.instances:"×1"}</span><button class="sw ${st.perInstance?"on":""}" data-bperinst="1"></button></div>`;
   if(a.bonus)html+=`<div class="modrow"><div class="lab">${esc(a.bonus.toggle)}<small>${esc(a.bonus.why)}</small></div><span class="val">+${a.bonus.dice}</span><button class="sw ${st.bonusOn?"on":""}" data-bbonus="1"></button></div>`;
-  const targets=b.combatants.filter(x=>x.id!==c.id);
+  const targets=b.combatants.filter(x=>x.id!==c.id&&!(x.side==="enemy"&&isDown(x)));
   const res=computeTotal(ch,a,st);
   if(a.save&&a.save.ability){ // ---- save-based: pick several targets, or drop a template ----
     if(!st.targetIds)st.targetIds=targets.filter(x=>x.side==="enemy").map(x=>x.id);
@@ -3162,6 +3164,7 @@ function partyActionForm(b,c,isDM){
     html+=hitLine+`<div class="total" style="margin-top:4px"><div class="grand"><span class="cap">${esc(a.dmgType||"damage")}</span><span class="n btot">${res.total}</span></div></div>
       <div style="margin-top:12px"><button class="btn primary" data-blogdmg="1">Call it: ${res.total} ${esc(a.dmgType||"")}${a.rider||actionKind(a)!=="action"?"":" &amp; end turn"}</button></div><div class="authnote" style="margin-top:6px">No tokens to hit — read the number to the DM. Slots and charges are still spent.</div>`;
     return html;}
+  if(!targets.find(x=>x.id===st.targetId)){const nxt=targets.find(x=>x.side==="enemy")||targets[0];st.targetId=nxt?nxt.id:null;st.hit=null;} // last target died → move on to the next foe
   const tgt=targets.find(x=>x.id===st.targetId);
   html+=`<div class="field" style="margin-top:12px"><label>Target</label><select id="bTargetSel">`+
     targets.map(x=>`<option value="${x.id}" ${x.id===st.targetId?"selected":""}>${esc(x.name)}${x.side==="enemy"?" — enemy":" — ally"} · ${Math.round(tileDist(b,c,x))} ft</option>`).join("")+`</select></div>`;
@@ -3217,7 +3220,7 @@ function enemyActionForm(b,c,isDM){
   if(b.ai&&!b.aiPaused){const multi=c.multi||((moves.find(x=>x.multi)||{}).multi||1);return `<div class="awaiting">🎭 The DM is taking <b>${esc(c.name)}</b>'s turn${multi>1?" ("+multi+" attacks)":""}… <button class="btn sm ghost" data-ainow="1">Resolve now</button> <button class="btn sm ghost" data-aipause="1" title="Run the monsters yourself">Take over</button></div>`;}
   const first=moves.find(x=>x.dmg&&!/multiattack/i.test(x.name||""))||moves[0];
   if(!BACT||BACT.combatantId!==c.id)BACT={combatantId:c.id,moveId:first?first.id:null,flat:0,targetId:null,targetIds:null,rolls:null,hit:null};
-  const targets=b.combatants.filter(x=>x.id!==c.id);
+  const targets=b.combatants.filter(x=>x.id!==c.id&&!(x.side==="enemy"&&isDown(x)));
   if(!BACT.targetId&&targets.length){const t=targets.find(x=>x.side==="party"&&!isDown(x))||targets[0];BACT.targetId=t.id;}
   let html="";
   const m=moves.find(x=>x.id===BACT.moveId)||null;
